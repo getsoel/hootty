@@ -4,14 +4,13 @@ import Foundation
 final class Session: Identifiable {
     let id = UUID()
     var name: String
-    let ptySession: PTYSession
+    var isRunning = true
+    var shell: String
+    var workingDirectory: String
 
-    init(name: String) {
+    init(name: String, shell: String = "/bin/zsh", workingDirectory: String? = nil) {
         self.name = name
-        self.ptySession = PTYSession()
-    }
-
-    deinit {
-        ptySession.stop()
+        self.shell = shell
+        self.workingDirectory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
     }
 }

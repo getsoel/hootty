@@ -11,7 +11,7 @@ struct SessionSidebar: View {
             ForEach(sessions) { session in
                 HStack {
                     Circle()
-                        .fill(session.ptySession.isRunning ? .green : .gray)
+                        .fill(session.isRunning ? .green : .gray)
                         .frame(width: 8, height: 8)
                     Text(session.name)
                 }
