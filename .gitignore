@@ -4,3 +4,13 @@
 xcuserdata/
 DerivedData/
 .DS_Store
+
+# Swift compiler intermediates
+*.d
+*.o
+*.swiftdeps
+*.swiftdeps~
+
+# Claude Code
+CLAUDE.local.md
+.soel/
