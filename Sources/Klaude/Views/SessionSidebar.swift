@@ -9,6 +9,8 @@ struct SessionSidebar: View {
     var onRemoveSession: (UUID) -> Void
 
     @State private var hoveredSessionID: UUID?
+    @State private var renameTargetID: UUID?
+    @State private var editingName: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -46,12 +48,27 @@ struct SessionSidebar: View {
         }
         .frame(width: 200)
         .background(Color(theme.background))
+        .alert("Rename Session", isPresented: Binding(
+            get: { renameTargetID != nil },
+            set: { if !$0 { renameTargetID = nil } }
+        )) {
+            TextField("Session name", text: $editingName)
+            Button("OK") { commitRename() }
+            Button("Cancel", role: .cancel) { renameTargetID = nil }
+        }
+    }
+
+    private func commitRename() {
+        let trimmed = editingName.trimmingCharacters(in: .whitespaces)
+        if !trimmed.isEmpty, let target = sessions.first(where: { $0.id == renameTargetID }) {
+            target.name = trimmed
+        }
+        renameTargetID = nil
     }
 
     private func sessionRow(_ session: Session) -> some View {
         let isSelected = session.id == selectedSessionID
         let isHovered = session.id == hoveredSessionID
-
         return HStack(spacing: 8) {
             Circle()
                 .fill(Color(session.isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
@@ -92,6 +109,12 @@ struct SessionSidebar: View {
         }
         .onTapGesture {
             selectedSessionID = session.id
+        }
+        .contextMenu {
+            Button("Rename") {
+                editingName = session.name
+                renameTargetID = session.id
+            }
         }
     }
 }
