@@ -1,13 +1,12 @@
 import AppKit
-import SwiftTerm
 
-enum CatppuccinFlavor: String, CaseIterable {
+public enum CatppuccinFlavor: String, CaseIterable {
     case latte
     case frappe
     case macchiato
     case mocha
 
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .latte:     return "Latte"
         case .frappe:    return "Frappé"
@@ -17,33 +16,32 @@ enum CatppuccinFlavor: String, CaseIterable {
     }
 }
 
-struct TerminalTheme: Equatable {
-    let palette: [NSColor]        // 16 ANSI colors (0-15)
-    let background: NSColor
-    let foreground: NSColor
-    let cursorColor: NSColor
-    let selectionBackground: NSColor
-    let selectionForeground: NSColor
+public struct TerminalTheme: Equatable {
+    public let palette: [NSColor]        // 16 ANSI colors (0-15)
+    public let background: NSColor
+    public let foreground: NSColor
+    public let cursorColor: NSColor
+    public let selectionBackground: NSColor
+    public let selectionForeground: NSColor
+    public let sidebarSurface: NSColor        // selected row bg / divider
+    public let sidebarTextSecondary: NSColor   // subdued text
+    public let sidebarRunningDot: NSColor      // green status dot
+    public let sidebarStoppedDot: NSColor      // gray status dot
 
-    var font: NSFont {
-        .monospacedSystemFont(ofSize: 13, weight: .regular)
+    public static func == (lhs: TerminalTheme, rhs: TerminalTheme) -> Bool {
+        lhs.palette == rhs.palette
+            && lhs.background == rhs.background
+            && lhs.foreground == rhs.foreground
+            && lhs.cursorColor == rhs.cursorColor
+            && lhs.selectionBackground == rhs.selectionBackground
+            && lhs.selectionForeground == rhs.selectionForeground
+            && lhs.sidebarSurface == rhs.sidebarSurface
+            && lhs.sidebarTextSecondary == rhs.sidebarTextSecondary
+            && lhs.sidebarRunningDot == rhs.sidebarRunningDot
+            && lhs.sidebarStoppedDot == rhs.sidebarStoppedDot
     }
 
-    func apply(to view: LocalProcessTerminalView) {
-        view.font = font
-        view.nativeForegroundColor = foreground
-        view.nativeBackgroundColor = background
-        view.caretColor = cursorColor
-        view.selectedTextBackgroundColor = selectionBackground
-        view.installColors(palette.map { nsColorToSwiftTermColor($0) })
-    }
-
-    static func == (lhs: TerminalTheme, rhs: TerminalTheme) -> Bool {
-        lhs.background == rhs.background && lhs.foreground == rhs.foreground
-            && lhs.palette == rhs.palette
-    }
-
-    static func catppuccin(_ flavor: CatppuccinFlavor) -> TerminalTheme {
+    public static func catppuccin(_ flavor: CatppuccinFlavor) -> TerminalTheme {
         switch flavor {
         case .mocha:
             return TerminalTheme(
@@ -57,7 +55,11 @@ struct TerminalTheme: Equatable {
                 foreground: hex(0xcdd6f4),
                 cursorColor: hex(0xf5e0dc),
                 selectionBackground: hex(0x585b70),
-                selectionForeground: hex(0xcdd6f4)
+                selectionForeground: hex(0xcdd6f4),
+                sidebarSurface: hex(0x313244),       // surface0
+                sidebarTextSecondary: hex(0xa6adc8),  // subtext0
+                sidebarRunningDot: hex(0xa6e3a1),     // green
+                sidebarStoppedDot: hex(0x6c7086)      // overlay0
             )
         case .macchiato:
             return TerminalTheme(
@@ -71,7 +73,11 @@ struct TerminalTheme: Equatable {
                 foreground: hex(0xcad3f5),
                 cursorColor: hex(0xf4dbd6),
                 selectionBackground: hex(0x5b6078),
-                selectionForeground: hex(0xcad3f5)
+                selectionForeground: hex(0xcad3f5),
+                sidebarSurface: hex(0x363a4f),       // surface0
+                sidebarTextSecondary: hex(0xa5adcb),  // subtext0
+                sidebarRunningDot: hex(0xa6da95),     // green
+                sidebarStoppedDot: hex(0x6e738d)      // overlay0
             )
         case .frappe:
             return TerminalTheme(
@@ -85,7 +91,11 @@ struct TerminalTheme: Equatable {
                 foreground: hex(0xc6d0f5),
                 cursorColor: hex(0xf2d5cf),
                 selectionBackground: hex(0x626880),
-                selectionForeground: hex(0xc6d0f5)
+                selectionForeground: hex(0xc6d0f5),
+                sidebarSurface: hex(0x414559),       // surface0
+                sidebarTextSecondary: hex(0xa5adce),  // subtext0
+                sidebarRunningDot: hex(0xa6d189),     // green
+                sidebarStoppedDot: hex(0x737994)      // overlay0
             )
         case .latte:
             return TerminalTheme(
@@ -99,23 +109,19 @@ struct TerminalTheme: Equatable {
                 foreground: hex(0x4c4f69),
                 cursorColor: hex(0xdc8a78),
                 selectionBackground: hex(0xacb0be),
-                selectionForeground: hex(0x4c4f69)
+                selectionForeground: hex(0x4c4f69),
+                sidebarSurface: hex(0xccd0da),       // surface0
+                sidebarTextSecondary: hex(0x6c6f85),  // subtext0
+                sidebarRunningDot: hex(0x40a02b),     // green
+                sidebarStoppedDot: hex(0x9ca0b0)      // overlay0
             )
         }
     }
 
-    private static func hex(_ value: UInt32) -> NSColor {
+    static func hex(_ value: UInt32) -> NSColor {
         let r = CGFloat((value >> 16) & 0xFF) / 255.0
         let g = CGFloat((value >> 8) & 0xFF) / 255.0
         let b = CGFloat(value & 0xFF) / 255.0
         return NSColor(srgbRed: r, green: g, blue: b, alpha: 1)
     }
-}
-
-private func nsColorToSwiftTermColor(_ color: NSColor) -> SwiftTerm.Color {
-    let c = color.usingColorSpace(.sRGB) ?? color
-    let r = UInt16(c.redComponent * 65535)
-    let g = UInt16(c.greenComponent * 65535)
-    let b = UInt16(c.blueComponent * 65535)
-    return SwiftTerm.Color(red: r, green: g, blue: b)
 }

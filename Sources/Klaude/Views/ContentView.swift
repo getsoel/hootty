@@ -1,4 +1,5 @@
 import SwiftUI
+import KlaudeCore
 
 struct ContentView: View {
     var appModel: AppModel
@@ -8,26 +9,39 @@ struct ContentView: View {
         appModel.sessions.first { $0.id == selectedSessionID }
     }
 
+    private var theme: TerminalTheme {
+        appModel.themeManager.theme
+    }
+
     var body: some View {
-        NavigationSplitView {
-            SessionSidebar(
-                sessions: appModel.sessions,
-                selectedSessionID: $selectedSessionID,
-                onAddSession: {
-                    let session = appModel.addSession()
-                    selectedSessionID = session.id
-                },
-                onRemoveSession: { offsets in
-                    appModel.removeSession(at: offsets)
-                    if let id = selectedSessionID,
-                       !appModel.sessions.contains(where: { $0.id == id }) {
-                        selectedSessionID = appModel.sessions.first?.id
+        HStack(spacing: 0) {
+            if appModel.sidebarVisible {
+                SessionSidebar(
+                    sessions: appModel.sessions,
+                    selectedSessionID: $selectedSessionID,
+                    theme: theme,
+                    onAddSession: {
+                        let session = appModel.addSession()
+                        selectedSessionID = session.id
+                    },
+                    onRemoveSession: { id in
+                        appModel.removeSession(id: id)
+                        if selectedSessionID == id {
+                            selectedSessionID = appModel.sessions.first?.id
+                        }
                     }
-                }
-            )
-        } detail: {
+                )
+                .transition(.move(edge: .leading))
+
+                // Divider between sidebar and terminal
+                Rectangle()
+                    .fill(Color(theme.sidebarSurface))
+                    .frame(width: 1)
+            }
+
+            // Detail view
             if let session = selectedSession {
-                TerminalPanel(session: session, theme: appModel.themeManager.theme)
+                TerminalPanel(session: session)
                     .id(session.id)
             } else {
                 Text("Select or create a session")
@@ -35,6 +49,7 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
         .onAppear {
             selectedSessionID = appModel.sessions.first?.id
         }

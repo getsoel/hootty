@@ -1,22 +1,28 @@
 import SwiftUI
-import SwiftTerm
+import KlaudeCore
 
 struct TerminalPanel: NSViewRepresentable {
     let session: Session
-    let theme: TerminalTheme
 
-    func makeNSView(context: Context) -> LocalProcessTerminalView {
-        let view = LocalProcessTerminalView(frame: .zero)
-        view.processDelegate = context.coordinator
-        view.optionAsMetaKey = true
-        theme.apply(to: view)
+    func makeNSView(context: Context) -> TerminalSurfaceView {
+        guard let app = GhosttyApp.shared.app else {
+            fatalError("GhosttyApp not initialized")
+        }
 
-        view.startProcess(
-            executable: session.shell,
-            execName: "-" + (session.shell as NSString).lastPathComponent,
-            currentDirectory: session.workingDirectory
-        )
+        let view = TerminalSurfaceView(app: app, workingDirectory: session.workingDirectory)
 
+        // Wire callbacks
+        view.titleDidChange = { [weak session] title in
+            session?.name = title
+        }
+        view.pwdDidChange = { [weak session] pwd in
+            session?.workingDirectory = pwd
+        }
+        view.processDidExit = { [weak session] _ in
+            session?.isRunning = false
+        }
+
+        // Focus the view
         DispatchQueue.main.async {
             view.window?.makeFirstResponder(view)
         }
@@ -24,40 +30,5 @@ struct TerminalPanel: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: LocalProcessTerminalView, context: Context) {
-        if theme != context.coordinator.currentTheme {
-            context.coordinator.currentTheme = theme
-            theme.apply(to: view)
-        }
-    }
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(session: session, theme: theme)
-    }
-
-    final class Coordinator: NSObject, LocalProcessTerminalViewDelegate {
-        let session: Session
-        var currentTheme: TerminalTheme
-
-        init(session: Session, theme: TerminalTheme) {
-            self.session = session
-            self.currentTheme = theme
-        }
-
-        func sizeChanged(source: LocalProcessTerminalView, newCols: Int, newRows: Int) {}
-
-        func setTerminalTitle(source: LocalProcessTerminalView, title: String) {
-            DispatchQueue.main.async { [weak self] in
-                self?.session.name = title
-            }
-        }
-
-        func hostCurrentDirectoryUpdate(source: TerminalView, directory: String?) {}
-
-        func processTerminated(source: TerminalView, exitCode: Int32?) {
-            DispatchQueue.main.async { [weak self] in
-                self?.session.isRunning = false
-            }
-        }
-    }
+    func updateNSView(_ view: TerminalSurfaceView, context: Context) {}
 }

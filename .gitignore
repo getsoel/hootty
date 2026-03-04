@@ -11,6 +11,10 @@ DerivedData/
 *.swiftdeps
 *.swiftdeps~
 
+# Vendored libraries (too large for git)
+Vendors/lib/*.a
+
 # Claude Code
 CLAUDE.local.md
+*.local.json
 .soel/

@@ -1,0 +1,4 @@
+module CGhostty {
+    umbrella header "ghostty.h"
+    export *
+}

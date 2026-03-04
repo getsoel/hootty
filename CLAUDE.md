@@ -1,24 +1,54 @@
 # Klaude
 
-macOS PTY terminal emulator — SwiftUI app (macOS 14+) that spawns shell processes in a PTY and renders ANSI-colored output.
+macOS terminal emulator — SwiftUI app (macOS 14+) powered by libghostty for terminal emulation and Metal rendering.
 
 ## Commands
 - `swift build`: compile
+- `swift test`: run unit tests (KlaudeCoreTests)
 - `swift run Klaude`: launch app (window appears with zsh session)
+
+After modifying Swift source files, verify `swift build` succeeds.
 
 ## Architecture
 ```
-Sources/Klaude/
-  KlaudeApp.swift          -- @main entry
-  Models/
-    AppModel.swift          -- @Observable app state, session management
-    Session.swift           -- @Observable: id, name, isRunning, shell, workingDirectory
-    TerminalTheme.swift     -- Catppuccin themes + SwiftTerm color conversion
-    ThemeManager.swift      -- Persisted theme selection
-  Views/
-    ContentView.swift       -- NavigationSplitView: sidebar + terminal
-    SessionSidebar.swift    -- Session list with status indicators
-    TerminalView.swift      -- NSViewRepresentable wrapping SwiftTerm LocalProcessTerminalView
+Sources/
+  CGhostty/
+    include/ghostty.h          -- vendored libghostty C headers
+    include/module.modulemap   -- SPM module map
+    shims.c                    -- placeholder for SPM
+  KlaudeCore/                  -- testable library target (no UI dependencies)
+    AppModel.swift             -- @Observable app state, session management
+    Session.swift              -- @Observable: id, name, isRunning, shell, workingDirectory
+    TerminalTheme.swift        -- Catppuccin themes (palette definitions)
+    ThemeManager.swift         -- Persisted theme selection
+  Klaude/
+    KlaudeApp.swift            -- @main entry, initializes GhosttyApp
+    Views/
+      ContentView.swift        -- NavigationSplitView: sidebar + terminal
+      SessionSidebar.swift     -- Session list with status indicators
+      TerminalView.swift       -- NSViewRepresentable wrapping TerminalSurfaceView
+    Terminal/
+      GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
+      TerminalSurfaceView.swift -- NSView hosting ghostty_surface_t (Metal rendering, keyboard/mouse input)
+Tests/
+  KlaudeCoreTests/             -- unit tests for model logic
+Vendors/
+  lib/libghostty.a             -- pre-built libghostty static library
 ```
 
-Depends on [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm) for full xterm-compatible terminal emulation (PTY, ANSI parsing, rendering, keyboard input).
+Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emulation (PTY, ANSI/VT parsing, Metal rendering, Kitty keyboard protocol).
+
+## Rebuilding libghostty
+From the ghostty repo (not this repo). Default `zig build -Dapp-runtime=none` fails on macOS.
+```
+cd /path/to/ghostty
+zig build -Doptimize=ReleaseFast -Demit-xcframework=true -Dxcframework-target=native
+cp macos/GhosttyKit.xcframework/macos-arm64/libghostty-fat.a /path/to/klaude/Vendors/lib/libghostty.a
+cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/klaude/Sources/CGhostty/include/
+```
+
+### Data flow
+- ghostty_app_t (singleton) → manages config and dispatches actions via callbacks
+- ghostty_surface_t (per session) → handles PTY, parsing, and Metal rendering internally
+- TerminalSurfaceView (NSView) → hosts the surface, forwards keyboard/mouse events
+- Action callbacks (title, pwd, exit) → update Session model → SwiftUI reacts

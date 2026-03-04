@@ -1,31 +1,97 @@
 import SwiftUI
+import KlaudeCore
 
 struct SessionSidebar: View {
     let sessions: [Session]
     @Binding var selectedSessionID: UUID?
+    let theme: TerminalTheme
     var onAddSession: () -> Void
-    var onRemoveSession: (IndexSet) -> Void
+    var onRemoveSession: (UUID) -> Void
+
+    @State private var hoveredSessionID: UUID?
 
     var body: some View {
-        List(selection: $selectedSessionID) {
-            ForEach(sessions) { session in
+        VStack(spacing: 0) {
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    ForEach(sessions) { session in
+                        sessionRow(session)
+                    }
+                }
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+            }
+
+            Spacer(minLength: 0)
+
+            // Divider
+            Rectangle()
+                .fill(Color(theme.sidebarSurface))
+                .frame(height: 1)
+
+            // Add session button
+            Button(action: onAddSession) {
                 HStack {
-                    Circle()
-                        .fill(session.isRunning ? .green : .gray)
-                        .frame(width: 8, height: 8)
-                    Text(session.name)
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("New Session")
+                        .font(.system(size: 12))
                 }
-                .tag(session.id)
+                .foregroundColor(Color(theme.sidebarTextSecondary))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
             }
-            .onDelete(perform: onRemoveSession)
+            .buttonStyle(.plain)
         }
-        .navigationSplitViewColumnWidth(min: 160, ideal: 200)
-        .toolbar {
-            ToolbarItem {
-                Button(action: onAddSession) {
-                    Label("New Session", systemImage: "plus")
+        .frame(width: 200)
+        .background(Color(theme.background))
+    }
+
+    private func sessionRow(_ session: Session) -> some View {
+        let isSelected = session.id == selectedSessionID
+        let isHovered = session.id == hoveredSessionID
+
+        return HStack(spacing: 8) {
+            Circle()
+                .fill(Color(session.isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
+                .frame(width: 7, height: 7)
+
+            Text(session.name)
+                .font(.system(size: 13))
+                .foregroundColor(Color(isSelected ? theme.foreground : theme.sidebarTextSecondary))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            if isHovered {
+                Button {
+                    onRemoveSession(session.id)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(Color(theme.sidebarTextSecondary))
                 }
+                .buttonStyle(.plain)
             }
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    isSelected
+                        ? Color(theme.sidebarSurface)
+                        : isHovered
+                            ? Color(theme.sidebarSurface).opacity(0.4)
+                            : Color.clear
+                )
+        )
+        .onHover { hovering in
+            hoveredSessionID = hovering ? session.id : nil
+        }
+        .onTapGesture {
+            selectedSessionID = session.id
         }
     }
 }
