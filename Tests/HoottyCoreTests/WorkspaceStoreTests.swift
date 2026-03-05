@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import PrompttyCore
+@testable import HoottyCore
 
 @Suite struct WorkspaceStoreTests {
     // MARK: - Codable round-trips
@@ -86,7 +86,7 @@ import Foundation
 
     @Test func saveAndLoad() throws {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("promptty-test-\(UUID().uuidString)")
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("workspaces.json")
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
@@ -108,7 +108,7 @@ import Foundation
 
     @Test func loadMissingFileReturnsNil() {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("promptty-nonexistent-\(UUID().uuidString)")
+            .appendingPathComponent("hootty-nonexistent-\(UUID().uuidString)")
             .appendingPathComponent("workspaces.json")
         let store = WorkspaceStore(fileURL: url)
         #expect(store.load() == nil)
@@ -116,7 +116,7 @@ import Foundation
 
     @Test func loadCorruptDataReturnsNil() throws {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("promptty-test-\(UUID().uuidString)")
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("workspaces.json")
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
@@ -133,7 +133,7 @@ import Foundation
 
     @Test func appModelLoadsFromStore() throws {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("promptty-test-\(UUID().uuidString)")
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("workspaces.json")
         try FileManager.default.createDirectory(
             at: url.deletingLastPathComponent(),
@@ -154,7 +154,7 @@ import Foundation
 
     @Test func appModelFallsBackToDefault() {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("promptty-test-\(UUID().uuidString)")
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("workspaces.json")
         let store = WorkspaceStore(fileURL: url)
         let model = AppModel(workspaceStore: store)

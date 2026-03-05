@@ -121,6 +121,29 @@ public struct TerminalTheme: Equatable {
         }
     }
 
+    /// Generate a ghostty config string with all terminal color settings.
+    public func generateGhosttyConfig() -> String {
+        var lines: [String] = []
+        lines.append("background = \(Self.hexString(background))")
+        lines.append("foreground = \(Self.hexString(foreground))")
+        lines.append("cursor-color = \(Self.hexString(cursorColor))")
+        lines.append("selection-background = \(Self.hexString(selectionBackground))")
+        lines.append("selection-foreground = \(Self.hexString(selectionForeground))")
+        for (i, color) in palette.enumerated() {
+            lines.append("palette = \(i)=#\(Self.hexString(color))")
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    /// Convert an NSColor to a 6-digit hex string (e.g. "1e1e2e").
+    static func hexString(_ color: NSColor) -> String {
+        let c = color.usingColorSpace(.sRGB) ?? color
+        let r = Int(round(c.redComponent * 255))
+        let g = Int(round(c.greenComponent * 255))
+        let b = Int(round(c.blueComponent * 255))
+        return String(format: "%02x%02x%02x", r, g, b)
+    }
+
     static func hex(_ value: UInt32) -> NSColor {
         let r = CGFloat((value >> 16) & 0xFF) / 255.0
         let g = CGFloat((value >> 8) & 0xFF) / 255.0

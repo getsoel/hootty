@@ -1,6 +1,6 @@
 import AppKit
 import CGhostty
-import PrompttyCore
+import HoottyCore
 
 /// Singleton wrapper around ghostty_app_t. One per application lifetime.
 /// Manages global ghostty state, configuration, and runtime callbacks.
@@ -41,6 +41,39 @@ final class GhosttyApp {
 
     private var focusObservers: [NSObjectProtocol] = []
 
+    /// Path to Hootty-managed ghostty config file.
+    private static let configFileURL: URL = {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("ghostty.config")
+    }()
+
+    /// Write theme config to disk and return the file path.
+    private static func writeThemeConfig(_ theme: TerminalTheme) -> String {
+        let content = theme.generateGhosttyConfig()
+        let path = configFileURL.path
+        try? content.write(toFile: path, atomically: true, encoding: .utf8)
+        Log.ghostty.info("Wrote ghostty config to \(path)")
+        return path
+    }
+
+    /// Build a ghostty config, loading Hootty theme defaults then user overrides.
+    private static func buildConfig(theme: TerminalTheme) -> ghostty_config_t? {
+        guard let cfg = ghostty_config_new() else {
+            Log.ghostty.error("ghostty_config_new failed")
+            return nil
+        }
+        // Load Hootty-managed theme config first (provides defaults)
+        let path = writeThemeConfig(theme)
+        path.withCString { ghostty_config_load_file(cfg, $0) }
+        // Load user's own ghostty config on top (overrides if present)
+        ghostty_config_load_default_files(cfg)
+        ghostty_config_load_recursive_files(cfg)
+        ghostty_config_finalize(cfg)
+        return cfg
+    }
+
     private init() {
         Log.ghostty.info("Initializing ghostty backend...")
 
@@ -50,16 +83,9 @@ final class GhosttyApp {
             return
         }
 
-        // Create configuration
-        guard let cfg = ghostty_config_new() else {
-            Log.ghostty.error("ghostty_config_new failed")
-            return
-        }
-
-        // Load default config files (user's ~/.config/ghostty/config)
-        ghostty_config_load_default_files(cfg)
-        ghostty_config_load_recursive_files(cfg)
-        ghostty_config_finalize(cfg)
+        // Create configuration with current theme
+        let theme = ThemeManager().theme
+        guard let cfg = Self.buildConfig(theme: theme) else { return }
         self.config = cfg
         Log.ghostty.info("Config loaded")
 
@@ -123,6 +149,17 @@ final class GhosttyApp {
     func setFocus(_ focused: Bool) {
         guard let app else { return }
         ghostty_app_set_focus(app, focused)
+    }
+
+    /// Reload ghostty config with a new theme. Updates all existing surfaces.
+    func reloadConfig(theme: TerminalTheme) {
+        guard let app else { return }
+        guard let newConfig = Self.buildConfig(theme: theme) else { return }
+        let oldConfig = self.config
+        self.config = newConfig
+        ghostty_app_update_config(app, newConfig)
+        if let oldConfig { ghostty_config_free(oldConfig) }
+        Log.ghostty.info("Reloaded ghostty config with new theme")
     }
 
     // MARK: - Focus Observers

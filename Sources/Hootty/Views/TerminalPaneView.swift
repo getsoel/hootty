@@ -1,5 +1,5 @@
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 struct TerminalPaneView: NSViewRepresentable {
     let pane: Pane

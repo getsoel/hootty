@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import PrompttyCore
+@testable import HoottyCore
 
 @Suite(.serialized) struct ThemeManagerTests {
     init() {

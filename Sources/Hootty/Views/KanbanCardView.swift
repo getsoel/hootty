@@ -1,5 +1,5 @@
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 struct KanbanCardView: View {
     let card: KanbanCard

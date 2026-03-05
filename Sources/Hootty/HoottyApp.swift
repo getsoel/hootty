@@ -1,12 +1,12 @@
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 @main
-struct PrompttyApp: App {
+struct HoottyApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
         CrashHandler.install()
-        Log.lifecycle.info("Promptty starting...")
+        Log.lifecycle.info("Hootty starting...")
 
         // Initialize the ghostty backend (singleton)
         if GhosttyApp.shared.app != nil {
@@ -115,6 +115,7 @@ struct PrompttyApp: App {
                 ForEach(CatppuccinFlavor.allCases, id: \.self) { flavor in
                     Button {
                         appModel.themeManager.selectedFlavor = flavor
+                        GhosttyApp.shared.reloadConfig(theme: appModel.themeManager.theme)
                     } label: {
                         if appModel.themeManager.selectedFlavor == flavor {
                             Text("\(flavor.displayName) ✓")

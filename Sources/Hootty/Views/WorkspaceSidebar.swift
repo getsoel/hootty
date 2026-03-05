@@ -1,5 +1,5 @@
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
@@ -235,7 +235,7 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    private func tabRow(_ tab: PrompttyCore.Tab, workspace: Workspace) -> some View {
+    private func tabRow(_ tab: HoottyCore.Tab, workspace: Workspace) -> some View {
         let isSelectedTab = tab.id == workspace.selectedTabID && workspace.id == selectedWorkspaceID
         let isHovered = tab.id == hoveredTabID
         return HStack(spacing: 6) {
@@ -294,7 +294,7 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    private func paneRow(_ pane: Pane, tab: PrompttyCore.Tab, workspace: Workspace) -> some View {
+    private func paneRow(_ pane: Pane, tab: HoottyCore.Tab, workspace: Workspace) -> some View {
         let isFocused = tab.id == workspace.selectedTabID
             && workspace.id == selectedWorkspaceID
             && tab.focusedPaneID == pane.id
@@ -355,7 +355,7 @@ struct WorkspaceSidebar: View {
         StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, theme: theme)
     }
 
-    private func tabStatusDot(_ tab: PrompttyCore.Tab) -> some View {
+    private func tabStatusDot(_ tab: HoottyCore.Tab) -> some View {
         StatusDotView(needsAttention: tab.needsAttention, isRunning: tab.isRunning, theme: theme)
     }
 

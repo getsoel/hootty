@@ -1,19 +1,61 @@
 import AppKit
 import SwiftUI
-import PrompttyCore
+import HoottyCore
+
+struct PaneTitleBar: View {
+    let pane: Pane
+    let isFocused: Bool
+    let theme: TerminalTheme
+
+    private var abbreviatedDirectory: String {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if pane.workingDirectory == home {
+            return "~"
+        } else if pane.workingDirectory.hasPrefix(home + "/") {
+            return "~" + pane.workingDirectory.dropFirst(home.count)
+        }
+        return pane.workingDirectory
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(pane.name)
+                .lineLimit(1)
+            Spacer()
+            Text(abbreviatedDirectory)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(isFocused ? Color(theme.foreground).opacity(0.8) : Color(theme.sidebarTextSecondary))
+        .padding(.horizontal, 8)
+        .frame(height: 22)
+        .background(Color(theme.sidebarSurface).opacity(isFocused ? 1 : 0.7))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(isFocused ? Color(theme.cursorColor).opacity(0.6) : Color(theme.sidebarSurface))
+                .frame(height: 1)
+        }
+    }
+}
 
 struct SplitNodeView: View {
     @Bindable var node: SplitNode
     let focusedPaneID: UUID?
+    let theme: TerminalTheme
     let onFocusPane: (UUID) -> Void
 
     var body: some View {
         switch node.content {
         case .leaf(let pane):
-            TerminalPaneView(pane: pane, isFocused: pane.id == focusedPaneID)
-                .onTapGesture {
-                    onFocusPane(pane.id)
-                }
+            VStack(spacing: 0) {
+                PaneTitleBar(pane: pane, isFocused: pane.id == focusedPaneID, theme: theme)
+
+                TerminalPaneView(pane: pane, isFocused: pane.id == focusedPaneID)
+                    .onTapGesture {
+                        onFocusPane(pane.id)
+                    }
+            }
 
         case .split(let direction, let first, let second):
             splitContent(direction: direction, first: first, second: second)
@@ -35,22 +77,22 @@ struct SplitNodeView: View {
 
             if direction == .horizontal {
                 HStack(spacing: 0) {
-                    SplitNodeView(node: first, focusedPaneID: focusedPaneID, onFocusPane: onFocusPane)
+                    SplitNodeView(node: first, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
                         .frame(width: firstSize, height: geometry.size.height)
 
                     splitDivider(direction: direction, totalSize: totalSize, dividerThickness: dividerThickness)
 
-                    SplitNodeView(node: second, focusedPaneID: focusedPaneID, onFocusPane: onFocusPane)
+                    SplitNodeView(node: second, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
                         .frame(width: secondSize, height: geometry.size.height)
                 }
             } else {
                 VStack(spacing: 0) {
-                    SplitNodeView(node: first, focusedPaneID: focusedPaneID, onFocusPane: onFocusPane)
+                    SplitNodeView(node: first, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
                         .frame(width: geometry.size.width, height: firstSize)
 
                     splitDivider(direction: direction, totalSize: totalSize, dividerThickness: dividerThickness)
 
-                    SplitNodeView(node: second, focusedPaneID: focusedPaneID, onFocusPane: onFocusPane)
+                    SplitNodeView(node: second, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
                         .frame(width: geometry.size.width, height: secondSize)
                 }
             }

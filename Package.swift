@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Promptty",
+    name: "Hootty",
     platforms: [.macOS(.v14)],
     targets: [
         .target(
@@ -26,19 +26,19 @@ let package = Package(
                 .linkedFramework("Carbon"),
             ]
         ),
-        .target(name: "PrompttyCore", path: "Sources/PrompttyCore"),
+        .target(name: "HoottyCore", path: "Sources/HoottyCore"),
         .executableTarget(
-            name: "Promptty",
-            dependencies: ["CGhostty", "PrompttyCore"],
-            path: "Sources/Promptty",
+            name: "Hootty",
+            dependencies: ["CGhostty", "HoottyCore"],
+            path: "Sources/Hootty",
             exclude: ["Info.plist"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
                               "-Xlinker", "__TEXT",
                               "-Xlinker", "__info_plist",
-                              "-Xlinker", "Sources/Promptty/Info.plist"]),
+                              "-Xlinker", "Sources/Hootty/Info.plist"]),
             ]
         ),
-        .testTarget(name: "PrompttyCoreTests", dependencies: ["PrompttyCore"]),
+        .testTarget(name: "HoottyCoreTests", dependencies: ["HoottyCore"]),
     ]
 )

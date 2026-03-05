@@ -1,4 +1,4 @@
-# Promptty
+# Hootty
 
 macOS terminal emulator — SwiftUI app (macOS 14+) powered by libghostty for terminal emulation and Metal rendering.
 
@@ -7,8 +7,8 @@ After cloning, run `make setup` to configure git hooks (pre-commit runs build + 
 
 ## Commands
 - `swift build`: compile
-- `swift test`: run unit tests (PrompttyCoreTests)
-- `swift run Promptty`: launch app (window appears with zsh session)
+- `swift test`: run unit tests (HoottyCoreTests)
+- `swift run Hootty`: launch app (window appears with zsh session)
 
 After modifying Swift source files, verify `swift build` succeeds.
 
@@ -19,7 +19,7 @@ Sources/
     include/ghostty.h          -- vendored libghostty C headers
     include/module.modulemap   -- SPM module map
     shims.c                    -- placeholder for SPM
-  PrompttyCore/                -- testable library target (no UI dependencies)
+  HoottyCore/                -- testable library target (no UI dependencies)
     AppModel.swift             -- @Observable app state, workspace/tab management, ViewMode
     Workspace.swift            -- @Observable: id, name, tabs[], selectedTabID
     Tab.swift                  -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
@@ -30,9 +30,9 @@ Sources/
     KanbanCard.swift           -- @Observable + Codable: title, description, laneID, sortOrder
     KanbanLane.swift           -- @Observable + Codable: name, sortOrder
     KanbanBoard.swift          -- @Observable + Codable: lanes[], cards[], mutations
-    KanbanStore.swift          -- JSON persistence to ~/Library/Application Support/Promptty/
-  Promptty/
-    PrompttyApp.swift          -- @main entry, initializes GhosttyApp
+    KanbanStore.swift          -- JSON persistence to ~/Library/Application Support/Hootty/
+  Hootty/
+    HoottyApp.swift          -- @main entry, initializes GhosttyApp
     Views/
       ContentView.swift        -- HStack: sidebar + detail (terminal or kanban)
       WorkspaceSidebar.swift   -- Workspace list + Board row with status indicators
@@ -46,7 +46,7 @@ Sources/
       GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
       TerminalSurfaceView.swift -- NSView hosting ghostty_surface_t (Metal rendering, keyboard/mouse input)
 Tests/
-  PrompttyCoreTests/           -- unit tests for model logic
+  HoottyCoreTests/           -- unit tests for model logic
 Vendors/
   lib/libghostty.a             -- pre-built libghostty static library
 ```
@@ -58,8 +58,8 @@ From the ghostty repo (not this repo). Default `zig build -Dapp-runtime=none` fa
 ```
 cd /path/to/ghostty
 zig build -Doptimize=ReleaseFast -Demit-xcframework=true -Dxcframework-target=native
-cp macos/GhosttyKit.xcframework/macos-arm64/libghostty-fat.a /path/to/promptty/Vendors/lib/libghostty.a
-cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/promptty/Sources/CGhostty/include/
+cp macos/GhosttyKit.xcframework/macos-arm64/libghostty-fat.a /path/to/hootty/Vendors/lib/libghostty.a
+cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/hootty/Sources/CGhostty/include/
 ```
 
 ### Data flow
@@ -71,21 +71,21 @@ cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/promptty/Sourc
 
 ## Debugging
 
-All runtime logging uses Apple's Unified Logging (`os.Logger`) with subsystem `com.soel.promptty`.
+All runtime logging uses Apple's Unified Logging (`os.Logger`) with subsystem `com.soel.hootty`.
 
 ```bash
 # Tail live logs while app runs (in a separate terminal):
-log stream --predicate 'subsystem == "com.soel.promptty"' --level debug
+log stream --predicate 'subsystem == "com.soel.hootty"' --level debug
 
 # View recent logs after a crash:
-log show --predicate 'subsystem == "com.soel.promptty"' --last 5m --style compact
+log show --predicate 'subsystem == "com.soel.hootty"' --last 5m --style compact
 
 # Filter by category (ghostty, surface, lifecycle, crash):
-log show --predicate 'subsystem == "com.soel.promptty" AND category == "ghostty"' --last 5m
+log show --predicate 'subsystem == "com.soel.hootty" AND category == "ghostty"' --last 5m
 
 # Check crash log:
-cat ~/Library/Logs/Promptty/crash.log
+cat ~/Library/Logs/Hootty/crash.log
 
 # Run with stderr visible:
-swift run Promptty 2>&1 | tee /tmp/promptty-stderr.log
+swift run Hootty 2>&1 | tee /tmp/hootty-stderr.log
 ```

@@ -1,5 +1,5 @@
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 struct KanbanBoardView: View {
     let store: KanbanStore

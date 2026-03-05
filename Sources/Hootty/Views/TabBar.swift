@@ -1,5 +1,5 @@
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 struct TabBar: View {
     let workspace: Workspace
@@ -74,11 +74,11 @@ struct TabBar: View {
         renameTargetID = nil
     }
 
-    private func tabStatusDot(_ tab: PrompttyCore.Tab) -> some View {
+    private func tabStatusDot(_ tab: HoottyCore.Tab) -> some View {
         StatusDotView(needsAttention: tab.needsAttention, isRunning: tab.isRunning, theme: theme)
     }
 
-    private func tabItem(_ tab: PrompttyCore.Tab) -> some View {
+    private func tabItem(_ tab: HoottyCore.Tab) -> some View {
         let isSelected = tab.id == workspace.selectedTabID
         let isHovered = tab.id == hoveredTabID
 

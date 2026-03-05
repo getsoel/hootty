@@ -3,7 +3,7 @@ import os
 
 @Observable
 public final class KanbanStore {
-    private static let logger = Logger(subsystem: "com.soel.promptty", category: "kanban")
+    private static let logger = Logger(subsystem: "com.soel.hootty", category: "kanban")
 
     public var board: KanbanBoard
 
@@ -11,7 +11,7 @@ public final class KanbanStore {
 
     public init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("Promptty", isDirectory: true)
+        let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
         self.fileURL = dir.appendingPathComponent("kanban.json")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.board = Self.load(from: self.fileURL)

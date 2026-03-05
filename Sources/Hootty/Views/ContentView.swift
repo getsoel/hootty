@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import PrompttyCore
+import HoottyCore
 
 struct ContentView: View {
     var appModel: AppModel
@@ -206,6 +206,7 @@ struct ContentView: View {
                                 SplitNodeView(
                                     node: tab.rootNode,
                                     focusedPaneID: tab.focusedPaneID,
+                                    theme: theme,
                                     onFocusPane: { paneID in tab.focusPane(id: paneID) }
                                 )
                                 .opacity(tab.id == workspace.selectedTabID ? 1 : 0)
