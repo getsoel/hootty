@@ -8,11 +8,11 @@ import CGhostty
 /// Released explicitly during teardown.
 final class SurfaceCallbackContext {
     weak var view: TerminalSurfaceView?
-    let tabID: UUID
+    let paneID: UUID
 
-    init(view: TerminalSurfaceView, tabID: UUID) {
+    init(view: TerminalSurfaceView, paneID: UUID) {
         self.view = view
-        self.tabID = tabID
+        self.paneID = paneID
     }
 
     /// Store as retained opaque pointer (caller must balance with `release`).
@@ -55,9 +55,10 @@ final class TerminalSurfaceView: NSView {
     // Deferred creation state
     private var ghosttyApp: ghostty_app_t?
     private var initialWorkingDirectory: String?
+    private var parentSurface: ghostty_surface_t?
     private var surfaceCreated = false
     private var callbackContext: SurfaceCallbackContext?
-    private var tabID: UUID
+    private var paneID: UUID
 
     // Pending text queue (for text sent before surface is ready)
     private var pendingTextQueue: [Data] = []
@@ -68,10 +69,11 @@ final class TerminalSurfaceView: NSView {
 
     // MARK: - Initialization
 
-    init(app: ghostty_app_t, tabID: UUID, workingDirectory: String?) {
+    init(app: ghostty_app_t, paneID: UUID, workingDirectory: String?, parentSurface: ghostty_surface_t? = nil) {
         self.ghosttyApp = app
-        self.tabID = tabID
+        self.paneID = paneID
         self.initialWorkingDirectory = workingDirectory
+        self.parentSurface = parentSurface
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
 
         wantsLayer = true
@@ -120,36 +122,32 @@ final class TerminalSurfaceView: NSView {
         guard !surfaceCreated, let app = ghosttyApp, window != nil else { return }
         surfaceCreated = true
 
-        let ctx = SurfaceCallbackContext(view: self, tabID: tabID)
+        let ctx = SurfaceCallbackContext(view: self, paneID: paneID)
         self.callbackContext = ctx
 
-        var config = ghostty_surface_config_new()
-        config.userdata = ctx.retainedPointer()
-        config.platform_tag = GHOSTTY_PLATFORM_MACOS
-        config.platform = ghostty_platform_u(
-            macos: ghostty_platform_macos_s(
-                nsview: Unmanaged.passUnretained(self).toOpaque()
-            )
-        )
-
-        if let window {
-            config.scale_factor = Double(window.backingScaleFactor)
+        if let parentSurface {
+            // Inherited config path for split surfaces
+            var config = ghostty_surface_inherited_config(parentSurface, GHOSTTY_SURFACE_CONTEXT_SPLIT)
+            applyPlatformConfig(&config, userdata: ctx.retainedPointer())
+            self.surface = ghostty_surface_new(app, &config)
         } else {
-            config.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
-        }
+            var config = ghostty_surface_config_new()
+            applyPlatformConfig(&config, userdata: ctx.retainedPointer())
 
-        if let wd = initialWorkingDirectory {
-            wd.withCString { ptr in
-                config.working_directory = ptr
+            if let wd = initialWorkingDirectory {
+                wd.withCString { ptr in
+                    config.working_directory = ptr
+                    self.surface = ghostty_surface_new(app, &config)
+                }
+            } else {
                 self.surface = ghostty_surface_new(app, &config)
             }
-        } else {
-            self.surface = ghostty_surface_new(app, &config)
         }
 
         // Clear references no longer needed
         ghosttyApp = nil
         initialWorkingDirectory = nil
+        parentSurface = nil
 
         guard surface != nil else {
             Log.surface.error("Failed to create ghostty surface")
@@ -175,6 +173,17 @@ final class TerminalSurfaceView: NSView {
 
         // Flush any pending text
         flushPendingText()
+    }
+
+    private func applyPlatformConfig(_ config: inout ghostty_surface_config_s, userdata: UnsafeMutableRawPointer) {
+        config.userdata = userdata
+        config.platform_tag = GHOSTTY_PLATFORM_MACOS
+        config.platform = ghostty_platform_u(
+            macos: ghostty_platform_macos_s(
+                nsview: Unmanaged.passUnretained(self).toOpaque()
+            )
+        )
+        config.scale_factor = Double(window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0)
     }
 
     // MARK: - Pending Text Queue
@@ -301,6 +310,7 @@ final class TerminalSurfaceView: NSView {
         let result = super.becomeFirstResponder()
         if result, let surface {
             ghostty_surface_set_focus(surface, true)
+            GhosttyApp.shared.focusedSurface = surface
 
             // Re-assert display ID on focus
             if let screen = window?.screen {
@@ -314,6 +324,9 @@ final class TerminalSurfaceView: NSView {
         let result = super.resignFirstResponder()
         if result, let surface {
             ghostty_surface_set_focus(surface, false)
+            if GhosttyApp.shared.focusedSurface == surface {
+                GhosttyApp.shared.focusedSurface = nil
+            }
         }
         return result
     }
@@ -487,6 +500,12 @@ final class TerminalSurfaceView: NSView {
                 self.keyDown(with: event)
                 return true
             }
+        }
+
+        // Claim Escape so AppKit doesn't propagate it as a cancel/close action
+        if event.keyCode == 0x35 { // Escape
+            self.keyDown(with: event)
+            return true
         }
 
         return false

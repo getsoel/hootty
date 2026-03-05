@@ -22,7 +22,9 @@ Sources/
   KlaudeCore/                  -- testable library target (no UI dependencies)
     AppModel.swift             -- @Observable app state, workspace/tab management, ViewMode
     Workspace.swift            -- @Observable: id, name, tabs[], selectedTabID
-    Tab.swift                  -- @Observable: id, name, isRunning, shell, workingDirectory
+    Tab.swift                  -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
+    Pane.swift                 -- @Observable: id, name, isRunning, shell, workingDirectory
+    SplitNode.swift            -- @Observable binary tree: leaf(Pane) | split(direction, first, second)
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
     KanbanCard.swift           -- @Observable + Codable: title, description, laneID, sortOrder
@@ -35,7 +37,8 @@ Sources/
       ContentView.swift        -- HStack: sidebar + detail (terminal or kanban)
       WorkspaceSidebar.swift   -- Workspace list + Board row with status indicators
       TabBar.swift             -- Tab strip within a workspace
-      TerminalView.swift       -- NSViewRepresentable wrapping TerminalSurfaceView
+      SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers
+      TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
       KanbanBoardView.swift    -- Horizontal ScrollView of lane columns
       KanbanLaneView.swift     -- Single lane: header, card list, add card, drop target
       KanbanCardView.swift     -- Card tile: draggable, context menu (edit/delete)
@@ -61,9 +64,10 @@ cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/klaude/Sources
 
 ### Data flow
 - ghostty_app_t (singleton) → manages config and dispatches actions via callbacks
-- ghostty_surface_t (per session) → handles PTY, parsing, and Metal rendering internally
+- ghostty_surface_t (per pane) → handles PTY, parsing, and Metal rendering internally
 - TerminalSurfaceView (NSView) → hosts the surface, forwards keyboard/mouse events
-- Action callbacks (title, pwd, exit) → update Tab model → SwiftUI reacts
+- Action callbacks (title, pwd, exit) → update Pane model → Tab aggregates → SwiftUI reacts
+- Split panes: Tab.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 
 ## Debugging
 

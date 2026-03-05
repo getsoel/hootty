@@ -10,8 +10,12 @@ struct WorkspaceSidebar: View {
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onSelectTab: (UUID, UUID) -> Void
+    var onSelectPane: (UUID, UUID, UUID) -> Void
     var onAddTab: (UUID) -> Void
     var onRemoveTab: (UUID, UUID) -> Void
+    var onRemovePane: (UUID, UUID, UUID) -> Void
+    var onSave: (() -> Void)?
+    var sidebarWidth: CGFloat
 
     @State private var expandedWorkspaceIDs: Set<UUID> = []
     @State private var hoveredBoardRow = false
@@ -22,6 +26,7 @@ struct WorkspaceSidebar: View {
     @State private var renameTabTargetID: UUID?
     @State private var renameTabWorkspaceID: UUID?
     @State private var editingTabName: String = ""
+    @State private var hoveredPaneID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,7 +41,7 @@ struct WorkspaceSidebar: View {
 
             addWorkspaceButton
         }
-        .frame(width: 200)
+        .frame(width: sidebarWidth)
         .background(Color(theme.background))
         .alert("Rename Workspace", isPresented: Binding(
             get: { renameTargetID != nil },
@@ -67,6 +72,12 @@ struct WorkspaceSidebar: View {
                     if expandedWorkspaceIDs.contains(workspace.id) {
                         ForEach(workspace.tabs) { tab in
                             tabRow(tab, workspace: workspace)
+
+                            if tab.allPanes.count > 1 {
+                                ForEach(tab.allPanes) { pane in
+                                    paneRow(pane, tab: tab, workspace: workspace)
+                                }
+                            }
                         }
 
                         addTabButton(workspaceID: workspace.id)
@@ -150,6 +161,7 @@ struct WorkspaceSidebar: View {
         let trimmed = editingName.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty, let target = workspaces.first(where: { $0.id == renameTargetID }) {
             target.name = trimmed
+            onSave?()
         }
         renameTargetID = nil
     }
@@ -171,8 +183,7 @@ struct WorkspaceSidebar: View {
                     toggleExpanded(workspace.id)
                 }
 
-            Circle()
-                .fill(Color(workspace.isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
+            workspaceStatusDot(workspace)
                 .frame(width: 7, height: 7)
 
             Text(workspace.name)
@@ -228,8 +239,7 @@ struct WorkspaceSidebar: View {
         let isSelectedTab = tab.id == workspace.selectedTabID && workspace.id == selectedWorkspaceID
         let isHovered = tab.id == hoveredTabID
         return HStack(spacing: 6) {
-            Circle()
-                .fill(Color(tab.isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
+            tabStatusDot(tab)
                 .frame(width: 6, height: 6)
 
             Text(tab.name)
@@ -284,6 +294,75 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    private func paneRow(_ pane: Pane, tab: KlaudeCore.Tab, workspace: Workspace) -> some View {
+        let isFocused = tab.id == workspace.selectedTabID
+            && workspace.id == selectedWorkspaceID
+            && tab.focusedPaneID == pane.id
+        let isHovered = pane.id == hoveredPaneID
+        let dirName = (pane.workingDirectory as NSString).lastPathComponent
+
+        return HStack(spacing: 6) {
+            paneStatusDot(pane)
+                .frame(width: 5, height: 5)
+
+            Text(dirName)
+                .font(.system(size: 11))
+                .foregroundStyle(Color(isFocused ? theme.foreground : theme.sidebarTextSecondary))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+
+            if isHovered && tab.allPanes.count > 1 {
+                Button {
+                    onRemovePane(workspace.id, tab.id, pane.id)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 7, weight: .semibold))
+                        .foregroundStyle(Color(theme.sidebarTextSecondary))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.leading, 48)
+        .padding(.trailing, 8)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(
+                    isFocused
+                        ? Color(theme.sidebarSurface).opacity(0.5)
+                        : isHovered
+                            ? Color(theme.sidebarSurface).opacity(0.2)
+                            : Color.clear
+                )
+        )
+        .onHover { hovering in
+            hoveredPaneID = hovering ? pane.id : nil
+        }
+        .onTapGesture {
+            onSelectPane(workspace.id, tab.id, pane.id)
+        }
+        .contextMenu {
+            if tab.allPanes.count > 1 {
+                Button("Close Pane") {
+                    onRemovePane(workspace.id, tab.id, pane.id)
+                }
+            }
+        }
+    }
+
+    private func paneStatusDot(_ pane: Pane) -> some View {
+        StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, theme: theme)
+    }
+
+    private func tabStatusDot(_ tab: KlaudeCore.Tab) -> some View {
+        StatusDotView(needsAttention: tab.needsAttention, isRunning: tab.isRunning, theme: theme)
+    }
+
+    private func workspaceStatusDot(_ workspace: Workspace) -> some View {
+        StatusDotView(needsAttention: workspace.hasAttentionTab, isRunning: workspace.isRunning, theme: theme)
+    }
+
     private func toggleExpanded(_ id: UUID) {
         if expandedWorkspaceIDs.contains(id) {
             expandedWorkspaceIDs.remove(id)
@@ -298,8 +377,37 @@ struct WorkspaceSidebar: View {
            let workspace = workspaces.first(where: { $0.id == renameTabWorkspaceID }),
            let tab = workspace.tabs.first(where: { $0.id == renameTabTargetID }) {
             tab.name = trimmed
+            onSave?()
         }
         renameTabTargetID = nil
         renameTabWorkspaceID = nil
+    }
+}
+
+struct StatusDotView: View {
+    let needsAttention: Bool
+    let isRunning: Bool
+    let theme: TerminalTheme
+
+    var body: some View {
+        if needsAttention {
+            Circle()
+                .fill(Color(theme.attentionColor))
+                .modifier(PulseModifier())
+        } else {
+            Circle()
+                .fill(Color(isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
+        }
+    }
+}
+
+struct PulseModifier: ViewModifier {
+    @State private var isPulsing = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isPulsing ? 1.0 : 0.4)
+            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
+            .onAppear { isPulsing = true }
     }
 }

@@ -1,5 +1,6 @@
 import AppKit
 import CGhostty
+import KlaudeCore
 
 /// Singleton wrapper around ghostty_app_t. One per application lifetime.
 /// Manages global ghostty state, configuration, and runtime callbacks.
@@ -9,8 +10,34 @@ final class GhosttyApp {
     private(set) var app: ghostty_app_t?
     private(set) var config: ghostty_config_t?
 
+    /// The currently focused terminal surface (set by TerminalSurfaceView focus changes).
+    var focusedSurface: ghostty_surface_t?
+
     /// Called when ghostty dispatches a new_tab action (e.g. Cmd+T keybinding).
     var onNewTab: (() -> Void)?
+
+    /// Called when a surface rings the bell or sends a desktop notification.
+    var onPaneNeedsAttention: ((UUID) -> Void)?
+
+    /// Called when ghostty dispatches a new_split action (e.g. keybinding).
+    var onNewSplit: ((UUID, SplitDirection, ghostty_surface_t?) -> Void)?
+
+    /// Called when a surface should be closed (process exit, close keybinding, etc.).
+    var onCloseSurface: ((UUID) -> Void)?
+
+    /// Called when ghostty dispatches a close_tab action.
+    var onCloseTab: (() -> Void)?
+
+    /// Pending parent surfaces for inherited config during split creation.
+    private var pendingParentSurfaces: [UUID: ghostty_surface_t] = [:]
+
+    func registerParentSurface(_ paneID: UUID, surface: ghostty_surface_t) {
+        pendingParentSurfaces[paneID] = surface
+    }
+
+    func consumeParentSurface(for paneID: UUID) -> ghostty_surface_t? {
+        pendingParentSurfaces.removeValue(forKey: paneID)
+    }
 
     private var focusObservers: [NSObjectProtocol] = []
 
@@ -145,19 +172,31 @@ final class GhosttyApp {
             return setCellSize(target: target, v: action.action.cell_size)
         case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
             return handleChildExited(target: target, v: action.action.child_exited)
+        case GHOSTTY_ACTION_RING_BELL:
+            return signalAttention(target: target)
+        case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
+            return signalAttention(target: target)
         case GHOSTTY_ACTION_NEW_TAB:
             DispatchQueue.main.async {
                 GhosttyApp.shared.onNewTab?()
             }
             return true
-        case GHOSTTY_ACTION_NEW_WINDOW,
-             GHOSTTY_ACTION_NEW_SPLIT:
-            // Not supported yet — block to prevent crashes
+        case GHOSTTY_ACTION_NEW_SPLIT:
+            return handleNewSplit(target: target, v: action.action.new_split)
+        case GHOSTTY_ACTION_NEW_WINDOW:
+            return true
+        case GHOSTTY_ACTION_CLOSE_TAB:
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onCloseTab?()
+            }
+            return true
+        case GHOSTTY_ACTION_CLOSE_WINDOW:
+            DispatchQueue.main.async {
+                NSApp.keyWindow?.close()
+            }
             return true
         case GHOSTTY_ACTION_QUIT,
-             GHOSTTY_ACTION_CLOSE_WINDOW,
-             GHOSTTY_ACTION_CLOSE_ALL_WINDOWS,
-             GHOSTTY_ACTION_CLOSE_TAB:
+             GHOSTTY_ACTION_CLOSE_ALL_WINDOWS:
             Log.ghostty.info("Blocked quit/close action: tag=\(action.tag.rawValue)")
             return true
         default:
@@ -175,6 +214,15 @@ final class GhosttyApp {
 
     private static func surfaceView(from target: ghostty_target_s) -> TerminalSurfaceView? {
         callbackContext(from: target)?.view
+    }
+
+    private static func signalAttention(target: ghostty_target_s) -> Bool {
+        guard let ctx = callbackContext(from: target) else { return false }
+        let paneID = ctx.paneID
+        DispatchQueue.main.async {
+            GhosttyApp.shared.onPaneNeedsAttention?(paneID)
+        }
+        return true
     }
 
     private static func setTitle(target: ghostty_target_s, v: ghostty_action_set_title_s) -> Bool {
@@ -227,6 +275,17 @@ final class GhosttyApp {
         return true
     }
 
+    private static func handleNewSplit(target: ghostty_target_s, v: ghostty_action_split_direction_e) -> Bool {
+        guard let ctx = callbackContext(from: target) else { return false }
+        let paneID = ctx.paneID
+        let surface = target.target.surface
+        let direction: SplitDirection = (v == GHOSTTY_SPLIT_DIRECTION_DOWN || v == GHOSTTY_SPLIT_DIRECTION_UP) ? .vertical : .horizontal
+        DispatchQueue.main.async {
+            GhosttyApp.shared.onNewSplit?(paneID, direction, surface)
+        }
+        return true
+    }
+
     private static func handleChildExited(target: ghostty_target_s, v: ghostty_surface_message_childexited_s) -> Bool {
         guard let view = surfaceView(from: target) else { return false }
         DispatchQueue.main.async {
@@ -242,23 +301,19 @@ final class GhosttyApp {
         location: ghostty_clipboard_e,
         state: UnsafeMutableRawPointer?
     ) {
+        let surface = GhosttyApp.shared.focusedSurface
         DispatchQueue.main.async {
-            let pasteboard = NSPasteboard.general
-            let str = pasteboard.string(forType: .string) ?? ""
+            guard let surface else { return }
+            let str = NSPasteboard.general.string(forType: .string) ?? ""
             str.withCString { ptr in
-                ghostty_surface_complete_clipboard_request(
-                    state,
-                    ptr,
-                    nil,
-                    true
-                )
+                ghostty_surface_complete_clipboard_request(surface, ptr, state, true)
             }
         }
     }
 
     private static func confirmClipboardRead(_ state: UnsafeMutableRawPointer?) {
-        // Auto-confirm
-        ghostty_surface_complete_clipboard_request(state, nil, nil, true)
+        guard let surface = GhosttyApp.shared.focusedSurface else { return }
+        ghostty_surface_complete_clipboard_request(surface, nil, state, true)
     }
 
     private static func writeClipboard(
@@ -269,19 +324,25 @@ final class GhosttyApp {
         confirm: Bool
     ) {
         guard let content, len > 0 else { return }
+        let item = content.pointee
+        guard let data = item.data else { return }
+        let str = String(cString: data)
         DispatchQueue.main.async {
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
-            // Get the first content item
-            let item = content.pointee
-            if let data = item.data {
-                pasteboard.setString(String(cString: data), forType: .string)
-            }
+            pasteboard.setString(str, forType: .string)
         }
     }
 
     private static func closeSurface(_ userdata: UnsafeMutableRawPointer?, processAlive: Bool) {
-        // userdata here is GhosttyApp (the runtime userdata), not a surface view.
-        // Surface close is already handled via GHOSTTY_ACTION_SHOW_CHILD_EXITED.
+        // userdata here is GhosttyApp (the runtime userdata), not a surface context.
+        // Close is dispatched via onCloseSurface from the action callback or process exit handler.
+    }
+
+    /// Close a specific pane by ID. Called from action callbacks and process exit.
+    static func requestCloseSurface(paneID: UUID) {
+        DispatchQueue.main.async {
+            GhosttyApp.shared.onCloseSurface?(paneID)
+        }
     }
 }

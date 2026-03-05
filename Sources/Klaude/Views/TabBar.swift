@@ -5,6 +5,7 @@ struct TabBar: View {
     let workspace: Workspace
     let theme: TerminalTheme
     var onAddTab: () -> Void
+    var onSave: (() -> Void)?
 
     @State private var hoveredTabID: UUID?
     @State private var renameTargetID: UUID?
@@ -34,7 +35,8 @@ struct TabBar: View {
                             .onDrop(of: [.text], delegate: TabDropDelegate(
                                 tabID: tab.id,
                                 workspace: workspace,
-                                draggingTabID: $draggingTabID
+                                draggingTabID: $draggingTabID,
+                                onSave: onSave
                             ))
                     }
                 }
@@ -67,8 +69,13 @@ struct TabBar: View {
         let trimmed = editingName.trimmingCharacters(in: .whitespaces)
         if !trimmed.isEmpty, let target = workspace.tabs.first(where: { $0.id == renameTargetID }) {
             target.name = trimmed
+            onSave?()
         }
         renameTargetID = nil
+    }
+
+    private func tabStatusDot(_ tab: KlaudeCore.Tab) -> some View {
+        StatusDotView(needsAttention: tab.needsAttention, isRunning: tab.isRunning, theme: theme)
     }
 
     private func tabItem(_ tab: KlaudeCore.Tab) -> some View {
@@ -76,8 +83,7 @@ struct TabBar: View {
         let isHovered = tab.id == hoveredTabID
 
         return HStack(spacing: 5) {
-            Circle()
-                .fill(Color(tab.isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
+            tabStatusDot(tab)
                 .frame(width: 6, height: 6)
 
             Text(tab.name)
@@ -91,6 +97,7 @@ struct TabBar: View {
             if isHovered && workspace.tabs.count > 1 {
                 Button {
                     workspace.removeTab(id: tab.id)
+                    onSave?()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .semibold))
@@ -132,6 +139,7 @@ private struct TabDropDelegate: DropDelegate {
     let tabID: UUID
     let workspace: Workspace
     @Binding var draggingTabID: UUID?
+    var onSave: (() -> Void)?
 
     func dropEntered(info: DropInfo) {
         guard let dragging = draggingTabID, dragging != tabID else { return }
@@ -146,6 +154,7 @@ private struct TabDropDelegate: DropDelegate {
 
     func performDrop(info: DropInfo) -> Bool {
         draggingTabID = nil
+        onSave?()
         return true
     }
 
@@ -153,3 +162,4 @@ private struct TabDropDelegate: DropDelegate {
         // No action needed
     }
 }
+

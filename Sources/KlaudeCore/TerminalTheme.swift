@@ -29,6 +29,7 @@ public struct TerminalTheme: Equatable {
     public let sidebarTextSecondary: NSColor   // subdued text
     public let sidebarRunningDot: NSColor      // green status dot
     public let sidebarStoppedDot: NSColor      // gray status dot
+    public var attentionColor: NSColor { palette[3] }  // yellow (ANSI color 3)
 
     public static func == (lhs: TerminalTheme, rhs: TerminalTheme) -> Bool {
         lhs.palette == rhs.palette
