@@ -6,6 +6,8 @@ public enum CatppuccinFlavor: String, CaseIterable {
     case macchiato
     case mocha
 
+    public var isLight: Bool { self == .latte }
+
     public var displayName: String {
         switch self {
         case .latte:     return "Latte"

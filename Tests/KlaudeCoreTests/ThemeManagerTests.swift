@@ -2,12 +2,13 @@ import Testing
 import Foundation
 @testable import KlaudeCore
 
-@Suite struct ThemeManagerTests {
+@Suite(.serialized) struct ThemeManagerTests {
     init() {
         UserDefaults.standard.removeObject(forKey: "selectedTheme")
     }
 
     @Test func defaultFlavorIsMocha() {
+        UserDefaults.standard.removeObject(forKey: "selectedTheme")
         let manager = ThemeManager()
         #expect(manager.selectedFlavor == .mocha)
     }

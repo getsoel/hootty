@@ -28,6 +28,7 @@ struct KlaudeApp: App {
                     }
                 }
         }
+        .windowStyle(.hiddenTitleBar)
         .commands {
             CommandMenu("View") {
                 Button(appModel.sidebarVisible ? "Hide Sidebar" : "Show Sidebar") {

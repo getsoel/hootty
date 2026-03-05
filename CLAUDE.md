@@ -2,6 +2,9 @@
 
 macOS terminal emulator — SwiftUI app (macOS 14+) powered by libghostty for terminal emulation and Metal rendering.
 
+## Setup
+After cloning, run `make setup` to configure git hooks (pre-commit runs build + tests).
+
 ## Commands
 - `swift build`: compile
 - `swift test`: run unit tests (KlaudeCoreTests)

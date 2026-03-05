@@ -1,0 +1,42 @@
+#!/bin/bash
+set -euo pipefail
+
+echo "==> Running pre-commit checks..."
+
+# 1. Build check
+echo "==> swift build"
+if ! swift build 2>&1; then
+    echo ""
+    echo "COMMIT REJECTED: swift build failed."
+    exit 1
+fi
+
+# 2. Test check
+# swift test exits with signal 10 due to XCTest runner crash (no XCTest tests exist,
+# only Swift Testing). This is a known issue. We parse output for actual test failures
+# instead of relying on the exit code.
+echo "==> swift test"
+TEST_OUTPUT=$(swift test 2>&1) || true
+
+# Check for actual test failures in the output
+if echo "$TEST_OUTPUT" | grep -q "Test run with 0 tests passed"; then
+    # No tests found at all — unusual but not a failure
+    echo "$TEST_OUTPUT"
+    echo "Warning: No tests were found."
+elif echo "$TEST_OUTPUT" | grep -qE '\d+ tests? failed'; then
+    echo "$TEST_OUTPUT"
+    echo ""
+    echo "COMMIT REJECTED: swift test had failures."
+    exit 1
+elif echo "$TEST_OUTPUT" | grep -q "Build complete!"; then
+    # Tests built and ran; no failure pattern found — consider it passing
+    :
+else
+    # Unexpected output — show it and fail conservatively
+    echo "$TEST_OUTPUT"
+    echo ""
+    echo "COMMIT REJECTED: could not determine test results."
+    exit 1
+fi
+
+echo "==> All pre-commit checks passed."

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 import KlaudeCore
 
@@ -10,6 +11,10 @@ struct ContentView: View {
 
     private var theme: TerminalTheme {
         appModel.themeManager.theme
+    }
+
+    private var flavor: CatppuccinFlavor {
+        appModel.themeManager.selectedFlavor
     }
 
     var body: some View {
@@ -88,6 +93,14 @@ struct ContentView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
+        .background(Color(theme.background).ignoresSafeArea())
+        .background(
+            WindowAccessor { window in
+                window.isOpaque = true
+                window.backgroundColor = theme.background
+                window.appearance = NSAppearance(named: flavor.isLight ? .aqua : .darkAqua)
+            }
+        )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
     }
 }

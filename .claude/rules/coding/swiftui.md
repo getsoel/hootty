@@ -12,3 +12,5 @@ On `@Observable` classes, never use computed properties that allocate objects (N
 `KlaudeCore.Tab` collides with `SwiftUI.Tab` (macOS 15+). In view code, qualify as `KlaudeCore.Tab` in function signatures to disambiguate.
 
 When the Swift compiler reports "unable to type-check this expression in reasonable time", extract sub-views into private computed properties or helper functions to reduce body complexity.
+
+For custom titlebars (traffic lights only, no chrome), use `.windowStyle(.hiddenTitleBar)` on the `WindowGroup`. Do not manually set `titlebarAppearsTransparent`, `titleVisibility`, `fullSizeContentView`, or hide `NSVisualEffectView` — the SwiftUI modifier handles all of it.
