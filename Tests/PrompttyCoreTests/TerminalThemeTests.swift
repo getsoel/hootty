@@ -1,6 +1,6 @@
 import Testing
 import AppKit
-@testable import KlaudeCore
+@testable import PrompttyCore
 
 @Suite struct TerminalThemeTests {
     @Test func eachFlavorHas16AnsiColors() {

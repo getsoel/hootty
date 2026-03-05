@@ -1,5 +1,5 @@
 import SwiftUI
-import KlaudeCore
+import PrompttyCore
 
 struct KanbanCardView: View {
     let card: KanbanCard

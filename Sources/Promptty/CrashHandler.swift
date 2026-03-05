@@ -2,9 +2,9 @@ import Foundation
 import os
 
 enum CrashHandler {
-    private static let logger = Logger(subsystem: "com.soel.klaude", category: "crash")
+    private static let logger = Logger(subsystem: "com.soel.promptty", category: "crash")
     private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/Klaude")
+        .appendingPathComponent("Library/Logs/Promptty")
     private static let logFile = logDirectory.appendingPathComponent("crash.log")
 
     static func install() {
@@ -14,7 +14,7 @@ enum CrashHandler {
         // Catch uncaught ObjC exceptions
         NSSetUncaughtExceptionHandler { exception in
             let info = """
-                === Klaude Crash Report ===
+                === Promptty Crash Report ===
                 Date: \(ISO8601DateFormatter().string(from: Date()))
                 Exception: \(exception.name.rawValue)
                 Reason: \(exception.reason ?? "unknown")
@@ -48,7 +48,7 @@ enum CrashHandler {
                 }
 
                 let info = """
-                    === Klaude Crash Report ===
+                    === Promptty Crash Report ===
                     Date: \(ISO8601DateFormatter().string(from: Date()))
                     Signal: \(name) (\(receivedSignal))
                     Thread: \(Thread.current)

@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import KlaudeCore
+import PrompttyCore
 
 struct ContentView: View {
     var appModel: AppModel

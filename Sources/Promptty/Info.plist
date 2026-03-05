@@ -4,9 +4,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>Klaude</string>
+    <string>Promptty</string>
     <key>CFBundleIdentifier</key>
-    <string>com.soel.klaude</string>
+    <string>com.soel.promptty</string>
     <key>CFBundleVersion</key>
     <string>0.1</string>
     <key>CFBundleShortVersionString</key>

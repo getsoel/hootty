@@ -1,6 +1,6 @@
 import AppKit
 import SwiftUI
-import KlaudeCore
+import PrompttyCore
 
 struct SplitNodeView: View {
     @Bindable var node: SplitNode

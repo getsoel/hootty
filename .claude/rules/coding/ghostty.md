@@ -1,5 +1,5 @@
 ---
-globs: Sources/Klaude/Terminal/**/*.swift
+globs: Sources/Promptty/Terminal/**/*.swift
 ---
 ghostty_surface_t is monolithic — it handles PTY, VT parsing, and Metal rendering internally. Never layer separate PTYProcess, TerminalEmulator, or Renderer abstractions on top. The NSView (TerminalSurfaceView) only forwards keyboard/mouse events and handles action callbacks (title, pwd, exit).
 

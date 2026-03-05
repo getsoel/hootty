@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Klaude",
+    name: "Promptty",
     platforms: [.macOS(.v14)],
     targets: [
         .target(
@@ -26,19 +26,19 @@ let package = Package(
                 .linkedFramework("Carbon"),
             ]
         ),
-        .target(name: "KlaudeCore", path: "Sources/KlaudeCore"),
+        .target(name: "PrompttyCore", path: "Sources/PrompttyCore"),
         .executableTarget(
-            name: "Klaude",
-            dependencies: ["CGhostty", "KlaudeCore"],
-            path: "Sources/Klaude",
+            name: "Promptty",
+            dependencies: ["CGhostty", "PrompttyCore"],
+            path: "Sources/Promptty",
             exclude: ["Info.plist"],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
                               "-Xlinker", "__TEXT",
                               "-Xlinker", "__info_plist",
-                              "-Xlinker", "Sources/Klaude/Info.plist"]),
+                              "-Xlinker", "Sources/Promptty/Info.plist"]),
             ]
         ),
-        .testTarget(name: "KlaudeCoreTests", dependencies: ["KlaudeCore"]),
+        .testTarget(name: "PrompttyCoreTests", dependencies: ["PrompttyCore"]),
     ]
 )

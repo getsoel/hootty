@@ -12,13 +12,13 @@ public struct WorkspaceSnapshot: Codable {
 }
 
 public final class WorkspaceStore {
-    private static let logger = Logger(subsystem: "com.soel.klaude", category: "workspaces")
+    private static let logger = Logger(subsystem: "com.soel.promptty", category: "workspaces")
 
     private let fileURL: URL
 
     public init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("Klaude", isDirectory: true)
+        let dir = appSupport.appendingPathComponent("Promptty", isDirectory: true)
         self.fileURL = dir.appendingPathComponent("workspaces.json")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }

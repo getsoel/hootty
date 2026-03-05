@@ -1,12 +1,12 @@
 import SwiftUI
-import KlaudeCore
+import PrompttyCore
 
 @main
-struct KlaudeApp: App {
+struct PrompttyApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
         CrashHandler.install()
-        Log.lifecycle.info("Klaude starting...")
+        Log.lifecycle.info("Promptty starting...")
 
         // Initialize the ghostty backend (singleton)
         if GhosttyApp.shared.app != nil {

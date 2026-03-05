@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import KlaudeCore
+@testable import PrompttyCore
 
 @Suite struct AppModelTests {
     private func makeModel() -> AppModel {

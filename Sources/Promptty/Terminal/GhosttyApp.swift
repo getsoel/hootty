@@ -1,6 +1,6 @@
 import AppKit
 import CGhostty
-import KlaudeCore
+import PrompttyCore
 
 /// Singleton wrapper around ghostty_app_t. One per application lifetime.
 /// Manages global ghostty state, configuration, and runtime callbacks.
