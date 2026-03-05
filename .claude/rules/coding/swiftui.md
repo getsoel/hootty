@@ -14,3 +14,7 @@ On `@Observable` classes, never use computed properties that allocate objects (N
 When the Swift compiler reports "unable to type-check this expression in reasonable time", extract sub-views into private computed properties or helper functions to reduce body complexity.
 
 For custom titlebars (traffic lights only, no chrome), use `.windowStyle(.hiddenTitleBar)` on the `WindowGroup`. Do not manually set `titlebarAppearsTransparent`, `titleVisibility`, `fullSizeContentView`, or hide `NSVisualEffectView` — the SwiftUI modifier handles all of it.
+
+`@Observable` classes break synthesized `Codable` conformance (the macro adds stored properties). Write manual `CodingKeys`, `convenience init(from:)` delegating to the designated initializer, and `encode(to:)`.
+
+`UUID` does not conform to `Transferable` on macOS 14. For drag-and-drop, use `.draggable(id.uuidString)` and `.dropDestination(for: String.self)`, converting back with `UUID(uuidString:)`.

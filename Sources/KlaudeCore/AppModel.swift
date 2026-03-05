@@ -1,8 +1,15 @@
 import Foundation
 
+public enum ViewMode {
+    case terminal
+    case kanban
+}
+
 @Observable
 public final class AppModel {
     public let themeManager = ThemeManager()
+    public let kanbanStore = KanbanStore()
+    public var viewMode: ViewMode = .terminal
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true

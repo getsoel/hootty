@@ -5,6 +5,8 @@ struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let theme: TerminalTheme
+    let isKanbanSelected: Bool
+    var onSelectKanban: () -> Void
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onSelectTab: (UUID, UUID) -> Void
@@ -12,6 +14,7 @@ struct WorkspaceSidebar: View {
     var onRemoveTab: (UUID, UUID) -> Void
 
     @State private var expandedWorkspaceIDs: Set<UUID> = []
+    @State private var hoveredBoardRow = false
     @State private var hoveredWorkspaceID: UUID?
     @State private var hoveredTabID: UUID?
     @State private var renameTargetID: UUID?
@@ -56,6 +59,8 @@ struct WorkspaceSidebar: View {
     private var workspaceList: some View {
         ScrollView {
             LazyVStack(spacing: 2) {
+                boardRow
+
                 ForEach(workspaces) { workspace in
                     workspaceRow(workspace)
 
@@ -89,6 +94,40 @@ struct WorkspaceSidebar: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+    }
+
+    private var boardRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "square.grid.3x3.topleft.filled")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(isKanbanSelected ? theme.foreground : theme.sidebarTextSecondary))
+                .frame(width: 12)
+
+            Text("Board")
+                .font(.system(size: 13))
+                .foregroundStyle(Color(isKanbanSelected ? theme.foreground : theme.sidebarTextSecondary))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(
+                    isKanbanSelected
+                        ? Color(theme.sidebarSurface)
+                        : hoveredBoardRow
+                            ? Color(theme.sidebarSurface).opacity(0.4)
+                            : Color.clear
+                )
+        )
+        .onHover { hovering in
+            hoveredBoardRow = hovering
+        }
+        .onTapGesture {
+            onSelectKanban()
+        }
     }
 
     private var addWorkspaceButton: some View {

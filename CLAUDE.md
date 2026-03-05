@@ -20,18 +20,25 @@ Sources/
     include/module.modulemap   -- SPM module map
     shims.c                    -- placeholder for SPM
   KlaudeCore/                  -- testable library target (no UI dependencies)
-    AppModel.swift             -- @Observable app state, workspace/tab management
+    AppModel.swift             -- @Observable app state, workspace/tab management, ViewMode
     Workspace.swift            -- @Observable: id, name, tabs[], selectedTabID
     Tab.swift                  -- @Observable: id, name, isRunning, shell, workingDirectory
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
+    KanbanCard.swift           -- @Observable + Codable: title, description, laneID, sortOrder
+    KanbanLane.swift           -- @Observable + Codable: name, sortOrder
+    KanbanBoard.swift          -- @Observable + Codable: lanes[], cards[], mutations
+    KanbanStore.swift          -- JSON persistence to ~/Library/Application Support/Klaude/
   Klaude/
     KlaudeApp.swift            -- @main entry, initializes GhosttyApp
     Views/
-      ContentView.swift        -- HStack: sidebar + tab bar + terminal
-      WorkspaceSidebar.swift   -- Workspace list with status indicators
+      ContentView.swift        -- HStack: sidebar + detail (terminal or kanban)
+      WorkspaceSidebar.swift   -- Workspace list + Board row with status indicators
       TabBar.swift             -- Tab strip within a workspace
       TerminalView.swift       -- NSViewRepresentable wrapping TerminalSurfaceView
+      KanbanBoardView.swift    -- Horizontal ScrollView of lane columns
+      KanbanLaneView.swift     -- Single lane: header, card list, add card, drop target
+      KanbanCardView.swift     -- Card tile: draggable, context menu (edit/delete)
     Terminal/
       GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
       TerminalSurfaceView.swift -- NSView hosting ghostty_surface_t (Metal rendering, keyboard/mouse input)

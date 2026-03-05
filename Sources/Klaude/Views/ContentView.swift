@@ -27,9 +27,14 @@ struct ContentView: View {
                         set: { appModel.selectedWorkspaceID = $0 }
                     ),
                     theme: theme,
+                    isKanbanSelected: appModel.viewMode == .kanban,
+                    onSelectKanban: {
+                        appModel.viewMode = .kanban
+                    },
                     onAddWorkspace: {
                         let workspace = appModel.addWorkspace()
                         appModel.selectedWorkspaceID = workspace.id
+                        appModel.viewMode = .terminal
                     },
                     onRemoveWorkspace: { id in
                         appModel.removeWorkspace(id: id)
@@ -39,6 +44,7 @@ struct ContentView: View {
                     },
                     onSelectTab: { workspaceID, tabID in
                         appModel.selectedWorkspaceID = workspaceID
+                        appModel.viewMode = .terminal
                         if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
                             workspace.selectTab(id: tabID)
                         }
@@ -63,34 +69,40 @@ struct ContentView: View {
             }
 
             // Detail view
-            if let workspace = selectedWorkspace {
-                VStack(spacing: 0) {
-                    if workspace.tabs.count > 1 {
-                        TabBar(
-                            workspace: workspace,
-                            theme: theme,
-                            onAddTab: { workspace.addTab() }
-                        )
+            switch appModel.viewMode {
+            case .kanban:
+                KanbanBoardView(store: appModel.kanbanStore, theme: theme)
 
-                        Rectangle()
-                            .fill(Color(theme.sidebarSurface))
-                            .frame(height: 1)
-                    }
+            case .terminal:
+                if let workspace = selectedWorkspace {
+                    VStack(spacing: 0) {
+                        if workspace.tabs.count > 1 {
+                            TabBar(
+                                workspace: workspace,
+                                theme: theme,
+                                onAddTab: { workspace.addTab() }
+                            )
 
-                    // Terminal surfaces — ZStack keeps all tabs alive
-                    ZStack {
-                        ForEach(workspace.tabs) { tab in
-                            TerminalPanel(tab: tab)
-                                .opacity(tab.id == workspace.selectedTabID ? 1 : 0)
-                                .allowsHitTesting(tab.id == workspace.selectedTabID)
+                            Rectangle()
+                                .fill(Color(theme.sidebarSurface))
+                                .frame(height: 1)
+                        }
+
+                        // Terminal surfaces — ZStack keeps all tabs alive
+                        ZStack {
+                            ForEach(workspace.tabs) { tab in
+                                TerminalPanel(tab: tab)
+                                    .opacity(tab.id == workspace.selectedTabID ? 1 : 0)
+                                    .allowsHitTesting(tab.id == workspace.selectedTabID)
+                            }
                         }
                     }
+                    .id(workspace.id)
+                } else {
+                    Text("Select or create a workspace")
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .id(workspace.id)
-            } else {
-                Text("Select or create a workspace")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(Color(theme.background).ignoresSafeArea())
