@@ -207,7 +207,9 @@ struct ContentView: View {
                                     node: tab.rootNode,
                                     focusedPaneID: tab.focusedPaneID,
                                     theme: theme,
-                                    onFocusPane: { paneID in tab.focusPane(id: paneID) }
+                                    isInSplit: false,
+                                    onFocusPane: { paneID in tab.focusPane(id: paneID) },
+                                    onSave: { appModel.saveWorkspaces() }
                                 )
                                 .opacity(tab.id == workspace.selectedTabID ? 1 : 0)
                                 .allowsHitTesting(tab.id == workspace.selectedTabID)

@@ -20,7 +20,9 @@ struct TerminalPaneView: NSViewRepresentable {
         )
 
         view.titleDidChange = { [weak pane] title in
-            pane?.name = title
+            if pane?.customName == nil {
+                pane?.name = title
+            }
         }
         view.pwdDidChange = { [weak pane] pwd in
             pane?.workingDirectory = pwd

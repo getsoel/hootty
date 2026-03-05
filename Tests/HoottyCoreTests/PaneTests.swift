@@ -30,4 +30,40 @@ import Foundation
         let pane = Pane(name: "Test")
         #expect(pane.needsAttention == false)
     }
+
+    @Test func displayNameReturnsNameWhenNoCustomName() {
+        let pane = Pane(name: "zsh")
+        #expect(pane.displayName == "zsh")
+    }
+
+    @Test func displayNameReturnsCustomNameWhenSet() {
+        let pane = Pane(name: "zsh")
+        pane.customName = "My Server"
+        #expect(pane.displayName == "My Server")
+    }
+
+    @Test func displayNameRevertsWhenCustomNameCleared() {
+        let pane = Pane(name: "zsh")
+        pane.customName = "My Server"
+        pane.customName = nil
+        #expect(pane.displayName == "zsh")
+    }
+
+    @Test func codableRoundTripWithoutCustomName() throws {
+        let pane = Pane(name: "zsh", shell: "/bin/zsh", workingDirectory: "/tmp")
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.name == "zsh")
+        #expect(decoded.customName == nil)
+        #expect(decoded.displayName == "zsh")
+    }
+
+    @Test func codableRoundTripWithCustomName() throws {
+        let pane = Pane(name: "zsh", customName: "My Pane", shell: "/bin/zsh", workingDirectory: "/tmp")
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.customName == "My Pane")
+        #expect(decoded.displayName == "My Pane")
+        #expect(decoded.name == "zsh")
+    }
 }

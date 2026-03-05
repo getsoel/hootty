@@ -6,6 +6,10 @@ struct PaneTitleBar: View {
     let pane: Pane
     let isFocused: Bool
     let theme: TerminalTheme
+    let onSave: () -> Void
+
+    @State private var isRenaming = false
+    @State private var editingName = ""
 
     private var abbreviatedDirectory: String {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -19,7 +23,7 @@ struct PaneTitleBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            Text(pane.name)
+            Text(pane.displayName)
                 .lineLimit(1)
             Spacer()
             Text(abbreviatedDirectory)
@@ -33,8 +37,31 @@ struct PaneTitleBar: View {
         .background(Color(theme.sidebarSurface).opacity(isFocused ? 1 : 0.7))
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(isFocused ? Color(theme.cursorColor).opacity(0.6) : Color(theme.sidebarSurface))
+                .fill(Color(theme.sidebarSurface))
                 .frame(height: 1)
+        }
+        .contextMenu {
+            Button("Rename Pane") {
+                editingName = pane.displayName
+                isRenaming = true
+            }
+            if pane.customName != nil {
+                Button("Reset Name") {
+                    pane.customName = nil
+                    onSave()
+                }
+            }
+        }
+        .alert("Rename Pane", isPresented: $isRenaming) {
+            TextField("Pane name", text: $editingName)
+            Button("OK") {
+                let trimmed = editingName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    pane.customName = trimmed
+                    onSave()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
         }
     }
 }
@@ -43,18 +70,27 @@ struct SplitNodeView: View {
     @Bindable var node: SplitNode
     let focusedPaneID: UUID?
     let theme: TerminalTheme
+    let isInSplit: Bool
     let onFocusPane: (UUID) -> Void
+    let onSave: () -> Void
 
     var body: some View {
         switch node.content {
         case .leaf(let pane):
+            let isFocused = pane.id == focusedPaneID
             VStack(spacing: 0) {
-                PaneTitleBar(pane: pane, isFocused: pane.id == focusedPaneID, theme: theme)
+                PaneTitleBar(pane: pane, isFocused: isFocused, theme: theme, onSave: onSave)
 
-                TerminalPaneView(pane: pane, isFocused: pane.id == focusedPaneID)
+                TerminalPaneView(pane: pane, isFocused: isFocused)
                     .onTapGesture {
                         onFocusPane(pane.id)
                     }
+            }
+            .overlay {
+                if !isFocused && isInSplit {
+                    Color.black.opacity(0.3)
+                        .allowsHitTesting(false)
+                }
             }
 
         case .split(let direction, let first, let second):
@@ -66,7 +102,8 @@ struct SplitNodeView: View {
 
     private func splitContent(direction: SplitDirection, first: SplitNode, second: SplitNode) -> some View {
         GeometryReader { geometry in
-            let totalSize = direction == .horizontal ? geometry.size.width : geometry.size.height
+            let isH = direction == .horizontal
+            let totalSize = isH ? geometry.size.width : geometry.size.height
             let dividerThickness: CGFloat = 2
             let usableSize = totalSize - dividerThickness
             let effectiveRatio = usableSize > 0
@@ -74,68 +111,74 @@ struct SplitNodeView: View {
                 : node.splitRatio
             let firstSize = usableSize * effectiveRatio
             let secondSize = usableSize - firstSize
+            let dividerPos = firstSize
+            let secondPos = firstSize + dividerThickness
 
-            if direction == .horizontal {
-                HStack(spacing: 0) {
-                    SplitNodeView(node: first, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
-                        .frame(width: firstSize, height: geometry.size.height)
+            ZStack(alignment: .topLeading) {
+                // First pane
+                SplitNodeView(node: first, focusedPaneID: focusedPaneID, theme: theme, isInSplit: true, onFocusPane: onFocusPane, onSave: onSave)
+                    .frame(
+                        width: isH ? firstSize : geometry.size.width,
+                        height: isH ? geometry.size.height : firstSize
+                    )
 
-                    splitDivider(direction: direction, totalSize: totalSize, dividerThickness: dividerThickness)
+                // Visible divider line
+                Rectangle()
+                    .fill(Color(theme.palette[0]))
+                    .frame(
+                        width: isH ? dividerThickness : geometry.size.width,
+                        height: isH ? geometry.size.height : dividerThickness
+                    )
+                    .offset(
+                        x: isH ? dividerPos : 0,
+                        y: isH ? 0 : dividerPos
+                    )
 
-                    SplitNodeView(node: second, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
-                        .frame(width: secondSize, height: geometry.size.height)
-                }
-            } else {
-                VStack(spacing: 0) {
-                    SplitNodeView(node: first, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
-                        .frame(width: geometry.size.width, height: firstSize)
-
-                    splitDivider(direction: direction, totalSize: totalSize, dividerThickness: dividerThickness)
-
-                    SplitNodeView(node: second, focusedPaneID: focusedPaneID, theme: theme, onFocusPane: onFocusPane)
-                        .frame(width: geometry.size.width, height: secondSize)
-                }
-            }
-        }
-    }
-
-    private func splitDivider(direction: SplitDirection, totalSize: CGFloat, dividerThickness: CGFloat) -> some View {
-        Rectangle()
-            .fill(Color.gray.opacity(0.3))
-            .frame(
-                width: direction == .horizontal ? dividerThickness : nil,
-                height: direction == .vertical ? dividerThickness : nil
-            )
-            .overlay(
+                // Invisible wide drag handle
                 Color.clear
                     .frame(
-                        width: direction == .horizontal ? 8 : nil,
-                        height: direction == .vertical ? 8 : nil
+                        width: isH ? 8 : geometry.size.width,
+                        height: isH ? geometry.size.height : 8
                     )
                     .contentShape(Rectangle())
+                    .offset(
+                        x: isH ? dividerPos - 3 : 0,
+                        y: isH ? 0 : dividerPos - 3
+                    )
                     .gesture(
                         DragGesture(minimumDistance: 1)
                             .updating($splitDragDelta) { value, state, _ in
-                                state = direction == .horizontal ? value.translation.width : value.translation.height
+                                state = isH ? value.translation.width : value.translation.height
                             }
                             .onEnded { value in
-                                let delta = direction == .horizontal ? value.translation.width : value.translation.height
-                                let usableSize = totalSize - dividerThickness
+                                let delta = isH ? value.translation.width : value.translation.height
                                 guard usableSize > 0 else { return }
                                 node.splitRatio = min(max(node.splitRatio + delta / usableSize, 0.1), 0.9)
                             }
                     )
-            )
-            .onHover { hovering in
-                if hovering {
-                    if direction == .horizontal {
-                        NSCursor.resizeLeftRight.push()
-                    } else {
-                        NSCursor.resizeUpDown.push()
+                    .onHover { hovering in
+                        if hovering {
+                            if isH {
+                                NSCursor.resizeLeftRight.push()
+                            } else {
+                                NSCursor.resizeUpDown.push()
+                            }
+                        } else {
+                            NSCursor.pop()
+                        }
                     }
-                } else {
-                    NSCursor.pop()
-                }
+
+                // Second pane
+                SplitNodeView(node: second, focusedPaneID: focusedPaneID, theme: theme, isInSplit: true, onFocusPane: onFocusPane, onSave: onSave)
+                    .frame(
+                        width: isH ? secondSize : geometry.size.width,
+                        height: isH ? geometry.size.height : secondSize
+                    )
+                    .offset(
+                        x: isH ? secondPos : 0,
+                        y: isH ? 0 : secondPos
+                    )
             }
+        }
     }
 }
