@@ -3,47 +3,48 @@ import Foundation
 @testable import KlaudeCore
 
 @Suite struct AppModelTests {
-    @Test func initCreatesOneDefaultSession() {
+    @Test func initCreatesOneDefaultWorkspace() {
         let model = AppModel()
-        #expect(model.sessions.count == 1)
+        #expect(model.workspaces.count == 1)
+        #expect(model.selectedWorkspaceID == model.workspaces.first?.id)
     }
 
-    @Test func addSessionIncrementsAndAppends() {
+    @Test func addWorkspaceIncrementsAndAppends() {
         let model = AppModel()
-        let second = model.addSession()
-        #expect(model.sessions.count == 2)
-        #expect(second.name == "Session 2")
+        let second = model.addWorkspace()
+        #expect(model.workspaces.count == 2)
+        #expect(second.name == "Workspace 2")
     }
 
-    @Test func addSessionNamesSequentially() {
+    @Test func addWorkspaceNamesSequentially() {
         let model = AppModel()
-        _ = model.addSession()
-        let third = model.addSession()
-        #expect(third.name == "Session 3")
+        _ = model.addWorkspace()
+        let third = model.addWorkspace()
+        #expect(third.name == "Workspace 3")
     }
 
-    @Test func removeSessionRemovesCorrectSession() {
+    @Test func removeWorkspaceRemovesCorrectWorkspace() {
         let model = AppModel()
-        let second = model.addSession()
+        let second = model.addWorkspace()
         let secondID = second.id
-        model.removeSession(at: IndexSet(integer: 0))
-        #expect(model.sessions.count == 1)
-        #expect(model.sessions.first?.id == secondID)
+        model.removeWorkspace(at: IndexSet(integer: 0))
+        #expect(model.workspaces.count == 1)
+        #expect(model.workspaces.first?.id == secondID)
     }
 
-    @Test func removeSessionByIDRemovesCorrectSession() {
+    @Test func removeWorkspaceByIDRemovesCorrectWorkspace() {
         let model = AppModel()
-        let firstID = model.sessions.first!.id
-        let second = model.addSession()
-        model.removeSession(id: firstID)
-        #expect(model.sessions.count == 1)
-        #expect(model.sessions.first?.id == second.id)
+        let firstID = model.workspaces.first!.id
+        let second = model.addWorkspace()
+        model.removeWorkspace(id: firstID)
+        #expect(model.workspaces.count == 1)
+        #expect(model.workspaces.first?.id == second.id)
     }
 
-    @Test func removeSessionByIDNoOpForUnknownID() {
+    @Test func removeWorkspaceByIDNoOpForUnknownID() {
         let model = AppModel()
-        model.removeSession(id: UUID())
-        #expect(model.sessions.count == 1)
+        model.removeWorkspace(id: UUID())
+        #expect(model.workspaces.count == 1)
     }
 
     @Test func toggleSidebarFlipsVisibility() {
@@ -53,5 +54,14 @@ import Foundation
         #expect(model.sidebarVisible == false)
         model.toggleSidebar()
         #expect(model.sidebarVisible == true)
+    }
+
+    @Test func selectedWorkspaceReturnsCorrectWorkspace() {
+        let model = AppModel()
+        let first = model.workspaces.first!
+        #expect(model.selectedWorkspace?.id == first.id)
+        let second = model.addWorkspace()
+        model.selectedWorkspaceID = second.id
+        #expect(model.selectedWorkspace?.id == second.id)
     }
 }

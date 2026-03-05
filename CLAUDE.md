@@ -17,15 +17,17 @@ Sources/
     include/module.modulemap   -- SPM module map
     shims.c                    -- placeholder for SPM
   KlaudeCore/                  -- testable library target (no UI dependencies)
-    AppModel.swift             -- @Observable app state, session management
-    Session.swift              -- @Observable: id, name, isRunning, shell, workingDirectory
+    AppModel.swift             -- @Observable app state, workspace/tab management
+    Workspace.swift            -- @Observable: id, name, tabs[], selectedTabID
+    Tab.swift                  -- @Observable: id, name, isRunning, shell, workingDirectory
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
   Klaude/
     KlaudeApp.swift            -- @main entry, initializes GhosttyApp
     Views/
-      ContentView.swift        -- NavigationSplitView: sidebar + terminal
-      SessionSidebar.swift     -- Session list with status indicators
+      ContentView.swift        -- HStack: sidebar + tab bar + terminal
+      WorkspaceSidebar.swift   -- Workspace list with status indicators
+      TabBar.swift             -- Tab strip within a workspace
       TerminalView.swift       -- NSViewRepresentable wrapping TerminalSurfaceView
     Terminal/
       GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
@@ -51,4 +53,25 @@ cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/klaude/Sources
 - ghostty_app_t (singleton) → manages config and dispatches actions via callbacks
 - ghostty_surface_t (per session) → handles PTY, parsing, and Metal rendering internally
 - TerminalSurfaceView (NSView) → hosts the surface, forwards keyboard/mouse events
-- Action callbacks (title, pwd, exit) → update Session model → SwiftUI reacts
+- Action callbacks (title, pwd, exit) → update Tab model → SwiftUI reacts
+
+## Debugging
+
+All runtime logging uses Apple's Unified Logging (`os.Logger`) with subsystem `com.soel.klaude`.
+
+```bash
+# Tail live logs while app runs (in a separate terminal):
+log stream --predicate 'subsystem == "com.soel.klaude"' --level debug
+
+# View recent logs after a crash:
+log show --predicate 'subsystem == "com.soel.klaude"' --last 5m --style compact
+
+# Filter by category (ghostty, surface, lifecycle, crash):
+log show --predicate 'subsystem == "com.soel.klaude" AND category == "ghostty"' --last 5m
+
+# Check crash log:
+cat ~/Library/Logs/Klaude/crash.log
+
+# Run with stderr visible:
+swift run Klaude 2>&1 | tee /tmp/klaude-stderr.log
+```

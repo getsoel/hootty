@@ -1,7 +1,7 @@
 import Foundation
 
 @Observable
-public final class Session: Identifiable {
+public final class Tab: Identifiable {
     public let id = UUID()
     public var name: String
     public var isRunning = true

@@ -8,3 +8,7 @@ SPM executables need `NSApplication.shared.setActivationPolicy(.regular)` in the
 `Array.remove(atOffsets:)` is a SwiftUI extension, not Foundation. In UI-free targets (KlaudeCore), use manual reverse iteration: `for index in offsets.reversed() { array.remove(at: index) }`.
 
 On `@Observable` classes, never use computed properties that allocate objects (NSColor, NSFont, etc.) — they re-allocate on every access/render. Use `private(set) var` cached values updated in `didSet` instead.
+
+`KlaudeCore.Tab` collides with `SwiftUI.Tab` (macOS 15+). In view code, qualify as `KlaudeCore.Tab` in function signatures to disambiguate.
+
+When the Swift compiler reports "unable to type-check this expression in reasonable time", extract sub-views into private computed properties or helper functions to reduce body complexity.

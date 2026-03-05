@@ -3,10 +3,9 @@ import KlaudeCore
 
 struct ContentView: View {
     var appModel: AppModel
-    @State private var selectedSessionID: UUID?
 
-    private var selectedSession: Session? {
-        appModel.sessions.first { $0.id == selectedSessionID }
+    private var selectedWorkspace: Workspace? {
+        appModel.selectedWorkspace
     }
 
     private var theme: TerminalTheme {
@@ -16,18 +15,37 @@ struct ContentView: View {
     var body: some View {
         HStack(spacing: 0) {
             if appModel.sidebarVisible {
-                SessionSidebar(
-                    sessions: appModel.sessions,
-                    selectedSessionID: $selectedSessionID,
+                WorkspaceSidebar(
+                    workspaces: appModel.workspaces,
+                    selectedWorkspaceID: Binding(
+                        get: { appModel.selectedWorkspaceID },
+                        set: { appModel.selectedWorkspaceID = $0 }
+                    ),
                     theme: theme,
-                    onAddSession: {
-                        let session = appModel.addSession()
-                        selectedSessionID = session.id
+                    onAddWorkspace: {
+                        let workspace = appModel.addWorkspace()
+                        appModel.selectedWorkspaceID = workspace.id
                     },
-                    onRemoveSession: { id in
-                        appModel.removeSession(id: id)
-                        if selectedSessionID == id {
-                            selectedSessionID = appModel.sessions.first?.id
+                    onRemoveWorkspace: { id in
+                        appModel.removeWorkspace(id: id)
+                        if appModel.selectedWorkspaceID == id {
+                            appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+                        }
+                    },
+                    onSelectTab: { workspaceID, tabID in
+                        appModel.selectedWorkspaceID = workspaceID
+                        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                            workspace.selectTab(id: tabID)
+                        }
+                    },
+                    onAddTab: { workspaceID in
+                        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                            workspace.addTab()
+                        }
+                    },
+                    onRemoveTab: { workspaceID, tabID in
+                        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                            workspace.removeTab(id: tabID)
                         }
                     }
                 )
@@ -40,18 +58,36 @@ struct ContentView: View {
             }
 
             // Detail view
-            if let session = selectedSession {
-                TerminalPanel(session: session)
-                    .id(session.id)
+            if let workspace = selectedWorkspace {
+                VStack(spacing: 0) {
+                    if workspace.tabs.count > 1 {
+                        TabBar(
+                            workspace: workspace,
+                            theme: theme,
+                            onAddTab: { workspace.addTab() }
+                        )
+
+                        Rectangle()
+                            .fill(Color(theme.sidebarSurface))
+                            .frame(height: 1)
+                    }
+
+                    // Terminal surfaces — ZStack keeps all tabs alive
+                    ZStack {
+                        ForEach(workspace.tabs) { tab in
+                            TerminalPanel(tab: tab)
+                                .opacity(tab.id == workspace.selectedTabID ? 1 : 0)
+                                .allowsHitTesting(tab.id == workspace.selectedTabID)
+                        }
+                    }
+                }
+                .id(workspace.id)
             } else {
-                Text("Select or create a session")
+                Text("Select or create a workspace")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
-        .onAppear {
-            selectedSessionID = appModel.sessions.first?.id
-        }
     }
 }

@@ -1,6 +1,38 @@
 import AppKit
 import CGhostty
 
+// MARK: - Callback Context
+
+/// Bridging object stored as ghostty surface userdata.
+/// Uses `passRetained` so it stays alive as long as the surface exists.
+/// Released explicitly during teardown.
+final class SurfaceCallbackContext {
+    weak var view: TerminalSurfaceView?
+    let tabID: UUID
+
+    init(view: TerminalSurfaceView, tabID: UUID) {
+        self.view = view
+        self.tabID = tabID
+    }
+
+    /// Store as retained opaque pointer (caller must balance with `release`).
+    func retainedPointer() -> UnsafeMutableRawPointer {
+        Unmanaged.passRetained(self).toOpaque()
+    }
+
+    /// Release the retained reference. Call exactly once per `retainedPointer()`.
+    static func release(_ ptr: UnsafeMutableRawPointer) {
+        Unmanaged<SurfaceCallbackContext>.fromOpaque(ptr).release()
+    }
+
+    /// Borrow without changing retain count.
+    static func fromOpaque(_ ptr: UnsafeMutableRawPointer) -> SurfaceCallbackContext {
+        Unmanaged<SurfaceCallbackContext>.fromOpaque(ptr).takeUnretainedValue()
+    }
+}
+
+// MARK: - TerminalSurfaceView
+
 /// NSView subclass that hosts a ghostty terminal surface.
 /// Ghostty handles PTY, parsing, and Metal rendering internally.
 /// This view forwards keyboard/mouse input and resize events to ghostty.
@@ -20,38 +52,30 @@ final class TerminalSurfaceView: NSView {
     private var markedText = NSMutableAttributedString()
     private var keyTextAccumulator: [String]?
 
+    // Deferred creation state
+    private var ghosttyApp: ghostty_app_t?
+    private var initialWorkingDirectory: String?
+    private var surfaceCreated = false
+    private var callbackContext: SurfaceCallbackContext?
+    private var tabID: UUID
+
+    // Pending text queue (for text sent before surface is ready)
+    private var pendingTextQueue: [Data] = []
+    private var pendingTextBytes = 0
+    private static let maxPendingTextBytes = 1_048_576 // 1MB
+
     override var acceptsFirstResponder: Bool { true }
 
     // MARK: - Initialization
 
-    init(app: ghostty_app_t, workingDirectory: String?) {
+    init(app: ghostty_app_t, tabID: UUID, workingDirectory: String?) {
+        self.ghosttyApp = app
+        self.tabID = tabID
+        self.initialWorkingDirectory = workingDirectory
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
 
-        // Configure surface
-        var config = ghostty_surface_config_new()
-        config.userdata = Unmanaged.passUnretained(self).toOpaque()
-        config.platform_tag = GHOSTTY_PLATFORM_MACOS
-        config.platform = ghostty_platform_u(
-            macos: ghostty_platform_macos_s(
-                nsview: Unmanaged.passUnretained(self).toOpaque()
-            )
-        )
-        config.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
-
-        if let wd = workingDirectory {
-            wd.withCString { ptr in
-                config.working_directory = ptr
-                self.surface = ghostty_surface_new(app, &config)
-            }
-        } else {
-            self.surface = ghostty_surface_new(app, &config)
-        }
-
-        guard surface != nil else {
-            print("Failed to create ghostty surface")
-            return
-        }
-
+        wantsLayer = true
+        layer?.masksToBounds = true
         updateTrackingAreas()
     }
 
@@ -62,27 +86,172 @@ final class TerminalSurfaceView: NSView {
 
     deinit {
         trackingAreas.forEach { removeTrackingArea($0) }
-        if let surface {
-            ghostty_surface_free(surface)
+        NotificationCenter.default.removeObserver(self)
+
+        // Capture refs before nilling — prevents stale access
+        let surfaceToFree = surface
+        let contextToRelease = callbackContext
+
+        surface = nil
+        callbackContext = nil
+
+        // Async free to avoid re-entrant close/deinit loops
+        if let surfaceToFree {
+            Task { @MainActor in
+                ghostty_surface_free(surfaceToFree)
+                Log.surface.info("Surface freed (async)")
+            }
         }
+
+        if let contextToRelease, let ptr = ghostty_surface_userdata(surfaceToFree) {
+            _ = contextToRelease // prevent unused warning — release happens via ptr
+            Task { @MainActor in
+                SurfaceCallbackContext.release(ptr)
+                Log.surface.info("Callback context released (async)")
+            }
+        }
+
+        Log.surface.info("Surface deinit completed")
+    }
+
+    // MARK: - Deferred Surface Creation
+
+    private func createSurfaceIfNeeded() {
+        guard !surfaceCreated, let app = ghosttyApp, window != nil else { return }
+        surfaceCreated = true
+
+        let ctx = SurfaceCallbackContext(view: self, tabID: tabID)
+        self.callbackContext = ctx
+
+        var config = ghostty_surface_config_new()
+        config.userdata = ctx.retainedPointer()
+        config.platform_tag = GHOSTTY_PLATFORM_MACOS
+        config.platform = ghostty_platform_u(
+            macos: ghostty_platform_macos_s(
+                nsview: Unmanaged.passUnretained(self).toOpaque()
+            )
+        )
+
+        if let window {
+            config.scale_factor = Double(window.backingScaleFactor)
+        } else {
+            config.scale_factor = Double(NSScreen.main?.backingScaleFactor ?? 2.0)
+        }
+
+        if let wd = initialWorkingDirectory {
+            wd.withCString { ptr in
+                config.working_directory = ptr
+                self.surface = ghostty_surface_new(app, &config)
+            }
+        } else {
+            self.surface = ghostty_surface_new(app, &config)
+        }
+
+        // Clear references no longer needed
+        ghosttyApp = nil
+        initialWorkingDirectory = nil
+
+        guard surface != nil else {
+            Log.surface.error("Failed to create ghostty surface")
+            return
+        }
+
+        Log.surface.info("Surface created (deferred)")
+
+        // Set display ID for vsync
+        if let screen = window?.screen {
+            ghostty_surface_set_display_id(surface!, screen.displayID ?? 0)
+        }
+
+        // Set initial content scale and size
+        if let window {
+            let scale = window.backingScaleFactor
+            ghostty_surface_set_content_scale(surface!, scale, scale)
+        }
+        updateSurfaceSize(frame.size)
+
+        // Force initial draw
+        ghostty_surface_refresh(surface!)
+
+        // Flush any pending text
+        flushPendingText()
+    }
+
+    // MARK: - Pending Text Queue
+
+    /// Queue text to be sent once the surface is created.
+    func queueText(_ text: String) {
+        guard surface == nil else {
+            // Surface exists — send directly
+            text.withCString { ptr in
+                ghostty_surface_text(surface!, ptr, UInt(text.utf8.count))
+            }
+            return
+        }
+
+        guard let data = text.data(using: .utf8) else { return }
+        guard pendingTextBytes + data.count <= Self.maxPendingTextBytes else {
+            Log.surface.warning("Pending text queue full, dropping text")
+            return
+        }
+
+        pendingTextQueue.append(data)
+        pendingTextBytes += data.count
+    }
+
+    private func flushPendingText() {
+        guard let surface, !pendingTextQueue.isEmpty else { return }
+        Log.surface.info("Flushing \(self.pendingTextQueue.count) pending text items")
+
+        for data in pendingTextQueue {
+            data.withUnsafeBytes { buffer in
+                guard let ptr = buffer.baseAddress?.assumingMemoryBound(to: CChar.self) else { return }
+                ghostty_surface_text(surface, ptr, UInt(data.count))
+            }
+        }
+
+        pendingTextQueue.removeAll()
+        pendingTextBytes = 0
     }
 
     // MARK: - NSView Overrides
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+
+        // Deferred creation: create surface on first window attachment
+        if !surfaceCreated {
+            createSurfaceIfNeeded()
+        }
+
+        // Install occlusion observer for the new window
+        NotificationCenter.default.removeObserver(self, name: NSWindow.didChangeOcclusionStateNotification, object: nil)
+        if let window {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(windowOcclusionDidChange(_:)),
+                name: NSWindow.didChangeOcclusionStateNotification,
+                object: window
+            )
+        }
+
         guard let surface, let window else { return }
 
-        // Set initial content scale
+        // Update content scale
         let scale = window.backingScaleFactor
         ghostty_surface_set_content_scale(surface, scale, scale)
-
         updateSurfaceSize(frame.size)
 
-        // Set display ID for vsync
+        // Update display ID for vsync
         if let screen = window.screen {
             ghostty_surface_set_display_id(surface, screen.displayID ?? 0)
         }
+    }
+
+    @objc private func windowOcclusionDidChange(_ notification: Notification) {
+        guard let surface else { return }
+        let visible = window?.occlusionState.contains(.visible) ?? false
+        ghostty_surface_set_occlusion(surface, visible)
     }
 
     override func viewDidChangeBackingProperties() {
@@ -126,10 +295,17 @@ final class TerminalSurfaceView: NSView {
         ))
     }
 
+    // MARK: - Focus
+
     override func becomeFirstResponder() -> Bool {
         let result = super.becomeFirstResponder()
         if result, let surface {
             ghostty_surface_set_focus(surface, true)
+
+            // Re-assert display ID on focus
+            if let screen = window?.screen {
+                ghostty_surface_set_display_id(surface, screen.displayID ?? 0)
+            }
         }
         return result
     }
@@ -145,7 +321,10 @@ final class TerminalSurfaceView: NSView {
     // MARK: - Mouse Events
 
     override func mouseDown(with event: NSEvent) {
+        window?.makeFirstResponder(self)
         guard let surface else { return }
+        let pos = convert(event.locationInWindow, from: nil)
+        ghostty_surface_mouse_pos(surface, pos.x, frame.height - pos.y, ghosttyMods(event.modifierFlags))
         ghostty_surface_mouse_button(surface, GHOSTTY_MOUSE_PRESS, GHOSTTY_MOUSE_LEFT, ghosttyMods(event.modifierFlags))
     }
 
@@ -189,9 +368,19 @@ final class TerminalSurfaceView: NSView {
             x *= 2
             y *= 2
         }
-        // Build scroll mods as packed int
+
+        // Build scroll mods: bit 0 = precise, bits 1-2 = momentum phase
         var mods: Int32 = 0
         if event.hasPreciseScrollingDeltas { mods |= 1 }
+
+        // Encode momentum phase
+        switch event.momentumPhase {
+        case .began:   mods |= (1 << 1)
+        case .changed: mods |= (2 << 1)
+        case .ended:   mods |= (3 << 1)
+        default: break
+        }
+
         ghostty_surface_mouse_scroll(surface, x, y, mods)
     }
 
@@ -200,6 +389,14 @@ final class TerminalSurfaceView: NSView {
     override func keyDown(with event: NSEvent) {
         guard let surface else {
             interpretKeyEvents([event])
+            return
+        }
+
+        // Fast path: Ctrl+key bypasses IME entirely
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.contains(.control) && !flags.contains(.command) && !flags.contains(.option) {
+            let action = event.isARepeat ? GHOSTTY_ACTION_REPEAT : GHOSTTY_ACTION_PRESS
+            sendKeyEvent(action, event: event)
             return
         }
 
@@ -419,7 +616,10 @@ extension TerminalSurfaceView: NSTextInputClient {
             keyTextAccumulator?.append(str)
         } else {
             // Direct text input (not from keyDown)
-            guard let surface else { return }
+            guard let surface else {
+                queueText(str)
+                return
+            }
             str.withCString { ptr in
                 ghostty_surface_text(surface, ptr, UInt(str.utf8.count))
             }

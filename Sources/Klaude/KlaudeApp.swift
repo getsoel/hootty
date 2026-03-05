@@ -5,8 +5,15 @@ import KlaudeCore
 struct KlaudeApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
+        CrashHandler.install()
+        Log.lifecycle.info("Klaude starting...")
+
         // Initialize the ghostty backend (singleton)
-        _ = GhosttyApp.shared
+        if GhosttyApp.shared.app != nil {
+            Log.lifecycle.info("Ghostty backend initialized")
+        } else {
+            Log.lifecycle.error("Ghostty backend failed to initialize")
+        }
     }
 
     @State private var appModel = AppModel()
@@ -15,6 +22,11 @@ struct KlaudeApp: App {
         WindowGroup {
             ContentView(appModel: appModel)
                 .frame(minWidth: 700, minHeight: 400)
+                .onAppear {
+                    GhosttyApp.shared.onNewTab = { [appModel] in
+                        appModel.selectedWorkspace?.addTab()
+                    }
+                }
         }
         .commands {
             CommandMenu("View") {
@@ -22,6 +34,12 @@ struct KlaudeApp: App {
                     appModel.toggleSidebar()
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
+            }
+            CommandMenu("Shell") {
+                Button("New Tab") {
+                    appModel.selectedWorkspace?.addTab()
+                }
+                .keyboardShortcut("t", modifiers: .command)
             }
             CommandMenu("Theme") {
                 ForEach(CatppuccinFlavor.allCases, id: \.self) { flavor in

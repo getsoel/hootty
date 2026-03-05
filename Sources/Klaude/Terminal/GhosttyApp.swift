@@ -9,16 +9,23 @@ final class GhosttyApp {
     private(set) var app: ghostty_app_t?
     private(set) var config: ghostty_config_t?
 
+    /// Called when ghostty dispatches a new_tab action (e.g. Cmd+T keybinding).
+    var onNewTab: (() -> Void)?
+
+    private var focusObservers: [NSObjectProtocol] = []
+
     private init() {
+        Log.ghostty.info("Initializing ghostty backend...")
+
         // Initialize the ghostty backend
         guard ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv) == GHOSTTY_SUCCESS else {
-            print("ghostty_init failed")
+            Log.ghostty.error("ghostty_init failed")
             return
         }
 
         // Create configuration
         guard let cfg = ghostty_config_new() else {
-            print("ghostty_config_new failed")
+            Log.ghostty.error("ghostty_config_new failed")
             return
         }
 
@@ -27,13 +34,17 @@ final class GhosttyApp {
         ghostty_config_load_recursive_files(cfg)
         ghostty_config_finalize(cfg)
         self.config = cfg
+        Log.ghostty.info("Config loaded")
 
         // Create runtime config with callbacks
         var runtimeCfg = ghostty_runtime_config_s(
             userdata: Unmanaged.passUnretained(self).toOpaque(),
             supports_selection_clipboard: false,
             wakeup_cb: { userdata in
-                GhosttyApp.wakeup(userdata)
+                // Wakeup-driven tick: ghostty calls this when it needs processing
+                DispatchQueue.main.async {
+                    GhosttyApp.shared.tick()
+                }
             },
             action_cb: { app, target, action in
                 GhosttyApp.handleAction(app!, target: target, action: action)
@@ -55,7 +66,7 @@ final class GhosttyApp {
 
         // Create the app
         guard let app = ghostty_app_new(&runtimeCfg, cfg) else {
-            print("ghostty_app_new failed")
+            Log.ghostty.error("ghostty_app_new failed")
             ghostty_config_free(cfg)
             self.config = nil
             return
@@ -63,9 +74,16 @@ final class GhosttyApp {
 
         self.app = app
         ghostty_app_set_focus(app, NSApp.isActive)
+        Log.ghostty.info("Ghostty app created successfully")
+
+        // Track app focus via notifications
+        installFocusObservers()
     }
 
     deinit {
+        for observer in focusObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
         if let app { ghostty_app_free(app) }
         if let config { ghostty_config_free(config) }
     }
@@ -80,19 +98,37 @@ final class GhosttyApp {
         ghostty_app_set_focus(app, focused)
     }
 
-    // MARK: - Callbacks
+    // MARK: - Focus Observers
 
-    private static func wakeup(_ userdata: UnsafeMutableRawPointer?) {
-        guard let userdata else { return }
-        let app = Unmanaged<GhosttyApp>.fromOpaque(userdata).takeUnretainedValue()
-        DispatchQueue.main.async { app.tick() }
+    private func installFocusObservers() {
+        let activateObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setFocus(true)
+        }
+
+        let deactivateObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setFocus(false)
+        }
+
+        focusObservers = [activateObserver, deactivateObserver]
     }
+
+    // MARK: - Callbacks
 
     private static func handleAction(
         _ app: ghostty_app_t,
         target: ghostty_target_s,
         action: ghostty_action_s
     ) -> Bool {
+        Log.ghostty.debug("Action received: tag=\(action.tag.rawValue)")
+
         switch action.tag {
         case GHOSTTY_ACTION_SET_TITLE:
             return setTitle(target: target, v: action.action.set_title)
@@ -109,16 +145,36 @@ final class GhosttyApp {
             return setCellSize(target: target, v: action.action.cell_size)
         case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
             return handleChildExited(target: target, v: action.action.child_exited)
+        case GHOSTTY_ACTION_NEW_TAB:
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onNewTab?()
+            }
+            return true
+        case GHOSTTY_ACTION_NEW_WINDOW,
+             GHOSTTY_ACTION_NEW_SPLIT:
+            // Not supported yet — block to prevent crashes
+            return true
+        case GHOSTTY_ACTION_QUIT,
+             GHOSTTY_ACTION_CLOSE_WINDOW,
+             GHOSTTY_ACTION_CLOSE_ALL_WINDOWS,
+             GHOSTTY_ACTION_CLOSE_TAB:
+            Log.ghostty.info("Blocked quit/close action: tag=\(action.tag.rawValue)")
+            return true
         default:
-            return false
+            Log.ghostty.info("Unhandled action: tag=\(action.tag.rawValue)")
+            return true
         }
     }
 
-    private static func surfaceView(from target: ghostty_target_s) -> TerminalSurfaceView? {
+    private static func callbackContext(from target: ghostty_target_s) -> SurfaceCallbackContext? {
         guard target.tag == GHOSTTY_TARGET_SURFACE else { return nil }
         let surface = target.target.surface
         guard let ud = ghostty_surface_userdata(surface) else { return nil }
-        return Unmanaged<TerminalSurfaceView>.fromOpaque(ud).takeUnretainedValue()
+        return SurfaceCallbackContext.fromOpaque(ud)
+    }
+
+    private static func surfaceView(from target: ghostty_target_s) -> TerminalSurfaceView? {
+        callbackContext(from: target)?.view
     }
 
     private static func setTitle(target: ghostty_target_s, v: ghostty_action_set_title_s) -> Bool {
