@@ -20,28 +20,21 @@ Sources/
     include/module.modulemap   -- SPM module map
     shims.c                    -- placeholder for SPM
   HoottyCore/                -- testable library target (no UI dependencies)
-    AppModel.swift             -- @Observable app state, workspace/tab management, ViewMode
+    AppModel.swift             -- @Observable app state, workspace management
     Workspace.swift            -- @Observable: id, name, tabs[], selectedTabID
     Tab.swift                  -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
     Pane.swift                 -- @Observable: id, name, isRunning, shell, workingDirectory
     SplitNode.swift            -- @Observable binary tree: leaf(Pane) | split(direction, first, second)
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
-    KanbanCard.swift           -- @Observable + Codable: title, description, laneID, sortOrder
-    KanbanLane.swift           -- @Observable + Codable: name, sortOrder
-    KanbanBoard.swift          -- @Observable + Codable: lanes[], cards[], mutations
-    KanbanStore.swift          -- JSON persistence to ~/Library/Application Support/Hootty/
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
     Views/
-      ContentView.swift        -- HStack: sidebar + detail (terminal or kanban)
-      WorkspaceSidebar.swift   -- Workspace list + Board row with status indicators
+      ContentView.swift        -- HStack: sidebar + detail (terminal view)
+      WorkspaceSidebar.swift   -- Workspace list with status indicators
       TabBar.swift             -- Tab strip within a workspace
       SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers
       TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
-      KanbanBoardView.swift    -- Horizontal ScrollView of lane columns
-      KanbanLaneView.swift     -- Single lane: header, card list, add card, drop target
-      KanbanCardView.swift     -- Card tile: draggable, context menu (edit/delete)
     Terminal/
       GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
       TerminalSurfaceView.swift -- NSView hosting ghostty_surface_t (Metal rendering, keyboard/mouse input)

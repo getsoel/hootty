@@ -106,14 +106,9 @@ struct ContentView: View {
             ),
             theme: theme,
             flavor: flavor,
-            isKanbanSelected: appModel.viewMode == .kanban,
-            onSelectKanban: {
-                appModel.viewMode = .kanban
-            },
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
                 appModel.selectedWorkspaceID = workspace.id
-                appModel.viewMode = .terminal
             },
             onRemoveWorkspace: { id in
                 appModel.removeWorkspace(id: id)
@@ -123,14 +118,12 @@ struct ContentView: View {
             },
             onSelectPaneGroup: { workspaceID, groupID in
                 appModel.selectedWorkspaceID = workspaceID
-                appModel.viewMode = .terminal
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
                     workspace.focusPaneGroup(id: groupID)
                 }
             },
             onSelectPane: { workspaceID, paneID in
                 appModel.selectedWorkspaceID = workspaceID
-                appModel.viewMode = .terminal
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
                     workspace.focusPane(id: paneID)
                 }
@@ -154,37 +147,31 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        switch appModel.viewMode {
-        case .kanban:
-            KanbanBoardView(store: appModel.kanbanStore, theme: theme)
-
-        case .terminal:
-            if let workspace = selectedWorkspace {
-                SplitNodeView(
-                    node: workspace.rootNode,
-                    focusedPaneGroupID: workspace.focusedPaneGroupID,
-                    theme: theme,
-                    isInSplit: false,
-                    onFocusPaneGroup: { groupID in
-                        workspace.focusPaneGroup(id: groupID)
-                    },
-                    onAddPane: { groupID in
-                        workspace.focusPaneGroup(id: groupID)
-                        workspace.addPaneToFocusedGroup()
-                        appModel.saveWorkspaces()
-                    },
-                    onRemovePane: { paneID in
-                        workspace.closePane(id: paneID)
-                        appModel.saveWorkspaces()
-                    },
-                    onSave: { appModel.saveWorkspaces() }
-                )
-                .id(workspace.id)
-            } else {
-                Text("Select or create a workspace")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+        if let workspace = selectedWorkspace {
+            SplitNodeView(
+                node: workspace.rootNode,
+                focusedPaneGroupID: workspace.focusedPaneGroupID,
+                theme: theme,
+                isInSplit: false,
+                onFocusPaneGroup: { groupID in
+                    workspace.focusPaneGroup(id: groupID)
+                },
+                onAddPane: { groupID in
+                    workspace.focusPaneGroup(id: groupID)
+                    workspace.addPaneToFocusedGroup()
+                    appModel.saveWorkspaces()
+                },
+                onRemovePane: { paneID in
+                    workspace.closePane(id: paneID)
+                    appModel.saveWorkspaces()
+                },
+                onSave: { appModel.saveWorkspaces() }
+            )
+            .id(workspace.id)
+        } else {
+            Text("Select or create a workspace")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

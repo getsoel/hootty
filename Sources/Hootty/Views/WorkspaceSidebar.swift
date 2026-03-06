@@ -6,8 +6,6 @@ struct WorkspaceSidebar: View {
     @Binding var selectedWorkspaceID: UUID?
     let theme: TerminalTheme
     let flavor: CatppuccinFlavor
-    let isKanbanSelected: Bool
-    var onSelectKanban: () -> Void
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onSelectPaneGroup: (UUID, UUID) -> Void
@@ -18,7 +16,6 @@ struct WorkspaceSidebar: View {
     var sidebarWidth: CGFloat
 
     @State private var expandedWorkspaceIDs: Set<UUID> = []
-    @State private var hoveredBoardRow = false
     @State private var hoveredWorkspaceID: UUID?
     @State private var hoveredGroupID: UUID?
     @State private var hoveredPaneID: UUID?
@@ -53,8 +50,6 @@ struct WorkspaceSidebar: View {
     private var workspaceList: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                boardRow
-
                 ForEach(workspaces) { workspace in
                     workspaceRow(workspace)
 
@@ -82,42 +77,6 @@ struct WorkspaceSidebar: View {
                 }
             }
             .padding(.top, 4)
-        }
-    }
-
-    private var boardRow: some View {
-        HStack(spacing: 6) {
-            CatppuccinIconView(
-                name: "todo",
-                size: 14,
-                flavor: flavor,
-                templateColor: Color(isKanbanSelected ? theme.foreground : theme.sidebarTextSecondary)
-            )
-
-            Text("Board")
-                .font(.system(size: 13))
-                .foregroundStyle(Color(isKanbanSelected ? theme.foreground : theme.sidebarTextSecondary))
-                .lineLimit(1)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            Rectangle()
-                .fill(
-                    isKanbanSelected
-                        ? Color(theme.sidebarSurface)
-                        : hoveredBoardRow
-                            ? Color(theme.sidebarSurface).opacity(0.4)
-                            : Color.clear
-                )
-        )
-        .onHover { hovering in
-            hoveredBoardRow = hovering
-        }
-        .onTapGesture {
-            onSelectKanban()
         }
     }
 
