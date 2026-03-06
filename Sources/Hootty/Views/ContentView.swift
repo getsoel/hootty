@@ -49,9 +49,9 @@ struct ContentView: View {
 
                     // Invisible wide drag handle overlaying the divider
                     Color.clear
-                        .frame(width: 9, height: geometry.size.height)
+                        .frame(width: 16, height: geometry.size.height)
                         .contentShape(Rectangle())
-                        .offset(x: sidebarW - 4)
+                        .offset(x: sidebarW - 7.5)
                         .onHover { hovering in
                             if hovering {
                                 NSCursor.resizeLeftRight.push()
@@ -94,7 +94,7 @@ struct ContentView: View {
         .background(
             WindowAccessor { window in
                 window.isOpaque = true
-                window.backgroundColor = theme.background
+                window.backgroundColor = tokens.background
                 window.appearance = NSAppearance(named: flavor.isLight ? .aqua : .darkAqua)
             }
         )

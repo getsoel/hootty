@@ -39,7 +39,7 @@ struct WorkspaceSidebar: View {
             addWorkspaceButton
         }
         .frame(width: sidebarWidth)
-        .background(Color(tokens.background))
+        .background(Color(tokens.surfaceLow))
         .onAppear {
             if let id = selectedWorkspaceID {
                 expandedWorkspaceIDs.insert(id)
@@ -163,7 +163,7 @@ struct WorkspaceSidebar: View {
             }
         }
         .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 4)
+        .padding(.vertical, Spacing.md)
         .background(
             Rectangle()
                 .fill(
@@ -228,7 +228,7 @@ struct WorkspaceSidebar: View {
                 }
             }
             .padding(.trailing, Spacing.md)
-            .padding(.vertical, 4)
+            .padding(.vertical, Spacing.md)
         }
         .padding(.leading, Spacing.md)
         .background(
@@ -305,7 +305,7 @@ struct WorkspaceSidebar: View {
                 }
             }
             .padding(.trailing, Spacing.md)
-            .padding(.vertical, 4)
+            .padding(.vertical, Spacing.md)
         }
         .padding(.leading, Spacing.md)
         .background(

@@ -8,8 +8,11 @@ import AppKit
 public struct DesignTokens {
     // MARK: - Surface Layers (darkest to lightest in dark themes)
 
-    /// Deepest background layer (window chrome, tab bar). Maps to Catppuccin Mantle.
+    /// Deepest background layer (window chrome, title bar area). Maps to Catppuccin Crust.
     public let background: NSColor
+
+    /// Low-depth surface (sidebar, tab bar). Maps to Catppuccin Mantle.
+    public let surfaceLow: NSColor
 
     /// Primary content surface (terminal area, panels). Maps to Catppuccin Base.
     public let surface: NSColor
@@ -69,7 +72,8 @@ public struct DesignTokens {
     /// Derive semantic tokens from a TerminalTheme.
     public static func from(_ theme: TerminalTheme) -> DesignTokens {
         DesignTokens(
-            background: theme.mantle,
+            background: theme.crust,
+            surfaceLow: theme.mantle,
             surface: theme.background,
             surfaceHighlight: theme.sidebarSurface,
             elementHover: theme.sidebarSurface.withAlphaComponent(0.4),

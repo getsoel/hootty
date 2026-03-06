@@ -35,6 +35,7 @@ import AppKit
             #expect(theme.foreground.alphaComponent == 1.0)
             #expect(theme.cursorColor.alphaComponent == 1.0)
             #expect(theme.selectionBackground.alphaComponent == 1.0)
+            #expect(theme.crust.alphaComponent == 1.0)
         }
     }
 }

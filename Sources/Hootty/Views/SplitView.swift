@@ -71,13 +71,13 @@ struct SplitNodeView: View {
                 // Invisible wide drag handle
                 Color.clear
                     .frame(
-                        width: isH ? 8 : geometry.size.width,
-                        height: isH ? geometry.size.height : 8
+                        width: isH ? 16 : geometry.size.width,
+                        height: isH ? geometry.size.height : 16
                     )
                     .contentShape(Rectangle())
                     .offset(
-                        x: isH ? dividerPos - 3.5 : 0,
-                        y: isH ? 0 : dividerPos - 3.5
+                        x: isH ? dividerPos - 7.5 : 0,
+                        y: isH ? 0 : dividerPos - 7.5
                     )
                     .gesture(
                         DragGesture(minimumDistance: 1)

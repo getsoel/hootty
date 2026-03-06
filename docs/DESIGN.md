@@ -9,7 +9,7 @@ Implemented in `Sources/HoottyCore/DesignTokens.swift`.
 
 1. **Speed-first aesthetic** -- The terminal surface dominates the viewport. All chrome (sidebar, tab bar, dividers) is visually recessive.
 2. **Semantic color tokens** -- Views reference named roles (`text`, `surface`, `border`) instead of raw theme properties (`theme.foreground`, `theme.sidebarSurface`). This decouples UI code from the palette.
-3. **Layered surfaces** -- Three depth levels create visual hierarchy: `background` < `surface` < `surfaceHighlight`.
+3. **Layered surfaces** -- Four depth levels create visual hierarchy: `background` < `surfaceLow` < `surface` < `surfaceHighlight`.
 4. **Dark-first, light-capable** -- All four Catppuccin flavors (Mocha, Macchiato, Frappe, Latte) are supported. Dark flavors are the default experience; Latte inverts the layer ordering naturally.
 5. **Minimal motion** -- Transitions are fast and purposeful. No decorative animation.
 
@@ -21,11 +21,12 @@ Modeled after [Zed's theme token system](https://zed.dev/docs/extensions/themes)
 
 ### Surface Layers
 
-Three depth levels, ordered darkest-to-lightest in dark themes (reversed in Latte):
+Four depth levels, ordered darkest-to-lightest in dark themes (reversed in Latte):
 
 | Token | Zed Equivalent | TerminalTheme Property | Catppuccin Role |
 |-------|---------------|----------------------|-----------------|
-| `background` | `background` | `mantle` | Mantle |
+| `background` | `background` | `crust` | Crust |
+| `surfaceLow` | `panel.background` | `mantle` | Mantle |
 | `surface` | `surface.background` | `background` | Base |
 | `surfaceHighlight` | `elevated_surface.background` | `sidebarSurface` | Surface0 |
 
@@ -108,7 +109,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 
 ### Sidebar
 
-- Background: `background` (Mantle)
+- Background: `surfaceLow` (Mantle)
 - Row default: transparent
 - Row hover: `elementHover`
 - Row selected: `elementSelected`
@@ -141,7 +142,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 ### Window Chrome
 
 - `.windowStyle(.hiddenTitleBar)` -- traffic lights only
-- Title bar area: `background` (Mantle), blending with tab bar
+- Title bar area: `background` (Crust), darker than sidebar/tab bar
 
 ---
 
@@ -174,7 +175,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 | Concept | Zed | Hootty |
 |---------|-----|--------|
 | Theme system | JSON theme files, 200+ tokens | 4 Catppuccin flavors, ~16 semantic tokens |
-| Surface layers | 4 (background, surface, elevated, wash) | 3 (background, surface, surfaceHighlight) |
+| Surface layers | 4 (background, surface, elevated, wash) | 4 (background, surfaceLow, surface, surfaceHighlight) |
 | Typography | 4+ sizes, configurable font | 3 sizes, system font (terminal font via ghostty) |
 | Spacing | 4px base grid | 4pt base grid (matching) |
 | Tab model | Per-pane tab bar | Per-region tab groups |

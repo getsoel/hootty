@@ -12,13 +12,17 @@ struct PaneGroupTabBar: View {
     var onSplitPane: ((SplitDirection) -> Void)?
     var onSave: (() -> Void)?
 
-    @State private var hoveredPaneID: UUID?
+    private enum HoveredElement: Equatable {
+        case navLeft, navRight, add, split, close(UUID), tab(UUID)
+    }
+
+    @State private var hovered: HoveredElement?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
     @State private var draggingPaneID: UUID?
+    @State private var tabsScrolledToEnd: Bool = true
+    @State private var tabsOverflow: Bool = false
 
-    private let maxTabWidth: CGFloat = 200
-    private let minTabWidth: CGFloat = 80
 
     var body: some View {
         HStack(spacing: 0) {
@@ -26,31 +30,32 @@ struct PaneGroupTabBar: View {
             navButtons
 
             // Scrollable tab strip
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 0) {
-                        ForEach(group.panes) { pane in
-                            paneTab(pane)
-                                .frame(width: tabWidth)
-                                .id(pane.id)
-                                .opacity(draggingPaneID == pane.id ? 0.4 : 1.0)
-                                .onDrag {
-                                    draggingPaneID = pane.id
-                                    return NSItemProvider(object: pane.id.uuidString as NSString)
-                                }
-                                .onDrop(of: [.text], delegate: PaneTabDropDelegate(
-                                    paneID: pane.id,
-                                    group: group,
-                                    draggingPaneID: $draggingPaneID,
-                                    onSave: onSave
-                                ))
+            HorizontalScrollWrapper(isAtEnd: $tabsScrolledToEnd, isOverflowing: $tabsOverflow) {
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            ForEach(group.panes) { pane in
+                                paneTab(pane)
+                                    .id(pane.id)
+                                    .opacity(draggingPaneID == pane.id ? 0.4 : 1.0)
+                                    .onDrag {
+                                        draggingPaneID = pane.id
+                                        return NSItemProvider(object: pane.id.uuidString as NSString)
+                                    }
+                                    .onDrop(of: [.text], delegate: PaneTabDropDelegate(
+                                        paneID: pane.id,
+                                        group: group,
+                                        draggingPaneID: $draggingPaneID,
+                                        onSave: onSave
+                                    ))
+                            }
                         }
                     }
-                }
-                .onChange(of: group.selectedPaneID) { _, newID in
-                    if let id = newID, draggingPaneID == nil {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            proxy.scrollTo(id, anchor: .center)
+                    .onChange(of: group.selectedPaneID) { _, newID in
+                        if let id = newID, draggingPaneID == nil {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                proxy.scrollTo(id, anchor: .center)
+                            }
                         }
                     }
                 }
@@ -59,7 +64,7 @@ struct PaneGroupTabBar: View {
             // Right action buttons
             actionButtons
         }
-        .frame(height: 35)
+        .frame(height: 38)
         .padding(.bottom, -1)
         .background(
             VStack(spacing: 0) {
@@ -77,66 +82,92 @@ struct PaneGroupTabBar: View {
         }
     }
 
-    private var tabWidth: CGFloat {
-        minTabWidth
+    private var selectedPaneIndex: Int? {
+        guard let id = group.selectedPaneID else { return nil }
+        return group.panes.firstIndex(where: { $0.id == id })
     }
 
-    private var hasMultiplePanes: Bool {
-        group.panes.count > 1
+    private var canGoBack: Bool { (selectedPaneIndex ?? 0) > 0 }
+    private var canGoForward: Bool {
+        guard let i = selectedPaneIndex else { return false }
+        return i < group.panes.count - 1
     }
 
     private var navButtons: some View {
         HStack(spacing: 0) {
-            Button {
+            iconButton(.navLeft, icon: Lucide.arrowLeft) {
                 group.selectPreviousPane()
                 onFocusPaneGroup()
-            } label: {
-                LucideIcon(Lucide.chevronLeft, size: 10)
-                    .foregroundStyle(Color(tokens.textMuted))
-                    .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
-            .opacity(hasMultiplePanes ? 1.0 : 0.3)
-            .disabled(!hasMultiplePanes)
+            .opacity(canGoBack ? 1.0 : 0.3)
+            .disabled(!canGoBack)
 
-            Button {
+            iconButton(.navRight, icon: Lucide.arrowRight) {
                 group.selectNextPane()
                 onFocusPaneGroup()
-            } label: {
-                LucideIcon(Lucide.chevronRight, size: 10)
-                    .foregroundStyle(Color(tokens.textMuted))
-                    .frame(width: 24, height: 24)
             }
-            .buttonStyle(.plain)
-            .opacity(hasMultiplePanes ? 1.0 : 0.3)
-            .disabled(!hasMultiplePanes)
+            .opacity(canGoForward ? 1.0 : 0.3)
+            .disabled(!canGoForward)
         }
-        .padding(.leading, Spacing.xs)
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(Color(tokens.border)).frame(width: 1)
+        }
     }
 
     private var actionButtons: some View {
         HStack(spacing: 0) {
-            Button(action: onAddPane) {
-                LucideIcon(Lucide.plus, size: 10)
-                    .foregroundStyle(Color(tokens.textMuted))
-                    .frame(width: 24, height: 24)
-            }
-            .buttonStyle(.plain)
+            iconButton(.add, icon: Lucide.plus, action: onAddPane)
 
             if onSplitPane != nil {
-                Menu {
+                iconMenu(.split, icon: Lucide.columns2) {
                     Button("Split Right") { onSplitPane?(.horizontal) }
                     Button("Split Down") { onSplitPane?(.vertical) }
-                } label: {
-                    LucideIcon(Lucide.columns2, size: 10)
-                        .foregroundStyle(Color(tokens.textMuted))
-                        .frame(width: 24, height: 24)
                 }
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
             }
         }
-        .padding(.trailing, Spacing.sm)
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .leading) {
+            if !tabsOverflow || !tabsScrolledToEnd {
+                Rectangle().fill(Color(tokens.border)).frame(width: 1)
+            }
+        }
+    }
+
+    private func iconButtonLabel(_ element: HoveredElement, icon: NSImage) -> some View {
+        LucideIcon(icon, size: 14)
+            .foregroundStyle(Color(tokens.textMuted))
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .aspectRatio(1, contentMode: .fit)
+            .background(hovered == element ? Color(tokens.elementHover) : Color.clear)
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    hovered = element
+                    DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                case .ended:
+                    if hovered == element { hovered = nil }
+                @unknown default: break
+                }
+            }
+    }
+
+    private func iconButton(_ element: HoveredElement, icon: NSImage, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            iconButtonLabel(element, icon: icon)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func iconMenu<Content: View>(_ element: HoveredElement, icon: NSImage, @ViewBuilder content: () -> Content) -> some View {
+        Menu {
+            content()
+        } label: {
+            iconButtonLabel(element, icon: icon)
+        }
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
     }
 
     private func commitRename() {
@@ -154,31 +185,41 @@ struct PaneGroupTabBar: View {
 
     private func paneTab(_ pane: Pane) -> some View {
         let isSelected = pane.id == group.selectedPaneID
-        let isHovered = pane.id == hoveredPaneID
+        let isHovered = hovered == .tab(pane.id)
 
         return HStack(spacing: 5) {
             paneStatusDot(pane)
                 .frame(width: 5, height: 5)
 
             Text(pane.displayName)
-                .font(.system(size: TypeScale.captionSize))
+                .font(.system(size: TypeScale.bodySize))
                 .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
             Spacer(minLength: 0)
 
-            if isHovered {
-                Button {
-                    onRemovePane(pane.id)
-                } label: {
-                    LucideIcon(Lucide.x, size: 7)
-                        .foregroundStyle(Color(tokens.textMuted))
+            Button {
+                onRemovePane(pane.id)
+            } label: {
+                LucideIcon(Lucide.x, size: 10)
+                    .foregroundStyle(Color(tokens.textMuted))
+                    .frame(width: 20, height: 20)
+                    .background(hovered == .close(pane.id) ? Color(tokens.elementHover) : Color.clear)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .opacity(isHovered ? 1 : 0)
+            .onContinuousHover { phase in
+                switch phase {
+                case .active: hovered = .close(pane.id)
+                case .ended: if hovered == .close(pane.id) { hovered = nil }
+                @unknown default: break
                 }
-                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, Spacing.lg)
+        .padding(.leading, Spacing.lg)
+        .padding(.trailing, Spacing.sm)
         .frame(maxHeight: .infinity)
         .background(isSelected ? Color(tokens.tabActive) : Color.clear)
         .overlay(alignment: .trailing) {
@@ -194,14 +235,11 @@ struct PaneGroupTabBar: View {
         .onContinuousHover { phase in
             switch phase {
             case .active:
-                if hoveredPaneID != pane.id { hoveredPaneID = pane.id }
-                DispatchQueue.main.async {
-                    NSCursor.pointingHand.set()
-                }
+                if hovered != .tab(pane.id) { hovered = .tab(pane.id) }
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
             case .ended:
-                hoveredPaneID = nil
-            @unknown default:
-                break
+                if hovered == .tab(pane.id) { hovered = nil }
+            @unknown default: break
             }
         }
         .onTapGesture {
@@ -241,4 +279,117 @@ private struct PaneTabDropDelegate: DropDelegate {
     }
 
     func dropExited(info: DropInfo) {}
+}
+
+private struct HorizontalScrollWrapper<Content: View>: NSViewRepresentable {
+    let content: Content
+    @Binding var isAtEnd: Bool
+    @Binding var isOverflowing: Bool
+
+    init(isAtEnd: Binding<Bool>, isOverflowing: Binding<Bool>, @ViewBuilder content: () -> Content) {
+        self.content = content()
+        self._isAtEnd = isAtEnd
+        self._isOverflowing = isOverflowing
+    }
+
+    func makeNSView(context: Context) -> ScrollInterceptView {
+        let hostingView = NSHostingView(rootView: content)
+        let wrapper = ScrollInterceptView()
+        wrapper.onScrollPositionChanged = { atEnd, overflows in
+            self.isAtEnd = atEnd
+            self.isOverflowing = overflows
+        }
+        hostingView.translatesAutoresizingMaskIntoConstraints = false
+        wrapper.addSubview(hostingView)
+        NSLayoutConstraint.activate([
+            hostingView.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor),
+            hostingView.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor),
+            hostingView.topAnchor.constraint(equalTo: wrapper.topAnchor),
+            hostingView.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor),
+        ])
+        return wrapper
+    }
+
+    func updateNSView(_ nsView: ScrollInterceptView, context: Context) {
+        if let hostingView = nsView.subviews.first as? NSHostingView<Content> {
+            hostingView.rootView = content
+        }
+    }
+}
+
+private final class ScrollInterceptView: NSView {
+    private var monitor: Any?
+    private var scrollObserver: NSObjectProtocol?
+    private weak var cachedScrollView: NSScrollView?
+    var onScrollPositionChanged: ((_ atEnd: Bool, _ overflows: Bool) -> Void)?
+
+    private var scrollView: NSScrollView? {
+        if let cached = cachedScrollView { return cached }
+        var queue = Array(subviews)
+        while !queue.isEmpty {
+            let view = queue.removeFirst()
+            if let sv = view as? NSScrollView { cachedScrollView = sv; return sv }
+            queue.append(contentsOf: view.subviews)
+        }
+        return nil
+    }
+
+    private func checkScrollPosition() {
+        guard let scrollView else {
+            onScrollPositionChanged?(true, false)
+            return
+        }
+        let clipView = scrollView.contentView
+        let contentWidth = scrollView.documentView?.frame.width ?? 0
+        let visibleWidth = clipView.bounds.width
+        let offsetX = clipView.bounds.origin.x
+        let overflows = contentWidth > visibleWidth
+        let atEnd = !overflows || offsetX + visibleWidth >= contentWidth - 1
+        onScrollPositionChanged?(atEnd, overflows)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil && monitor == nil {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+                guard let self, event.deltaX == 0, event.deltaY != 0 else { return event }
+                let location = self.convert(event.locationInWindow, from: nil)
+                guard self.bounds.contains(location), let scrollView = self.scrollView else { return event }
+                guard let cg = event.cgEvent else { return event }
+                cg.setDoubleValueField(.scrollWheelEventDeltaAxis2, value: cg.getDoubleValueField(.scrollWheelEventDeltaAxis1))
+                cg.setDoubleValueField(.scrollWheelEventDeltaAxis1, value: 0)
+                if let converted = NSEvent(cgEvent: cg) {
+                    scrollView.scrollWheel(with: converted)
+                }
+                return nil
+            }
+
+            DispatchQueue.main.async { [weak self] in
+                guard let self, let scrollView = self.scrollView else { return }
+                scrollView.contentView.postsBoundsChangedNotifications = true
+                self.scrollObserver = NotificationCenter.default.addObserver(
+                    forName: NSView.boundsDidChangeNotification,
+                    object: scrollView.contentView,
+                    queue: .main
+                ) { [weak self] _ in
+                    self?.checkScrollPosition()
+                }
+                self.checkScrollPosition()
+            }
+        } else if window == nil {
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+            if let scrollObserver { NotificationCenter.default.removeObserver(scrollObserver); self.scrollObserver = nil }
+            cachedScrollView = nil
+        }
+    }
+
+    override func layout() {
+        super.layout()
+        checkScrollPosition()
+    }
+
+    deinit {
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        if let scrollObserver { NotificationCenter.default.removeObserver(scrollObserver) }
+    }
 }
