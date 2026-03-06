@@ -9,6 +9,7 @@ struct PaneGroupTabBar: View {
     var onFocusPaneGroup: () -> Void
     var onAddPane: () -> Void
     var onRemovePane: (UUID) -> Void
+    var onSplitPane: ((SplitDirection) -> Void)?
     var onSave: (() -> Void)?
 
     @State private var hoveredPaneID: UUID?
@@ -21,39 +22,42 @@ struct PaneGroupTabBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            GeometryReader { geometry in
-                let tabCount = max(group.panes.count, 1)
-                let addButtonWidth: CGFloat = 28
-                let usableWidth = geometry.size.width - addButtonWidth
-                let tabWidth = min(maxTabWidth, max(minTabWidth, usableWidth / CGFloat(tabCount)))
+            // Left nav arrows
+            navButtons
 
-                HStack(spacing: 0) {
-                    ForEach(group.panes) { pane in
-                        paneTab(pane)
-                            .frame(width: tabWidth)
-                            .opacity(draggingPaneID == pane.id ? 0.4 : 1.0)
-                            .onDrag {
-                                draggingPaneID = pane.id
-                                return NSItemProvider(object: pane.id.uuidString as NSString)
-                            }
-                            .onDrop(of: [.text], delegate: PaneTabDropDelegate(
-                                paneID: pane.id,
-                                group: group,
-                                draggingPaneID: $draggingPaneID,
-                                onSave: onSave
-                            ))
+            // Scrollable tab strip
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 0) {
+                        ForEach(group.panes) { pane in
+                            paneTab(pane)
+                                .frame(width: tabWidth)
+                                .id(pane.id)
+                                .opacity(draggingPaneID == pane.id ? 0.4 : 1.0)
+                                .onDrag {
+                                    draggingPaneID = pane.id
+                                    return NSItemProvider(object: pane.id.uuidString as NSString)
+                                }
+                                .onDrop(of: [.text], delegate: PaneTabDropDelegate(
+                                    paneID: pane.id,
+                                    group: group,
+                                    draggingPaneID: $draggingPaneID,
+                                    onSave: onSave
+                                ))
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                .onChange(of: group.selectedPaneID) { _, newID in
+                    if let id = newID, draggingPaneID == nil {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            proxy.scrollTo(id, anchor: .center)
+                        }
+                    }
+                }
             }
 
-            Button(action: onAddPane) {
-                LucideIcon(Lucide.plus, size: 10)
-                    .foregroundStyle(Color(tokens.textMuted))
-                    .frame(width: 24, height: 24)
-            }
-            .buttonStyle(.plain)
-            .padding(.trailing, Spacing.sm)
+            // Right action buttons
+            actionButtons
         }
         .frame(height: 35)
         .padding(.bottom, -1)
@@ -71,6 +75,68 @@ struct PaneGroupTabBar: View {
             Button("OK") { commitRename() }
             Button("Cancel", role: .cancel) { renameTargetID = nil }
         }
+    }
+
+    private var tabWidth: CGFloat {
+        minTabWidth
+    }
+
+    private var hasMultiplePanes: Bool {
+        group.panes.count > 1
+    }
+
+    private var navButtons: some View {
+        HStack(spacing: 0) {
+            Button {
+                group.selectPreviousPane()
+                onFocusPaneGroup()
+            } label: {
+                LucideIcon(Lucide.chevronLeft, size: 10)
+                    .foregroundStyle(Color(tokens.textMuted))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .opacity(hasMultiplePanes ? 1.0 : 0.3)
+            .disabled(!hasMultiplePanes)
+
+            Button {
+                group.selectNextPane()
+                onFocusPaneGroup()
+            } label: {
+                LucideIcon(Lucide.chevronRight, size: 10)
+                    .foregroundStyle(Color(tokens.textMuted))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+            .opacity(hasMultiplePanes ? 1.0 : 0.3)
+            .disabled(!hasMultiplePanes)
+        }
+        .padding(.leading, Spacing.xs)
+    }
+
+    private var actionButtons: some View {
+        HStack(spacing: 0) {
+            Button(action: onAddPane) {
+                LucideIcon(Lucide.plus, size: 10)
+                    .foregroundStyle(Color(tokens.textMuted))
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.plain)
+
+            if onSplitPane != nil {
+                Menu {
+                    Button("Split Right") { onSplitPane?(.horizontal) }
+                    Button("Split Down") { onSplitPane?(.vertical) }
+                } label: {
+                    LucideIcon(Lucide.columns2, size: 10)
+                        .foregroundStyle(Color(tokens.textMuted))
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+            }
+        }
+        .padding(.trailing, Spacing.sm)
     }
 
     private func commitRename() {
@@ -128,7 +194,7 @@ struct PaneGroupTabBar: View {
         .onContinuousHover { phase in
             switch phase {
             case .active:
-                hoveredPaneID = pane.id
+                if hoveredPaneID != pane.id { hoveredPaneID = pane.id }
                 DispatchQueue.main.async {
                     NSCursor.pointingHand.set()
                 }

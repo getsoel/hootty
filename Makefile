@@ -1,37 +1,45 @@
 .PHONY: build test run debug setup release install uninstall
 
 APP_NAME := Hootty
-BUILD_DIR := .build/release
-APP_BUNDLE := $(BUILD_DIR)/$(APP_NAME).app
 INSTALL_DIR := /Applications
+DERIVED_DATA := .build/DerivedData
+DEBUG_PRODUCTS := $(DERIVED_DATA)/Build/Products/Debug
+RELEASE_PRODUCTS := $(DERIVED_DATA)/Build/Products/Release
+RELEASE_APP_BUNDLE := .build/release/$(APP_NAME).app
+
+XCODEBUILD := xcodebuild -scheme $(APP_NAME) -destination 'platform=macOS' -derivedDataPath $(DERIVED_DATA)
 
 build:
-	swift build
+	$(XCODEBUILD) -configuration Debug build
 
 test:
 	swift test
 
-run:
-	swift run Hootty
+run: build
+	"$(DEBUG_PRODUCTS)/$(APP_NAME)"
 
-debug:
+debug: build
 	log stream --predicate 'subsystem == "com.soel.hootty"' --level debug &
-	swift run Hootty; kill %1 2>/dev/null || true
+	"$(DEBUG_PRODUCTS)/$(APP_NAME)"; kill %1 2>/dev/null || true
 
 setup:
 	git config core.hooksPath .githooks
 
 release:
-	swift build -c release
-	rm -rf "$(APP_BUNDLE)"
-	mkdir -p "$(APP_BUNDLE)/Contents/MacOS"
-	mkdir -p "$(APP_BUNDLE)/Contents/Resources"
-	cp "$(BUILD_DIR)/$(APP_NAME)" "$(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
-	cp Sources/Hootty/Info.plist "$(APP_BUNDLE)/Contents/Info.plist"
-	@echo "Built $(APP_BUNDLE)"
+	$(XCODEBUILD) -configuration Release build
+	rm -rf "$(RELEASE_APP_BUNDLE)"
+	mkdir -p "$(RELEASE_APP_BUNDLE)/Contents/MacOS"
+	mkdir -p "$(RELEASE_APP_BUNDLE)/Contents/Resources"
+	cp "$(RELEASE_PRODUCTS)/$(APP_NAME)" "$(RELEASE_APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
+	cp Sources/Hootty/Info.plist "$(RELEASE_APP_BUNDLE)/Contents/Info.plist"
+	cp -R Assets/AppIcon.icon "$(RELEASE_APP_BUNDLE)/Contents/Resources/AppIcon.icon"
+	@echo "Built $(RELEASE_APP_BUNDLE)"
 
 install: release
-	cp -R "$(APP_BUNDLE)" "$(INSTALL_DIR)/$(APP_NAME).app"
+	-killall -w $(APP_NAME) 2>/dev/null || true
+	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
+	cp -R "$(RELEASE_APP_BUNDLE)" "$(INSTALL_DIR)/$(APP_NAME).app"
+	/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$(INSTALL_DIR)/$(APP_NAME).app"
 	@echo "Installed to $(INSTALL_DIR)/$(APP_NAME).app"
 
 uninstall:

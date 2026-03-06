@@ -40,3 +40,7 @@ Never use `.resizable().frame(width:height:)` on Catppuccin SVG icons — they h
 `.foregroundStyle()` is a no-op on `Image(nsImage:)` when the NSImage is a non-template image (e.g., SVGs with baked-in stroke colors). Don't pass tint colors to Catppuccin icon views — the SVGs already carry their Catppuccin palette colors.
 
 For continuous tree/indent lines drawn with `Canvas` across consecutive rows in a `LazyVStack(spacing: 0)`, place `.padding(.vertical:)` on the inner content view, not the outer row container. Outer padding creates gaps between rows where the Canvas doesn't draw, breaking line continuity.
+
+SPM `swift build` does not compile `.xcassets` in library dependencies — it copies the raw directory but never invokes `actool`, so `Bundle.module.image(forResource:)` returns nil at runtime. Use `xcodebuild` (via `make build`/`make run`) to build the app; it compiles asset catalogs automatically.
+
+`actool --compile` into flat SPM bundle directories (no `Contents/Resources/` structure) does not fix xcassets loading — `NSBundle.image(forResource:)` only searches `Assets.car` in properly structured bundles. Don't attempt post-build actool workarounds with `swift build`; use `xcodebuild` instead.

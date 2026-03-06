@@ -78,6 +78,23 @@ public final class PaneGroup: Identifiable {
         pane.needsAttention = false
     }
 
+    public func selectPreviousPane() {
+        guard panes.count > 1, let index = selectedPaneIndex else { return }
+        let newIndex = index > 0 ? index - 1 : panes.count - 1
+        selectPane(id: panes[newIndex].id)
+    }
+
+    public func selectNextPane() {
+        guard panes.count > 1, let index = selectedPaneIndex else { return }
+        let newIndex = index < panes.count - 1 ? index + 1 : 0
+        selectPane(id: panes[newIndex].id)
+    }
+
+    private var selectedPaneIndex: Int? {
+        guard let id = selectedPaneID else { return nil }
+        return panes.firstIndex(where: { $0.id == id })
+    }
+
     public func movePane(fromID: UUID, toID: UUID) {
         guard fromID != toID,
               let fromIndex = panes.firstIndex(where: { $0.id == fromID }),

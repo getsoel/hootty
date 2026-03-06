@@ -10,6 +10,7 @@ struct SplitNodeView: View {
     let onFocusPaneGroup: (UUID) -> Void
     let onAddPane: (UUID) -> Void
     let onRemovePane: (UUID) -> Void
+    var onSplitPane: ((SplitDirection) -> Void)?
     let onSave: () -> Void
 
     var body: some View {
@@ -22,6 +23,7 @@ struct SplitNodeView: View {
                 onFocusPaneGroup: onFocusPaneGroup,
                 onAddPane: { onAddPane(group.id) },
                 onRemovePane: onRemovePane,
+                onSplitPane: onSplitPane,
                 onSave: onSave
             )
 
@@ -48,7 +50,7 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSave: onSave)
+                SplitNodeView(node: first, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSplitPane: onSplitPane, onSave: onSave)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
@@ -101,7 +103,7 @@ struct SplitNodeView: View {
                     }
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSave: onSave)
+                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSplitPane: onSplitPane, onSave: onSave)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize

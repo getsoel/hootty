@@ -8,6 +8,7 @@ struct PaneGroupView: View {
     let onFocusPaneGroup: (UUID) -> Void
     let onAddPane: () -> Void
     let onRemovePane: (UUID) -> Void
+    var onSplitPane: ((SplitDirection) -> Void)?
     let onSave: () -> Void
 
     var body: some View {
@@ -19,6 +20,7 @@ struct PaneGroupView: View {
                 onFocusPaneGroup: { onFocusPaneGroup(group.id) },
                 onAddPane: onAddPane,
                 onRemovePane: onRemovePane,
+                onSplitPane: onSplitPane,
                 onSave: onSave
             )
 

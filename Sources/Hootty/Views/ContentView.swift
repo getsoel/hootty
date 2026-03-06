@@ -169,6 +169,10 @@ struct ContentView: View {
                     workspace.closePane(id: paneID)
                     appModel.saveWorkspaces()
                 },
+                onSplitPane: { direction in
+                    workspace.splitFocusedGroup(direction: direction)
+                    appModel.saveWorkspaces()
+                },
                 onSave: { appModel.saveWorkspaces() }
             )
             .id(workspace.id)

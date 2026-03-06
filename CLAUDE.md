@@ -6,10 +6,11 @@ macOS terminal emulator — SwiftUI app (macOS 14+) powered by libghostty for te
 After cloning, run `make setup` to configure git hooks (pre-commit runs build + tests).
 
 ## Commands
-- `swift build`: compile
+- `make build`: compile (uses xcodebuild for proper xcassets compilation)
+- `make run`: build + launch app
+- `make debug`: build + launch with log streaming
 - `swift test`: run unit tests (HoottyCoreTests)
 - `swift test --filter TestName`: run a single test
-- `swift run Hootty`: launch app (window appears with zsh session)
 
 ## Architecture
 ```
@@ -63,6 +64,6 @@ Debugging/logging: see `docs/DEBUGGING.md` (read when investigating crashes or r
 - **Group** / **PaneGroup**: Container of panes shown as a region with its own tab bar. Use in sidebar: "Close Group"
 
 ## Before Finishing
-- `swift build` succeeds
+- `make build` succeeds
 - `swift test` passes (ignore signal 10 exit — see CLAUDE.local.md)
 - Only task-relevant files changed

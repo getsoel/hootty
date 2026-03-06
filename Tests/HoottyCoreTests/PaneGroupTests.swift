@@ -119,6 +119,50 @@ import Foundation
         #expect(decoded.displayName == "Custom")
     }
 
+    @Test func selectPreviousPaneWraps() {
+        let group = PaneGroup(name: "Test")
+        let pane1 = group.panes[0]
+        let pane2 = group.addPane()
+        let pane3 = group.addPane()
+        #expect(group.selectedPaneID == pane3.id)
+        group.selectPreviousPane()
+        #expect(group.selectedPaneID == pane2.id)
+        group.selectPreviousPane()
+        #expect(group.selectedPaneID == pane1.id)
+        // Wraps to last
+        group.selectPreviousPane()
+        #expect(group.selectedPaneID == pane3.id)
+    }
+
+    @Test func selectNextPaneWraps() {
+        let group = PaneGroup(name: "Test")
+        let pane1 = group.panes[0]
+        let pane2 = group.addPane()
+        let pane3 = group.addPane()
+        group.selectPane(id: pane1.id)
+        group.selectNextPane()
+        #expect(group.selectedPaneID == pane2.id)
+        group.selectNextPane()
+        #expect(group.selectedPaneID == pane3.id)
+        // Wraps to first
+        group.selectNextPane()
+        #expect(group.selectedPaneID == pane1.id)
+    }
+
+    @Test func selectPreviousPaneNoOpWithSinglePane() {
+        let group = PaneGroup(name: "Test")
+        let only = group.panes[0]
+        group.selectPreviousPane()
+        #expect(group.selectedPaneID == only.id)
+    }
+
+    @Test func selectNextPaneNoOpWithSinglePane() {
+        let group = PaneGroup(name: "Test")
+        let only = group.panes[0]
+        group.selectNextPane()
+        #expect(group.selectedPaneID == only.id)
+    }
+
     @Test func addPaneInheritsWorkingDirectory() {
         let group = PaneGroup(name: "Test", workingDirectory: "/tmp")
         let second = group.addPane()
