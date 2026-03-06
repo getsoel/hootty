@@ -136,7 +136,7 @@ struct PaneGroupTabBar: View {
     }
 
     private func iconButtonLabel(_ element: HoveredElement, icon: NSImage) -> some View {
-        LucideIcon(icon, size: 14)
+        LucideIcon(icon, size: 12)
             .foregroundStyle(Color(tokens.textMuted))
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .aspectRatio(1, contentMode: .fit)
@@ -204,7 +204,7 @@ struct PaneGroupTabBar: View {
             Button {
                 onRemovePane(pane.id)
             } label: {
-                LucideIcon(Lucide.x, size: 10)
+                LucideIcon(Lucide.x, size: 12)
                     .foregroundStyle(Color(tokens.textMuted))
                     .padding(Spacing.sm)
                     .background(
@@ -235,6 +235,12 @@ struct PaneGroupTabBar: View {
                 Rectangle()
                     .fill(Color(tokens.borderFocused))
                     .frame(height: 1)
+            }
+        }
+        .overlay {
+            if pane.needsAttention {
+                Color.clear
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
             }
         }
         .onContinuousHover { phase in

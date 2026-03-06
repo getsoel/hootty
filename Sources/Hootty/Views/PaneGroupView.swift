@@ -27,6 +27,12 @@ struct PaneGroupView: View {
             ZStack {
                 ForEach(group.panes) { pane in
                     TerminalPaneView(pane: pane, isFocused: isFocused && pane.id == group.selectedPaneID)
+                        .overlay {
+                            if pane.needsAttention {
+                                Color.clear
+                                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 2)
+                            }
+                        }
                         .opacity(pane.id == group.selectedPaneID ? 1 : 0)
                         .allowsHitTesting(pane.id == group.selectedPaneID)
                 }

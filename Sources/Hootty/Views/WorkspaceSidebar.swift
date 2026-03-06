@@ -78,18 +78,26 @@ struct WorkspaceSidebar: View {
                         let groups = workspace.allPaneGroups
                         ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
                             let isLastGroup = groupIndex == groups.count - 1
-                            groupRow(
-                                group,
-                                workspace: workspace
-                            )
-
-                            ForEach(group.panes) { pane in
-                                paneRow(
-                                    pane,
+                            if group.panes.count == 1, let pane = group.panes.first {
+                                singlePaneGroupRow(
+                                    pane: pane,
                                     group: group,
-                                    workspace: workspace,
-                                    isLastGroup: isLastGroup
+                                    workspace: workspace
                                 )
+                            } else {
+                                groupRow(
+                                    group,
+                                    workspace: workspace
+                                )
+
+                                ForEach(group.panes) { pane in
+                                    paneRow(
+                                        pane,
+                                        group: group,
+                                        workspace: workspace,
+                                        isLastGroup: isLastGroup
+                                    )
+                                }
                             }
                         }
                     }
@@ -173,6 +181,12 @@ struct WorkspaceSidebar: View {
                             : Color.clear
                 )
         )
+        .overlay {
+            if !isExpanded && workspace.hasAttentionGroup {
+                Color.clear
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+            }
+        }
         .onContinuousHover { phase in
             switch phase {
             case .active:
@@ -268,6 +282,83 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    // MARK: - Single-pane group row (depth 1, inlined)
+
+    private func singlePaneGroupRow(pane: Pane, group: PaneGroup, workspace: Workspace) -> some View {
+        let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
+        let isFocusedPane = isFocusedGroup && group.selectedPaneID == pane.id
+        let isHovered = group.id == hoveredGroupID
+        return HStack(spacing: 0) {
+            TreeConnectorView(
+                depth: 1,
+                continuingLevels: [],
+                tokens: tokens
+            )
+
+            HStack(spacing: 6) {
+                iconView(name: "bash", size: TypeScale.iconSize, needsAttention: pane.needsAttention)
+
+                Text(pane.displayName)
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(isFocusedGroup ? tokens.text : tokens.textMuted))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    onRemovePaneGroup(workspace.id, group.id)
+                } label: {
+                    LucideIcon(Lucide.x, size: 8)
+                        .foregroundStyle(Color(tokens.textMuted))
+                }
+                .buttonStyle(.plain)
+                .opacity(isHovered && workspace.allPaneGroups.count > 1 ? 1 : 0)
+            }
+            .padding(.trailing, Spacing.md)
+            .padding(.vertical, Spacing.md)
+        }
+        .padding(.leading, Spacing.md)
+        .background(
+            Rectangle()
+                .fill(
+                    isFocusedGroup
+                        ? Color(tokens.elementSelected)
+                        : isHovered
+                            ? Color(tokens.elementHover)
+                            : Color.clear
+                )
+        )
+        .overlay {
+            if pane.needsAttention {
+                Color.clear
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+            } else if isFocusedPane {
+                Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
+            }
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                hoveredGroupID = group.id
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+            case .ended:
+                hoveredGroupID = nil
+            }
+        }
+        .onTapGesture {
+            onSelectPaneGroup(workspace.id, group.id)
+        }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(pane.displayName)
+        .contextMenu {
+            if workspace.allPaneGroups.count > 1 {
+                Button("Close Pane") {
+                    onRemovePaneGroup(workspace.id, group.id)
+                }
+            }
+        }
+    }
+
     // MARK: - Pane row (depth 2)
 
     private func paneRow(_ pane: Pane, group: PaneGroup, workspace: Workspace, isLastGroup: Bool) -> some View {
@@ -319,7 +410,14 @@ struct WorkspaceSidebar: View {
                             : Color.clear
                 )
         )
-        .border(Color(isFocusedPane ? tokens.textAccent : .clear), width: 1)
+        .overlay {
+            if pane.needsAttention {
+                Color.clear
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+            } else if isFocusedPane {
+                Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
+            }
+        }
         .onContinuousHover { phase in
             switch phase {
             case .active:
@@ -345,14 +443,8 @@ struct WorkspaceSidebar: View {
 
     // MARK: - Helpers
 
-    @ViewBuilder
     private func iconView(name: String, size: CGFloat, needsAttention: Bool) -> some View {
-        if needsAttention {
-            CatppuccinIconView(name: name, size: size, flavor: flavor)
-                .modifier(PulseModifier())
-        } else {
-            CatppuccinIconView(name: name, size: size, flavor: flavor)
-        }
+        CatppuccinIconView(name: name, size: size, flavor: flavor)
     }
 
     private func toggleExpanded(_ id: UUID) {

@@ -9,15 +9,14 @@ struct StatusDotView: View {
 
     var body: some View {
         if needsAttention {
-            LucideIcon(Lucide.bell, size: 10)
+            LucideIcon(Lucide.bell, size: 12)
                 .foregroundStyle(Color(tokens.statusWarning))
-                .modifier(PulseModifier())
         } else if isRunning {
-            LucideIcon(Lucide.play, size: 10)
+            LucideIcon(Lucide.play, size: 12)
                 .foregroundStyle(Color(tokens.statusSuccess))
         } else {
             Color.clear
-                .frame(width: 10, height: 10)
+                .frame(width: 12, height: 12)
         }
     }
 }
