@@ -4,24 +4,37 @@ import Foundation
 public final class Workspace: Identifiable {
     public let id: UUID
     public var name: String
-    public var tabs: [Tab] = []
-    public var selectedTabID: UUID?
-    private var tabCounter = 0
+    public var rootNode: SplitNode
+    public var focusedPaneGroupID: UUID?
+    private var groupCounter = 0
 
-    public var selectedTab: Tab? {
-        tabs.first { $0.id == selectedTabID }
+    public var allPaneGroups: [PaneGroup] {
+        rootNode.allPaneGroups()
+    }
+
+    public var allPanes: [Pane] {
+        rootNode.allPanes()
+    }
+
+    public var focusedPaneGroup: PaneGroup? {
+        let groups = allPaneGroups
+        guard let focusedPaneGroupID else { return groups.first }
+        return groups.first { $0.id == focusedPaneGroupID } ?? groups.first
     }
 
     public var isRunning: Bool {
-        for tab in tabs {
-            if tab.isRunning { return true }
-        }
-        return false
+        allPanes.contains { $0.isRunning }
     }
 
-    public var hasAttentionTab: Bool {
-        for tab in tabs where tab.id != selectedTabID {
-            if tab.needsAttention { return true }
+    public var hasAttentionGroup: Bool {
+        let groups = allPaneGroups
+        for group in groups where group.id != focusedPaneGroupID {
+            if group.needsAttention { return true }
+        }
+        if let focused = groups.first(where: { $0.id == focusedPaneGroupID }) {
+            for pane in focused.panes where pane.id != focused.selectedPaneID {
+                if pane.needsAttention { return true }
+            }
         }
         return false
     }
@@ -29,72 +42,94 @@ public final class Workspace: Identifiable {
     public init(name: String) {
         self.id = UUID()
         self.name = name
-        addTab()
+        self.groupCounter = 1
+        let group = PaneGroup(name: "Group 1")
+        self.rootNode = SplitNode(paneGroup: group)
+        self.focusedPaneGroupID = group.id
     }
 
     /// Restoration initializer for decoding persisted state.
-    public init(id: UUID, name: String, tabs: [Tab], selectedTabID: UUID?) {
+    public init(id: UUID, name: String, rootNode: SplitNode, focusedPaneGroupID: UUID?) {
         self.id = id
         self.name = name
-        self.tabs = tabs
-        self.selectedTabID = selectedTabID
-        self.tabCounter = tabs.count
+        self.rootNode = rootNode
+        self.focusedPaneGroupID = focusedPaneGroupID
+        self.groupCounter = rootNode.allPaneGroups().count
     }
 
     @discardableResult
-    public func addTab() -> Tab {
-        tabCounter += 1
-        let tab = Tab(name: "Tab \(tabCounter)")
-        tabs.append(tab)
-        selectedTabID = tab.id
-        return tab
+    public func addPaneToFocusedGroup(shell: String = "/bin/zsh", workingDirectory: String? = nil) -> Pane? {
+        guard let group = focusedPaneGroup else { return nil }
+        return group.addPane(shell: shell, workingDirectory: workingDirectory)
     }
 
-    public func removeTab(id: UUID) {
-        guard let index = tabs.firstIndex(where: { $0.id == id }) else { return }
-        let wasSelected = selectedTabID == id
-        tabs.remove(at: index)
-
-        if tabs.isEmpty {
-            selectedTabID = nil
-        } else if wasSelected {
-            // Select nearest neighbor
-            let newIndex = min(index, tabs.count - 1)
-            selectedTabID = tabs[newIndex].id
-        }
-    }
-
-    public func selectTab(id: UUID) {
-        guard let tab = tabs.first(where: { $0.id == id }) else { return }
-        selectedTabID = id
-        for pane in tab.allPanes {
-            pane.needsAttention = false
-        }
-    }
-
-    public func findPane(id: UUID) -> (Tab, Pane)? {
-        for tab in tabs {
-            if let pane = tab.allPanes.first(where: { $0.id == id }) {
-                return (tab, pane)
-            }
+    @discardableResult
+    public func splitFocusedGroup(direction: SplitDirection) -> PaneGroup? {
+        guard let group = focusedPaneGroup else { return nil }
+        groupCounter += 1
+        let selectedPane = group.selectedPane
+        let newGroup = PaneGroup(
+            name: "Group \(groupCounter)",
+            shell: selectedPane?.shell ?? "/bin/zsh",
+            workingDirectory: selectedPane?.workingDirectory
+        )
+        if rootNode.splitGroup(groupID: group.id, direction: direction, newGroup: newGroup) {
+            focusedPaneGroupID = newGroup.id
+            return newGroup
         }
         return nil
     }
 
-    public func moveTab(fromID: UUID, toID: UUID) {
-        guard fromID != toID,
-              let fromIndex = tabs.firstIndex(where: { $0.id == fromID }),
-              let toIndex = tabs.firstIndex(where: { $0.id == toID })
-        else { return }
-        let tab = tabs.remove(at: fromIndex)
-        let newToIndex = tabs.firstIndex(where: { $0.id == toID }) ?? tabs.endIndex
-        tabs.insert(tab, at: toIndex > fromIndex ? newToIndex + 1 : newToIndex)
+    public func removePaneGroup(id: UUID) {
+        let groups = allPaneGroups
+        guard groups.count > 1 else {
+            // Last group — replace with fresh one
+            groupCounter += 1
+            let newGroup = PaneGroup(name: "Group \(groupCounter)")
+            rootNode.content = .leaf(newGroup)
+            focusedPaneGroupID = newGroup.id
+            return
+        }
+        if rootNode.removePaneGroup(id: id) {
+            if focusedPaneGroupID == id {
+                focusedPaneGroupID = allPaneGroups.first?.id
+            }
+        }
+    }
+
+    public func closePane(id paneID: UUID) {
+        guard let (group, _) = findPane(id: paneID) else { return }
+        if group.panes.count > 1 {
+            group.removePane(id: paneID)
+        } else {
+            removePaneGroup(id: group.id)
+        }
+    }
+
+    public func focusPaneGroup(id: UUID) {
+        guard rootNode.allPaneGroups().contains(where: { $0.id == id }) else { return }
+        focusedPaneGroupID = id
+    }
+
+    public func focusPane(id: UUID) {
+        guard let group = rootNode.findPaneGroup(containingPaneID: id) else { return }
+        focusedPaneGroupID = group.id
+        group.selectPane(id: id)
+    }
+
+    public func findPane(id: UUID) -> (PaneGroup, Pane)? {
+        for group in allPaneGroups {
+            if let pane = group.panes.first(where: { $0.id == id }) {
+                return (group, pane)
+            }
+        }
+        return nil
     }
 }
 
 extension Workspace: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, tabs, selectedTabID
+        case id, name, rootNode, focusedPaneGroupID
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -102,8 +137,8 @@ extension Workspace: Codable {
         self.init(
             id: try container.decode(UUID.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
-            tabs: try container.decode([Tab].self, forKey: .tabs),
-            selectedTabID: try container.decodeIfPresent(UUID.self, forKey: .selectedTabID)
+            rootNode: try container.decode(SplitNode.self, forKey: .rootNode),
+            focusedPaneGroupID: try container.decodeIfPresent(UUID.self, forKey: .focusedPaneGroupID)
         )
     }
 
@@ -111,7 +146,7 @@ extension Workspace: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encode(tabs, forKey: .tabs)
-        try container.encode(selectedTabID, forKey: .selectedTabID)
+        try container.encode(rootNode, forKey: .rootNode)
+        try container.encode(focusedPaneGroupID, forKey: .focusedPaneGroupID)
     }
 }

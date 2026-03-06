@@ -1,16 +1,17 @@
 import SwiftUI
 import HoottyCore
 
-struct TabBar: View {
-    let workspace: Workspace
+struct PaneGroupTabBar: View {
+    let group: PaneGroup
     let theme: TerminalTheme
-    var onAddTab: () -> Void
+    var onAddPane: () -> Void
+    var onRemovePane: (UUID) -> Void
     var onSave: (() -> Void)?
 
-    @State private var hoveredTabID: UUID?
+    @State private var hoveredPaneID: UUID?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
-    @State private var draggingTabID: UUID?
+    @State private var draggingPaneID: UUID?
 
     private let maxTabWidth: CGFloat = 200
     private let minTabWidth: CGFloat = 80
@@ -18,24 +19,24 @@ struct TabBar: View {
     var body: some View {
         HStack(spacing: 0) {
             GeometryReader { geometry in
-                let tabCount = max(workspace.tabs.count, 1)
-                let addButtonWidth: CGFloat = 32
+                let tabCount = max(group.panes.count, 1)
+                let addButtonWidth: CGFloat = 28
                 let usableWidth = geometry.size.width - addButtonWidth
                 let tabWidth = min(maxTabWidth, max(minTabWidth, usableWidth / CGFloat(tabCount)))
 
                 HStack(spacing: 1) {
-                    ForEach(workspace.tabs) { tab in
-                        tabItem(tab)
+                    ForEach(group.panes) { pane in
+                        paneTab(pane)
                             .frame(width: tabWidth)
-                            .opacity(draggingTabID == tab.id ? 0.4 : 1.0)
+                            .opacity(draggingPaneID == pane.id ? 0.4 : 1.0)
                             .onDrag {
-                                draggingTabID = tab.id
-                                return NSItemProvider(object: tab.id.uuidString as NSString)
+                                draggingPaneID = pane.id
+                                return NSItemProvider(object: pane.id.uuidString as NSString)
                             }
-                            .onDrop(of: [.text], delegate: TabDropDelegate(
-                                tabID: tab.id,
-                                workspace: workspace,
-                                draggingTabID: $draggingTabID,
+                            .onDrop(of: [.text], delegate: PaneTabDropDelegate(
+                                paneID: pane.id,
+                                group: group,
+                                draggingPaneID: $draggingPaneID,
                                 onSave: onSave
                             ))
                     }
@@ -43,17 +44,16 @@ struct TabBar: View {
                 .padding(.horizontal, 4)
             }
 
-            // Add tab button
-            Button(action: onAddTab) {
+            Button(action: onAddPane) {
                 Image(systemName: "plus")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 10, weight: .medium))
                     .foregroundStyle(Color(theme.sidebarTextSecondary))
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
             .padding(.trailing, 4)
         }
-        .frame(height: 32)
+        .frame(height: 28)
         .background(Color(theme.background).opacity(0.8))
         .alert("Rename Tab", isPresented: Binding(
             get: { renameTargetID != nil },
@@ -67,49 +67,48 @@ struct TabBar: View {
 
     private func commitRename() {
         let trimmed = editingName.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty, let target = workspace.tabs.first(where: { $0.id == renameTargetID }) {
-            target.name = trimmed
+        if !trimmed.isEmpty, let target = group.panes.first(where: { $0.id == renameTargetID }) {
+            target.customName = trimmed
             onSave?()
         }
         renameTargetID = nil
     }
 
-    private func tabStatusDot(_ tab: HoottyCore.Tab) -> some View {
-        StatusDotView(needsAttention: tab.needsAttention, isRunning: tab.isRunning, theme: theme)
+    private func paneStatusDot(_ pane: Pane) -> some View {
+        StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, theme: theme)
     }
 
-    private func tabItem(_ tab: HoottyCore.Tab) -> some View {
-        let isSelected = tab.id == workspace.selectedTabID
-        let isHovered = tab.id == hoveredTabID
+    private func paneTab(_ pane: Pane) -> some View {
+        let isSelected = pane.id == group.selectedPaneID
+        let isHovered = pane.id == hoveredPaneID
 
         return HStack(spacing: 5) {
-            tabStatusDot(tab)
-                .frame(width: 6, height: 6)
+            paneStatusDot(pane)
+                .frame(width: 5, height: 5)
 
-            Text(tab.name)
-                .font(.system(size: 12))
+            Text(pane.displayName)
+                .font(.system(size: 11))
                 .foregroundStyle(Color(isSelected ? theme.foreground : theme.sidebarTextSecondary))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
             Spacer(minLength: 0)
 
-            if isHovered && workspace.tabs.count > 1 {
+            if isHovered {
                 Button {
-                    workspace.removeTab(id: tab.id)
-                    onSave?()
+                    onRemovePane(pane.id)
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .semibold))
+                        .font(.system(size: 7, weight: .semibold))
                         .foregroundStyle(Color(theme.sidebarTextSecondary))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 8)
         .frame(maxHeight: .infinity)
         .background(
-            RoundedRectangle(cornerRadius: 5)
+            RoundedRectangle(cornerRadius: 4)
                 .fill(
                     isSelected
                         ? Color(theme.sidebarSurface)
@@ -119,32 +118,30 @@ struct TabBar: View {
                 )
         )
         .onHover { hovering in
-            hoveredTabID = hovering ? tab.id : nil
+            hoveredPaneID = hovering ? pane.id : nil
         }
         .onTapGesture {
-            // Using onTapGesture intentionally: the row needs hover tracking
-            // and context menu, which don't compose well with Button styling.
-            workspace.selectTab(id: tab.id)
+            group.selectPane(id: pane.id)
         }
         .contextMenu {
             Button("Rename Tab") {
-                editingName = tab.name
-                renameTargetID = tab.id
+                editingName = pane.displayName
+                renameTargetID = pane.id
             }
         }
     }
 }
 
-private struct TabDropDelegate: DropDelegate {
-    let tabID: UUID
-    let workspace: Workspace
-    @Binding var draggingTabID: UUID?
+private struct PaneTabDropDelegate: DropDelegate {
+    let paneID: UUID
+    let group: PaneGroup
+    @Binding var draggingPaneID: UUID?
     var onSave: (() -> Void)?
 
     func dropEntered(info: DropInfo) {
-        guard let dragging = draggingTabID, dragging != tabID else { return }
+        guard let dragging = draggingPaneID, dragging != paneID else { return }
         withAnimation(.easeInOut(duration: 0.2)) {
-            workspace.moveTab(fromID: dragging, toID: tabID)
+            group.movePane(fromID: dragging, toID: paneID)
         }
     }
 
@@ -153,13 +150,10 @@ private struct TabDropDelegate: DropDelegate {
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        draggingTabID = nil
+        draggingPaneID = nil
         onSave?()
         return true
     }
 
-    func dropExited(info: DropInfo) {
-        // No action needed
-    }
+    func dropExited(info: DropInfo) {}
 }
-

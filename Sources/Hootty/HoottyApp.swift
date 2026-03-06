@@ -18,16 +18,13 @@ struct HoottyApp: App {
 
     @State private var appModel = AppModel()
 
-    private func splitFocusedPane(direction: SplitDirection) {
-        guard let workspace = appModel.selectedWorkspace,
-              let tab = workspace.selectedTab,
-              let paneID = tab.focusedPaneID else { return }
+    private func splitFocusedGroup(direction: SplitDirection) {
+        guard let workspace = appModel.selectedWorkspace else { return }
 
-        // Get parent surface for inherited config
         let parentSurface = GhosttyApp.shared.focusedSurface
 
-        if let newPane = tab.splitPane(paneID: paneID, direction: direction) {
-            if let parentSurface {
+        if let newGroup = workspace.splitFocusedGroup(direction: direction) {
+            if let parentSurface, let newPane = newGroup.panes.first {
                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
             }
             appModel.saveWorkspaces()
@@ -39,8 +36,6 @@ struct HoottyApp: App {
             ContentView(appModel: appModel)
                 .frame(minWidth: 700, minHeight: 400)
                 .onAppear {
-                    // willTerminateNotification fires once at app exit; guard
-                    // against duplicate observers if SwiftUI re-creates the view.
                     if GhosttyApp.shared.onNewTab == nil {
                         NotificationCenter.default.addObserver(
                             forName: NSApplication.willTerminateNotification,
@@ -52,34 +47,32 @@ struct HoottyApp: App {
                     }
 
                     GhosttyApp.shared.onNewTab = { [appModel] in
-                        appModel.selectedWorkspace?.addTab()
+                        appModel.selectedWorkspace?.addPaneToFocusedGroup()
                         appModel.saveWorkspaces()
                     }
                     GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID in
                         appModel.handlePaneNeedsAttention(paneID)
                     }
                     GhosttyApp.shared.onNewSplit = { [appModel] paneID, direction, parentSurface in
-                        guard let (_, tab, _) = appModel.findPane(id: paneID) else { return }
-                        if let newPane = tab.splitPane(paneID: paneID, direction: direction) {
-                            if let parentSurface {
+                        guard let (workspace, group, _) = appModel.findPane(id: paneID) else { return }
+                        workspace.focusPaneGroup(id: group.id)
+                        if let newGroup = workspace.splitFocusedGroup(direction: direction) {
+                            if let parentSurface, let newPane = newGroup.panes.first {
                                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
                             }
                             appModel.saveWorkspaces()
                         }
                     }
                     GhosttyApp.shared.onCloseSurface = { [appModel] paneID in
-                        guard let (workspace, tab, _) = appModel.findPane(id: paneID) else { return }
-                        if tab.allPanes.count > 1 {
-                            tab.removePane(id: paneID)
-                        } else {
-                            workspace.removeTab(id: tab.id)
-                        }
+                        guard let (workspace, _, _) = appModel.findPane(id: paneID) else { return }
+                        workspace.closePane(id: paneID)
                         appModel.saveWorkspaces()
                     }
                     GhosttyApp.shared.onCloseTab = { [appModel] in
                         guard let workspace = appModel.selectedWorkspace,
-                              let tab = workspace.selectedTab else { return }
-                        workspace.removeTab(id: tab.id)
+                              let group = workspace.focusedPaneGroup,
+                              let selectedPaneID = group.selectedPaneID else { return }
+                        workspace.closePane(id: selectedPaneID)
                         appModel.saveWorkspaces()
                     }
                 }
@@ -94,7 +87,7 @@ struct HoottyApp: App {
             }
             CommandMenu("Shell") {
                 Button("New Tab") {
-                    appModel.selectedWorkspace?.addTab()
+                    appModel.selectedWorkspace?.addPaneToFocusedGroup()
                     appModel.saveWorkspaces()
                 }
                 .keyboardShortcut("t", modifiers: .command)
@@ -102,12 +95,12 @@ struct HoottyApp: App {
                 Divider()
 
                 Button("Split Right") {
-                    splitFocusedPane(direction: .horizontal)
+                    splitFocusedGroup(direction: .horizontal)
                 }
                 .keyboardShortcut("d", modifiers: .command)
 
                 Button("Split Down") {
-                    splitFocusedPane(direction: .vertical)
+                    splitFocusedGroup(direction: .vertical)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
             }

@@ -120,59 +120,35 @@ struct ContentView: View {
                     appModel.selectedWorkspaceID = appModel.workspaces.first?.id
                 }
             },
-            onSelectTab: { workspaceID, tabID in
+            onSelectPaneGroup: { workspaceID, groupID in
                 appModel.selectedWorkspaceID = workspaceID
                 appModel.viewMode = .terminal
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.selectTab(id: tabID)
+                    workspace.focusPaneGroup(id: groupID)
                 }
             },
-            onSelectPane: { workspaceID, tabID, paneID in
+            onSelectPane: { workspaceID, paneID in
                 appModel.selectedWorkspaceID = workspaceID
                 appModel.viewMode = .terminal
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.selectTab(id: tabID)
-                    if let tab = workspace.tabs.first(where: { $0.id == tabID }) {
-                        tab.focusPane(id: paneID)
-                    }
+                    workspace.focusPane(id: paneID)
                 }
             },
-            onAddTab: { workspaceID in
+            onRemovePaneGroup: { workspaceID, groupID in
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.addTab()
+                    workspace.removePaneGroup(id: groupID)
                     appModel.saveWorkspaces()
                 }
             },
-            onRemoveTab: { workspaceID, tabID in
+            onRemovePane: { workspaceID, paneID in
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.removeTab(id: tabID)
-                    appModel.saveWorkspaces()
-                }
-            },
-            onRemovePane: { workspaceID, tabID, paneID in
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }),
-                   let tab = workspace.tabs.first(where: { $0.id == tabID }) {
-                    tab.removePane(id: paneID)
+                    workspace.closePane(id: paneID)
                     appModel.saveWorkspaces()
                 }
             },
             onSave: { appModel.saveWorkspaces() },
             sidebarWidth: effectiveSidebarWidth
         )
-    }
-
-    private func emptyWorkspaceView(workspace: Workspace) -> some View {
-        VStack(spacing: 12) {
-            Text("No open tabs")
-                .font(.title2)
-                .foregroundStyle(.secondary)
-            Button("New Tab") {
-                workspace.addTab()
-                appModel.saveWorkspaces()
-            }
-            .buttonStyle(.bordered)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @ViewBuilder
@@ -183,41 +159,26 @@ struct ContentView: View {
 
         case .terminal:
             if let workspace = selectedWorkspace {
-                if workspace.tabs.isEmpty {
-                    emptyWorkspaceView(workspace: workspace)
-                } else {
-                    VStack(spacing: 0) {
-                        if workspace.tabs.count > 1 {
-                            TabBar(
-                                workspace: workspace,
-                                theme: theme,
-                                onAddTab: { workspace.addTab(); appModel.saveWorkspaces() },
-                                onSave: { appModel.saveWorkspaces() }
-                            )
-
-                            Rectangle()
-                                .fill(Color(theme.sidebarSurface))
-                                .frame(height: 1)
-                        }
-
-                        // Terminal surfaces — ZStack keeps all tabs alive
-                        ZStack {
-                            ForEach(workspace.tabs) { tab in
-                                SplitNodeView(
-                                    node: tab.rootNode,
-                                    focusedPaneID: tab.focusedPaneID,
-                                    theme: theme,
-                                    isInSplit: false,
-                                    onFocusPane: { paneID in tab.focusPane(id: paneID) },
-                                    onSave: { appModel.saveWorkspaces() }
-                                )
-                                .opacity(tab.id == workspace.selectedTabID ? 1 : 0)
-                                .allowsHitTesting(tab.id == workspace.selectedTabID)
-                            }
-                        }
-                    }
-                    .id(workspace.id)
-                }
+                SplitNodeView(
+                    node: workspace.rootNode,
+                    focusedPaneGroupID: workspace.focusedPaneGroupID,
+                    theme: theme,
+                    isInSplit: false,
+                    onFocusPaneGroup: { groupID in
+                        workspace.focusPaneGroup(id: groupID)
+                    },
+                    onAddPane: { groupID in
+                        workspace.focusPaneGroup(id: groupID)
+                        workspace.addPaneToFocusedGroup()
+                        appModel.saveWorkspaces()
+                    },
+                    onRemovePane: { paneID in
+                        workspace.closePane(id: paneID)
+                        appModel.saveWorkspaces()
+                    },
+                    onSave: { appModel.saveWorkspaces() }
+                )
+                .id(workspace.id)
             } else {
                 Text("Select or create a workspace")
                     .foregroundStyle(.secondary)

@@ -3,136 +3,83 @@ import Foundation
 @testable import HoottyCore
 
 @Suite struct WorkspaceTests {
-    @Test func initCreatesOneTab() {
+    @Test func initCreatesOnePaneGroup() {
         let workspace = Workspace(name: "Test")
-        #expect(workspace.tabs.count == 1)
-        #expect(workspace.selectedTabID == workspace.tabs.first?.id)
+        #expect(workspace.allPaneGroups.count == 1)
+        #expect(workspace.focusedPaneGroupID == workspace.allPaneGroups.first?.id)
     }
 
-    @Test func addTabIncrementsAndAppends() {
+    @Test func addPaneToFocusedGroup() {
         let workspace = Workspace(name: "Test")
-        let second = workspace.addTab()
-        #expect(workspace.tabs.count == 2)
-        #expect(second.name == "Tab 2")
+        let pane = workspace.addPaneToFocusedGroup()
+        #expect(pane != nil)
+        #expect(workspace.focusedPaneGroup?.panes.count == 2)
     }
 
-    @Test func addTabAutoSelects() {
+    @Test func splitFocusedGroupCreatesNewGroup() {
         let workspace = Workspace(name: "Test")
-        let second = workspace.addTab()
-        #expect(workspace.selectedTabID == second.id)
+        let newGroup = workspace.splitFocusedGroup(direction: .horizontal)
+        #expect(newGroup != nil)
+        #expect(workspace.allPaneGroups.count == 2)
+        #expect(workspace.focusedPaneGroupID == newGroup?.id)
     }
 
-    @Test func removeTabUpdatesSelection() {
+    @Test func removePaneGroupUpdatesSelection() {
         let workspace = Workspace(name: "Test")
-        let second = workspace.addTab()
-        let firstID = workspace.tabs.first!.id
-        workspace.removeTab(id: firstID)
-        #expect(workspace.tabs.count == 1)
-        #expect(workspace.selectedTabID == second.id)
+        let first = workspace.allPaneGroups[0]
+        let second = workspace.splitFocusedGroup(direction: .horizontal)!
+        workspace.removePaneGroup(id: second.id)
+        #expect(workspace.allPaneGroups.count == 1)
+        #expect(workspace.focusedPaneGroupID == first.id)
     }
 
-    @Test func removeLastTabLeavesEmpty() {
+    @Test func removeLastGroupCreatesNewOne() {
         let workspace = Workspace(name: "Test")
-        let onlyTabID = workspace.tabs.first!.id
-        workspace.removeTab(id: onlyTabID)
-        #expect(workspace.tabs.isEmpty)
-        #expect(workspace.selectedTabID == nil)
+        let groupID = workspace.allPaneGroups.first!.id
+        workspace.removePaneGroup(id: groupID)
+        #expect(workspace.allPaneGroups.count == 1)
+        #expect(workspace.allPaneGroups.first?.id != groupID)
     }
 
-    @Test func isRunningReflectsTabState() {
+    @Test func isRunningReflectsGroupState() {
         let workspace = Workspace(name: "Test")
         #expect(workspace.isRunning == true)
-        workspace.tabs.first!.allPanes.first!.isRunning = false
-        #expect(workspace.isRunning == false)
-        let second = workspace.addTab()
-        #expect(workspace.isRunning == true)
-        second.allPanes.first!.isRunning = false
+        workspace.allPanes.first!.isRunning = false
         #expect(workspace.isRunning == false)
     }
 
-    @Test func selectTabChangesID() {
+    @Test func focusPaneGroupSetsID() {
         let workspace = Workspace(name: "Test")
-        let firstID = workspace.tabs.first!.id
-        let second = workspace.addTab()
-        #expect(workspace.selectedTabID == second.id)
-        workspace.selectTab(id: firstID)
-        #expect(workspace.selectedTabID == firstID)
+        let first = workspace.allPaneGroups[0]
+        let second = workspace.splitFocusedGroup(direction: .horizontal)!
+        #expect(workspace.focusedPaneGroupID == second.id)
+        workspace.focusPaneGroup(id: first.id)
+        #expect(workspace.focusedPaneGroupID == first.id)
     }
 
-    @Test func selectTabIgnoresUnknownID() {
+    @Test func focusPaneGroupIgnoresUnknownID() {
         let workspace = Workspace(name: "Test")
-        let currentID = workspace.selectedTabID
-        workspace.selectTab(id: UUID())
-        #expect(workspace.selectedTabID == currentID)
+        let currentID = workspace.focusedPaneGroupID
+        workspace.focusPaneGroup(id: UUID())
+        #expect(workspace.focusedPaneGroupID == currentID)
     }
 
-    @Test func moveTabReorders() {
+    @Test func focusPaneFindsGroupAndSelectsPane() {
         let workspace = Workspace(name: "Test")
-        let tab1 = workspace.tabs[0]
-        let tab2 = workspace.addTab()
-        let tab3 = workspace.addTab()
-        workspace.moveTab(fromID: tab1.id, toID: tab3.id)
-        #expect(workspace.tabs.map(\.id) == [tab2.id, tab3.id, tab1.id])
+        let group = workspace.allPaneGroups[0]
+        let pane1 = group.panes[0]
+        let pane2 = group.addPane()
+        #expect(group.selectedPaneID == pane2.id)
+        workspace.focusPane(id: pane1.id)
+        #expect(group.selectedPaneID == pane1.id)
     }
 
-    @Test func moveTabSameIDIsNoOp() {
+    @Test func findPaneReturnsCorrectGroupAndPane() {
         let workspace = Workspace(name: "Test")
-        let tab1 = workspace.tabs[0]
-        _ = workspace.addTab()
-        let originalOrder = workspace.tabs.map(\.id)
-        workspace.moveTab(fromID: tab1.id, toID: tab1.id)
-        #expect(workspace.tabs.map(\.id) == originalOrder)
-    }
-
-    @Test func hasAttentionTabFalseWhenNone() {
-        let workspace = Workspace(name: "Test")
-        _ = workspace.addTab()
-        #expect(workspace.hasAttentionTab == false)
-    }
-
-    @Test func hasAttentionTabTrueForUnselectedTab() {
-        let workspace = Workspace(name: "Test")
-        let first = workspace.tabs[0]
-        let second = workspace.addTab()
-        #expect(workspace.selectedTabID == second.id)
-        first.allPanes.first!.needsAttention = true
-        #expect(workspace.hasAttentionTab == true)
-    }
-
-    @Test func hasAttentionTabIgnoresSelectedTab() {
-        let workspace = Workspace(name: "Test")
-        let first = workspace.tabs[0]
-        first.allPanes.first!.needsAttention = true
-        #expect(workspace.hasAttentionTab == false)
-    }
-
-    @Test func selectTabClearsNeedsAttention() {
-        let workspace = Workspace(name: "Test")
-        let first = workspace.tabs[0]
-        let second = workspace.addTab()
-        first.allPanes.first!.needsAttention = true
-        #expect(first.needsAttention == true)
-        workspace.selectTab(id: first.id)
-        #expect(first.needsAttention == false)
-        _ = second
-    }
-
-    @Test func moveTabUnknownIDIsNoOp() {
-        let workspace = Workspace(name: "Test")
-        _ = workspace.addTab()
-        let originalOrder = workspace.tabs.map(\.id)
-        workspace.moveTab(fromID: UUID(), toID: workspace.tabs[0].id)
-        #expect(workspace.tabs.map(\.id) == originalOrder)
-        workspace.moveTab(fromID: workspace.tabs[0].id, toID: UUID())
-        #expect(workspace.tabs.map(\.id) == originalOrder)
-    }
-
-    @Test func findPaneReturnsCorrectTabAndPane() {
-        let workspace = Workspace(name: "Test")
-        let tab = workspace.tabs[0]
-        let pane = tab.allPanes[0]
+        let group = workspace.allPaneGroups[0]
+        let pane = group.panes[0]
         let result = workspace.findPane(id: pane.id)
-        #expect(result?.0.id == tab.id)
+        #expect(result?.0.id == group.id)
         #expect(result?.1.id == pane.id)
     }
 
@@ -140,5 +87,47 @@ import Foundation
         let workspace = Workspace(name: "Test")
         let result = workspace.findPane(id: UUID())
         #expect(result == nil)
+    }
+
+    @Test func hasAttentionGroupFalseWhenNone() {
+        let workspace = Workspace(name: "Test")
+        #expect(workspace.hasAttentionGroup == false)
+    }
+
+    @Test func hasAttentionGroupTrueForUnfocusedGroup() {
+        let workspace = Workspace(name: "Test")
+        let first = workspace.allPaneGroups[0]
+        _ = workspace.splitFocusedGroup(direction: .horizontal)
+        // first is now unfocused
+        first.panes.first!.needsAttention = true
+        #expect(workspace.hasAttentionGroup == true)
+    }
+
+    @Test func allPanesAcrossGroups() {
+        let workspace = Workspace(name: "Test")
+        workspace.addPaneToFocusedGroup()
+        _ = workspace.splitFocusedGroup(direction: .horizontal)
+        #expect(workspace.allPanes.count == 3) // 2 in first group, 1 in new group
+    }
+
+    @Test func closePaneRemovesPaneFromGroup() {
+        let workspace = Workspace(name: "Test")
+        let group = workspace.allPaneGroups[0]
+        let pane1 = group.panes[0]
+        let pane2 = group.addPane()
+        workspace.closePane(id: pane1.id)
+        #expect(group.panes.count == 1)
+        #expect(group.panes.first?.id == pane2.id)
+    }
+
+    @Test func closePaneRemovesGroupWhenLastPane() {
+        let workspace = Workspace(name: "Test")
+        _ = workspace.splitFocusedGroup(direction: .horizontal)
+        let groups = workspace.allPaneGroups
+        #expect(groups.count == 2)
+        let groupToClose = groups[0]
+        let paneID = groupToClose.panes.first!.id
+        workspace.closePane(id: paneID)
+        #expect(workspace.allPaneGroups.count == 1)
     }
 }

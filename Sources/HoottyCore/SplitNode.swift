@@ -12,13 +12,13 @@ public final class SplitNode: Identifiable {
     public var splitRatio: Double = 0.5
 
     public enum SplitContent {
-        case leaf(Pane)
+        case leaf(PaneGroup)
         case split(direction: SplitDirection, first: SplitNode, second: SplitNode)
     }
 
-    public init(id: UUID = UUID(), pane: Pane) {
+    public init(id: UUID = UUID(), paneGroup: PaneGroup) {
         self.id = id
-        self.content = .leaf(pane)
+        self.content = .leaf(paneGroup)
     }
 
     public init(id: UUID = UUID(), direction: SplitDirection, first: SplitNode, second: SplitNode, ratio: Double = 0.5) {
@@ -29,58 +29,71 @@ public final class SplitNode: Identifiable {
 
     public func allPanes() -> [Pane] {
         switch content {
-        case .leaf(let pane):
-            return [pane]
+        case .leaf(let group):
+            return group.panes
         case .split(_, let first, let second):
             return first.allPanes() + second.allPanes()
         }
     }
 
-    @discardableResult
-    public func split(paneID: UUID, direction: SplitDirection, newPane: Pane) -> Bool {
+    public func allPaneGroups() -> [PaneGroup] {
         switch content {
-        case .leaf(let pane) where pane.id == paneID:
-            let oldNode = SplitNode(pane: pane)
-            let newNode = SplitNode(pane: newPane)
+        case .leaf(let group):
+            return [group]
+        case .split(_, let first, let second):
+            return first.allPaneGroups() + second.allPaneGroups()
+        }
+    }
+
+    public func findPaneGroup(containingPaneID paneID: UUID) -> PaneGroup? {
+        switch content {
+        case .leaf(let group):
+            return group.panes.contains(where: { $0.id == paneID }) ? group : nil
+        case .split(_, let first, let second):
+            return first.findPaneGroup(containingPaneID: paneID) ?? second.findPaneGroup(containingPaneID: paneID)
+        }
+    }
+
+    @discardableResult
+    public func splitGroup(groupID: UUID, direction: SplitDirection, newGroup: PaneGroup) -> Bool {
+        switch content {
+        case .leaf(let group) where group.id == groupID:
+            let oldNode = SplitNode(paneGroup: group)
+            let newNode = SplitNode(paneGroup: newGroup)
             self.content = .split(direction: direction, first: oldNode, second: newNode)
             return true
         case .split(_, let first, let second):
-            return first.split(paneID: paneID, direction: direction, newPane: newPane)
-                || second.split(paneID: paneID, direction: direction, newPane: newPane)
+            return first.splitGroup(groupID: groupID, direction: direction, newGroup: newGroup)
+                || second.splitGroup(groupID: groupID, direction: direction, newGroup: newGroup)
         default:
             return false
         }
     }
 
     @discardableResult
-    public func removePane(id: UUID) -> Bool {
+    public func removePaneGroup(id: UUID) -> Bool {
         switch content {
         case .leaf:
             return false
         case .split(_, let first, let second):
-            // Check if first child is the leaf to remove
-            if case .leaf(let pane) = first.content, pane.id == id {
-                // Promote second
+            if case .leaf(let group) = first.content, group.id == id {
                 self.content = second.content
                 self.splitRatio = second.splitRatio
                 return true
             }
-            // Check if second child is the leaf to remove
-            if case .leaf(let pane) = second.content, pane.id == id {
-                // Promote first
+            if case .leaf(let group) = second.content, group.id == id {
                 self.content = first.content
                 self.splitRatio = first.splitRatio
                 return true
             }
-            // Recurse
-            return first.removePane(id: id) || second.removePane(id: id)
+            return first.removePaneGroup(id: id) || second.removePaneGroup(id: id)
         }
     }
 }
 
 extension SplitNode: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, type, pane, direction, first, second, splitRatio
+        case id, type, paneGroup, direction, first, second, splitRatio
     }
 
     private enum NodeType: String, Codable {
@@ -94,8 +107,8 @@ extension SplitNode: Codable {
 
         switch type {
         case .leaf:
-            let pane = try container.decode(Pane.self, forKey: .pane)
-            self.init(id: id, pane: pane)
+            let paneGroup = try container.decode(PaneGroup.self, forKey: .paneGroup)
+            self.init(id: id, paneGroup: paneGroup)
         case .split:
             let direction = try container.decode(SplitDirection.self, forKey: .direction)
             let first = try container.decode(SplitNode.self, forKey: .first)
@@ -110,9 +123,9 @@ extension SplitNode: Codable {
         try container.encode(id, forKey: .id)
 
         switch content {
-        case .leaf(let pane):
+        case .leaf(let group):
             try container.encode(NodeType.leaf, forKey: .type)
-            try container.encode(pane, forKey: .pane)
+            try container.encode(group, forKey: .paneGroup)
         case .split(let direction, let first, let second):
             try container.encode(NodeType.split, forKey: .type)
             try container.encode(direction, forKey: .direction)

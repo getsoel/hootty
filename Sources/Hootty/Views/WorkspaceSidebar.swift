@@ -9,24 +9,20 @@ struct WorkspaceSidebar: View {
     var onSelectKanban: () -> Void
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
-    var onSelectTab: (UUID, UUID) -> Void
-    var onSelectPane: (UUID, UUID, UUID) -> Void
-    var onAddTab: (UUID) -> Void
-    var onRemoveTab: (UUID, UUID) -> Void
-    var onRemovePane: (UUID, UUID, UUID) -> Void
+    var onSelectPaneGroup: (UUID, UUID) -> Void
+    var onSelectPane: (UUID, UUID) -> Void
+    var onRemovePaneGroup: (UUID, UUID) -> Void
+    var onRemovePane: (UUID, UUID) -> Void
     var onSave: (() -> Void)?
     var sidebarWidth: CGFloat
 
     @State private var expandedWorkspaceIDs: Set<UUID> = []
     @State private var hoveredBoardRow = false
     @State private var hoveredWorkspaceID: UUID?
-    @State private var hoveredTabID: UUID?
+    @State private var hoveredGroupID: UUID?
+    @State private var hoveredPaneID: UUID?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
-    @State private var renameTabTargetID: UUID?
-    @State private var renameTabWorkspaceID: UUID?
-    @State private var editingTabName: String = ""
-    @State private var hoveredPaneID: UUID?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -51,14 +47,6 @@ struct WorkspaceSidebar: View {
             Button("OK") { commitRename() }
             Button("Cancel", role: .cancel) { renameTargetID = nil }
         }
-        .alert("Rename Tab", isPresented: Binding(
-            get: { renameTabTargetID != nil },
-            set: { if !$0 { renameTabTargetID = nil; renameTabWorkspaceID = nil } }
-        )) {
-            TextField("Tab name", text: $editingTabName)
-            Button("OK") { commitTabRename() }
-            Button("Cancel", role: .cancel) { renameTabTargetID = nil; renameTabWorkspaceID = nil }
-        }
     }
 
     private var workspaceList: some View {
@@ -70,41 +58,21 @@ struct WorkspaceSidebar: View {
                     workspaceRow(workspace)
 
                     if expandedWorkspaceIDs.contains(workspace.id) {
-                        ForEach(workspace.tabs) { tab in
-                            tabRow(tab, workspace: workspace)
+                        ForEach(workspace.allPaneGroups) { group in
+                            groupRow(group, workspace: workspace)
 
-                            if tab.allPanes.count > 1 {
-                                ForEach(tab.allPanes) { pane in
-                                    paneRow(pane, tab: tab, workspace: workspace)
+                            if group.panes.count > 1 {
+                                ForEach(group.panes) { pane in
+                                    paneRow(pane, group: group, workspace: workspace)
                                 }
                             }
                         }
-
-                        addTabButton(workspaceID: workspace.id)
                     }
                 }
             }
             .padding(.horizontal, 8)
             .padding(.top, 8)
         }
-    }
-
-    private func addTabButton(workspaceID: UUID) -> some View {
-        Button {
-            onAddTab(workspaceID)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "plus")
-                    .font(.system(size: 9, weight: .medium))
-                Text("New Tab")
-                    .font(.system(size: 11))
-            }
-            .foregroundStyle(Color(theme.sidebarTextSecondary))
-            .padding(.leading, 32)
-            .padding(.vertical, 4)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .buttonStyle(.plain)
     }
 
     private var boardRow: some View {
@@ -171,7 +139,6 @@ struct WorkspaceSidebar: View {
         let isHovered = workspace.id == hoveredWorkspaceID
         let isExpanded = expandedWorkspaceIDs.contains(workspace.id)
         return HStack(spacing: 6) {
-            // Disclosure chevron
             Image(systemName: "chevron.right")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(Color(theme.sidebarTextSecondary))
@@ -228,30 +195,26 @@ struct WorkspaceSidebar: View {
                 editingName = workspace.name
                 renameTargetID = workspace.id
             }
-            Divider()
-            Button("New Tab") {
-                onAddTab(workspace.id)
-            }
         }
     }
 
-    private func tabRow(_ tab: HoottyCore.Tab, workspace: Workspace) -> some View {
-        let isSelectedTab = tab.id == workspace.selectedTabID && workspace.id == selectedWorkspaceID
-        let isHovered = tab.id == hoveredTabID
+    private func groupRow(_ group: PaneGroup, workspace: Workspace) -> some View {
+        let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
+        let isHovered = group.id == hoveredGroupID
         return HStack(spacing: 6) {
-            tabStatusDot(tab)
+            groupStatusDot(group)
                 .frame(width: 6, height: 6)
 
-            Text(tab.name)
+            Text(group.displayName)
                 .font(.system(size: 12))
-                .foregroundStyle(Color(isSelectedTab ? theme.foreground : theme.sidebarTextSecondary))
+                .foregroundStyle(Color(isFocusedGroup ? theme.foreground : theme.sidebarTextSecondary))
                 .lineLimit(1)
 
             Spacer(minLength: 0)
 
-            if isHovered && workspace.tabs.count > 1 {
+            if isHovered && workspace.allPaneGroups.count > 1 {
                 Button {
-                    onRemoveTab(workspace.id, tab.id)
+                    onRemovePaneGroup(workspace.id, group.id)
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 8, weight: .semibold))
@@ -266,7 +229,7 @@ struct WorkspaceSidebar: View {
         .background(
             RoundedRectangle(cornerRadius: 5)
                 .fill(
-                    isSelectedTab
+                    isFocusedGroup
                         ? Color(theme.sidebarSurface).opacity(0.7)
                         : isHovered
                             ? Color(theme.sidebarSurface).opacity(0.3)
@@ -274,30 +237,24 @@ struct WorkspaceSidebar: View {
                 )
         )
         .onHover { hovering in
-            hoveredTabID = hovering ? tab.id : nil
+            hoveredGroupID = hovering ? group.id : nil
         }
         .onTapGesture {
-            onSelectTab(workspace.id, tab.id)
+            onSelectPaneGroup(workspace.id, group.id)
         }
         .contextMenu {
-            Button("Rename Tab") {
-                editingTabName = tab.name
-                renameTabTargetID = tab.id
-                renameTabWorkspaceID = workspace.id
-            }
-            if workspace.tabs.count > 1 {
-                Divider()
-                Button("Close Tab") {
-                    onRemoveTab(workspace.id, tab.id)
+            if workspace.allPaneGroups.count > 1 {
+                Button("Close Group") {
+                    onRemovePaneGroup(workspace.id, group.id)
                 }
             }
         }
     }
 
-    private func paneRow(_ pane: Pane, tab: HoottyCore.Tab, workspace: Workspace) -> some View {
-        let isFocused = tab.id == workspace.selectedTabID
+    private func paneRow(_ pane: Pane, group: PaneGroup, workspace: Workspace) -> some View {
+        let isFocused = group.id == workspace.focusedPaneGroupID
             && workspace.id == selectedWorkspaceID
-            && tab.focusedPaneID == pane.id
+            && group.selectedPaneID == pane.id
         let isHovered = pane.id == hoveredPaneID
         let dirName = (pane.workingDirectory as NSString).lastPathComponent
 
@@ -312,9 +269,9 @@ struct WorkspaceSidebar: View {
 
             Spacer(minLength: 0)
 
-            if isHovered && tab.allPanes.count > 1 {
+            if isHovered && group.panes.count > 1 {
                 Button {
-                    onRemovePane(workspace.id, tab.id, pane.id)
+                    onRemovePane(workspace.id, pane.id)
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 7, weight: .semibold))
@@ -340,12 +297,12 @@ struct WorkspaceSidebar: View {
             hoveredPaneID = hovering ? pane.id : nil
         }
         .onTapGesture {
-            onSelectPane(workspace.id, tab.id, pane.id)
+            onSelectPane(workspace.id, pane.id)
         }
         .contextMenu {
-            if tab.allPanes.count > 1 {
+            if group.panes.count > 1 {
                 Button("Close Pane") {
-                    onRemovePane(workspace.id, tab.id, pane.id)
+                    onRemovePane(workspace.id, pane.id)
                 }
             }
         }
@@ -355,12 +312,12 @@ struct WorkspaceSidebar: View {
         StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, theme: theme)
     }
 
-    private func tabStatusDot(_ tab: HoottyCore.Tab) -> some View {
-        StatusDotView(needsAttention: tab.needsAttention, isRunning: tab.isRunning, theme: theme)
+    private func groupStatusDot(_ group: PaneGroup) -> some View {
+        StatusDotView(needsAttention: group.needsAttention, isRunning: group.isRunning, theme: theme)
     }
 
     private func workspaceStatusDot(_ workspace: Workspace) -> some View {
-        StatusDotView(needsAttention: workspace.hasAttentionTab, isRunning: workspace.isRunning, theme: theme)
+        StatusDotView(needsAttention: workspace.hasAttentionGroup, isRunning: workspace.isRunning, theme: theme)
     }
 
     private func toggleExpanded(_ id: UUID) {
@@ -369,18 +326,6 @@ struct WorkspaceSidebar: View {
         } else {
             expandedWorkspaceIDs.insert(id)
         }
-    }
-
-    private func commitTabRename() {
-        let trimmed = editingTabName.trimmingCharacters(in: .whitespaces)
-        if !trimmed.isEmpty,
-           let workspace = workspaces.first(where: { $0.id == renameTabWorkspaceID }),
-           let tab = workspace.tabs.first(where: { $0.id == renameTabTargetID }) {
-            tab.name = trimmed
-            onSave?()
-        }
-        renameTabTargetID = nil
-        renameTabWorkspaceID = nil
     }
 }
 

@@ -64,10 +64,10 @@ import Foundation
     @Test func handlePaneAttentionFlagsBackgroundPane() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let tab = workspace.tabs[0]
-        let pane1 = tab.allPanes[0]
-        let pane2 = tab.splitPane(paneID: pane1.id, direction: .horizontal)!
-        // pane2 is focused, signal attention for pane1
+        let group = workspace.allPaneGroups[0]
+        let pane1 = group.panes[0]
+        let pane2 = group.addPane()
+        // pane2 is selected, signal attention for pane1
         model.selectedWorkspaceID = workspace.id
         model.viewMode = .terminal
         model.handlePaneNeedsAttention(pane1.id)
@@ -78,8 +78,8 @@ import Foundation
     @Test func handlePaneAttentionIgnoresFocusedPane() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let tab = workspace.tabs[0]
-        let pane = tab.allPanes[0]
+        let group = workspace.allPaneGroups[0]
+        let pane = group.panes[0]
         model.selectedWorkspaceID = workspace.id
         model.viewMode = .terminal
         // pane is the only one and focused
@@ -90,26 +90,24 @@ import Foundation
     @Test func handlePaneAttentionFlagsInKanbanMode() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let tab = workspace.tabs[0]
-        let pane = tab.allPanes[0]
+        let group = workspace.allPaneGroups[0]
+        let pane = group.panes[0]
         model.selectedWorkspaceID = workspace.id
         model.viewMode = .kanban
         model.handlePaneNeedsAttention(pane.id)
         #expect(pane.needsAttention == true)
     }
 
-    @Test func handlePaneAttentionFlagsInBackgroundTab() {
+    @Test func handlePaneAttentionFlagsInBackgroundGroup() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let tab1 = workspace.tabs[0]
-        let tab2 = workspace.addTab()
-        let pane1 = tab1.allPanes[0]
+        let group1 = workspace.allPaneGroups[0]
+        let pane1 = group1.panes[0]
+        _ = workspace.splitFocusedGroup(direction: .horizontal) // group2 is now focused
         model.selectedWorkspaceID = workspace.id
         model.viewMode = .terminal
-        // tab2 is selected, tab1 is background
         model.handlePaneNeedsAttention(pane1.id)
         #expect(pane1.needsAttention == true)
-        _ = tab2
     }
 
     @Test func selectedWorkspaceReturnsCorrectWorkspace() {
@@ -119,5 +117,22 @@ import Foundation
         let second = model.addWorkspace()
         model.selectedWorkspaceID = second.id
         #expect(model.selectedWorkspace?.id == second.id)
+    }
+
+    @Test func findPaneReturnsWorkspaceGroupAndPane() {
+        let model = makeModel()
+        let workspace = model.workspaces[0]
+        let group = workspace.allPaneGroups[0]
+        let pane = group.panes[0]
+        let result = model.findPane(id: pane.id)
+        #expect(result?.0.id == workspace.id)
+        #expect(result?.1.id == group.id)
+        #expect(result?.2.id == pane.id)
+    }
+
+    @Test func findPaneReturnsNilForUnknownID() {
+        let model = makeModel()
+        let result = model.findPane(id: UUID())
+        #expect(result == nil)
     }
 }

@@ -67,11 +67,11 @@ public final class AppModel {
 
     public func handlePaneNeedsAttention(_ paneID: UUID) {
         for workspace in workspaces {
-            guard let (tab, pane) = workspace.findPane(id: paneID) else { continue }
-            let isActiveTab = workspace.id == selectedWorkspaceID
-                && workspace.selectedTabID == tab.id
+            guard let (group, pane) = workspace.findPane(id: paneID) else { continue }
+            let isActiveGroup = workspace.id == selectedWorkspaceID
+                && workspace.focusedPaneGroupID == group.id
                 && viewMode == .terminal
-            let isFocusedPane = isActiveTab && tab.focusedPaneID == paneID
+            let isFocusedPane = isActiveGroup && group.selectedPaneID == paneID
             if !isFocusedPane {
                 pane.needsAttention = true
             }
@@ -79,10 +79,10 @@ public final class AppModel {
         }
     }
 
-    public func findPane(id: UUID) -> (Workspace, Tab, Pane)? {
+    public func findPane(id: UUID) -> (Workspace, PaneGroup, Pane)? {
         for workspace in workspaces {
-            if let (tab, pane) = workspace.findPane(id: id) {
-                return (workspace, tab, pane)
+            if let (group, pane) = workspace.findPane(id: id) {
+                return (workspace, group, pane)
             }
         }
         return nil
