@@ -152,15 +152,14 @@ struct WorkspaceSidebar: View {
 
             Spacer(minLength: 0)
 
-            if isHovered {
-                Button {
-                    onRemoveWorkspace(workspace.id)
-                } label: {
-                    LucideIcon(Lucide.x, size: 9)
-                        .foregroundStyle(Color(tokens.textMuted))
-                }
-                .buttonStyle(.plain)
+            Button {
+                onRemoveWorkspace(workspace.id)
+            } label: {
+                LucideIcon(Lucide.x, size: 9)
+                    .foregroundStyle(Color(tokens.textMuted))
             }
+            .buttonStyle(.plain)
+            .opacity(isHovered ? 1 : 0)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.md)
@@ -187,6 +186,8 @@ struct WorkspaceSidebar: View {
             selectedWorkspaceID = workspace.id
             expandedWorkspaceIDs.insert(workspace.id)
         }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(workspace.name)
         .contextMenu {
             Button("Rename Workspace") {
                 editingName = workspace.name
@@ -217,15 +218,14 @@ struct WorkspaceSidebar: View {
 
                 Spacer(minLength: 0)
 
-                if isHovered && workspace.allPaneGroups.count > 1 {
-                    Button {
-                        onRemovePaneGroup(workspace.id, group.id)
-                    } label: {
-                        LucideIcon(Lucide.x, size: 8)
-                            .foregroundStyle(Color(tokens.textMuted))
-                    }
-                    .buttonStyle(.plain)
+                Button {
+                    onRemovePaneGroup(workspace.id, group.id)
+                } label: {
+                    LucideIcon(Lucide.x, size: 8)
+                        .foregroundStyle(Color(tokens.textMuted))
                 }
+                .buttonStyle(.plain)
+                .opacity(isHovered && workspace.allPaneGroups.count > 1 ? 1 : 0)
             }
             .padding(.trailing, Spacing.md)
             .padding(.vertical, Spacing.md)
@@ -253,6 +253,8 @@ struct WorkspaceSidebar: View {
         .onTapGesture {
             onSelectPaneGroup(workspace.id, group.id)
         }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(group.displayName)
         .contextMenu {
             Button("Rename Group") {
                 editingGroupName = group.customName ?? group.name
@@ -294,15 +296,14 @@ struct WorkspaceSidebar: View {
 
                 Spacer(minLength: 0)
 
-                if isHovered && group.panes.count > 1 {
-                    Button {
-                        onRemovePane(workspace.id, pane.id)
-                    } label: {
-                        LucideIcon(Lucide.x, size: 7)
-                            .foregroundStyle(Color(tokens.textMuted))
-                    }
-                    .buttonStyle(.plain)
+                Button {
+                    onRemovePane(workspace.id, pane.id)
+                } label: {
+                    LucideIcon(Lucide.x, size: 7)
+                        .foregroundStyle(Color(tokens.textMuted))
                 }
+                .buttonStyle(.plain)
+                .opacity(isHovered && group.panes.count > 1 ? 1 : 0)
             }
             .padding(.trailing, Spacing.md)
             .padding(.vertical, Spacing.md)
@@ -331,6 +332,8 @@ struct WorkspaceSidebar: View {
         .onTapGesture {
             onSelectPane(workspace.id, pane.id)
         }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(displayName)
         .contextMenu {
             if group.panes.count > 1 {
                 Button("Close Pane") {
@@ -393,33 +396,5 @@ private struct TreeConnectorView: View {
             }
         }
         .frame(width: CGFloat(depth) * gutterWidth)
-    }
-}
-
-struct StatusDotView: View {
-    let needsAttention: Bool
-    let isRunning: Bool
-    let tokens: DesignTokens
-
-    var body: some View {
-        if needsAttention {
-            Circle()
-                .fill(Color(tokens.statusWarning))
-                .modifier(PulseModifier())
-        } else {
-            Circle()
-                .fill(Color(isRunning ? tokens.statusSuccess : tokens.statusInactive))
-        }
-    }
-}
-
-struct PulseModifier: ViewModifier {
-    @State private var isPulsing = false
-
-    func body(content: Content) -> some View {
-        content
-            .opacity(isPulsing ? 1.0 : 0.4)
-            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isPulsing)
-            .onAppear { isPulsing = true }
     }
 }

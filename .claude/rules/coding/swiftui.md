@@ -50,3 +50,9 @@ macOS `ScrollView(.horizontal)` silently discards vertical scroll wheel events �
 When views inside a fixed-height container (e.g., a 38pt tab bar) use small fixed frames (e.g., 24x24 buttons), `.overlay` borders are constrained to the content height, not the container height. Apply `.frame(maxHeight: .infinity)` on the HStack/group so it fills the container. For square buttons that fill the bar height, use `.frame(maxWidth: .infinity, maxHeight: .infinity).aspectRatio(1, contentMode: .fit)`.
 
 Never use `if condition { View() }` to show/hide elements when the surrounding layout should stay stable (e.g., a close button appearing on hover inside a variable-width tab). The conditional insertion changes the HStack's intrinsic size. Use `.opacity(0)` / `.opacity(1)` to keep the element in the layout tree while hiding it visually.
+
+**Extract into a separate file** when a UI component is used across 2+ view files, OR is a self-contained primitive with no dependency on parent state (takes all inputs as params). **Keep inline (private)** when a component is used only within one file AND is tightly coupled to parent state (e.g., references parent's `@State` hover enum). Extracted files go in `Sources/Hootty/Views/` flat alongside other views, prefixed descriptively (no `Components/` subfolder unless count exceeds ~5 extracted primitives).
+
+Always add `.contentShape(Rectangle())` before `.onTapGesture` on container views (HStacks, tab rows, toolbar items). Without it, taps only register on visible content (text, icons), not the empty space within the container's frame.
+
+When visually balancing left/right elements in an HStack (e.g., status indicator and close button flanking a label), compute total rendered size (icon size + padding on each side) to ensure both containers occupy the same width. A 10pt icon with `Spacing.sm` padding ≠ a 20pt frame with `Spacing.sm` padding — the latter is 10pt wider.

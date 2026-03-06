@@ -32,7 +32,7 @@ struct PaneGroupTabBar: View {
             // Scrollable tab strip
             HorizontalScrollWrapper(isAtEnd: $tabsScrolledToEnd, isOverflowing: $tabsOverflow) {
                 ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
+                    ScrollView(.horizontal) {
                         HStack(spacing: 0) {
                             ForEach(group.panes) { pane in
                                 paneTab(pane)
@@ -51,6 +51,7 @@ struct PaneGroupTabBar: View {
                             }
                         }
                     }
+                    .scrollIndicators(.hidden)
                     .onChange(of: group.selectedPaneID) { _, newID in
                         if let id = newID, draggingPaneID == nil {
                             withAnimation(.easeInOut(duration: 0.2)) {
@@ -95,14 +96,14 @@ struct PaneGroupTabBar: View {
 
     private var navButtons: some View {
         HStack(spacing: 0) {
-            iconButton(.navLeft, icon: Lucide.arrowLeft) {
+            iconButton(.navLeft, icon: Lucide.arrowLeft, accessibilityLabel: "Previous tab") {
                 group.selectPreviousPane()
                 onFocusPaneGroup()
             }
             .opacity(canGoBack ? 1.0 : 0.3)
             .disabled(!canGoBack)
 
-            iconButton(.navRight, icon: Lucide.arrowRight) {
+            iconButton(.navRight, icon: Lucide.arrowRight, accessibilityLabel: "Next tab") {
                 group.selectNextPane()
                 onFocusPaneGroup()
             }
@@ -117,10 +118,10 @@ struct PaneGroupTabBar: View {
 
     private var actionButtons: some View {
         HStack(spacing: 0) {
-            iconButton(.add, icon: Lucide.plus, action: onAddPane)
+            iconButton(.add, icon: Lucide.plus, accessibilityLabel: "New tab", action: onAddPane)
 
             if onSplitPane != nil {
-                iconMenu(.split, icon: Lucide.columns2) {
+                iconMenu(.split, icon: Lucide.columns2, accessibilityLabel: "Split pane") {
                     Button("Split Right") { onSplitPane?(.horizontal) }
                     Button("Split Down") { onSplitPane?(.vertical) }
                 }
@@ -153,14 +154,15 @@ struct PaneGroupTabBar: View {
             }
     }
 
-    private func iconButton(_ element: HoveredElement, icon: NSImage, action: @escaping () -> Void) -> some View {
+    private func iconButton(_ element: HoveredElement, icon: NSImage, accessibilityLabel label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             iconButtonLabel(element, icon: icon)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
-    private func iconMenu<Content: View>(_ element: HoveredElement, icon: NSImage, @ViewBuilder content: () -> Content) -> some View {
+    private func iconMenu<Content: View>(_ element: HoveredElement, icon: NSImage, accessibilityLabel label: String, @ViewBuilder content: () -> Content) -> some View {
         Menu {
             content()
         } label: {
@@ -168,6 +170,7 @@ struct PaneGroupTabBar: View {
         }
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
+        .accessibilityLabel(label)
     }
 
     private func commitRename() {
@@ -189,36 +192,38 @@ struct PaneGroupTabBar: View {
 
         return HStack(spacing: 5) {
             paneStatusDot(pane)
-                .frame(width: 5, height: 5)
+                .padding(Spacing.sm)
 
             Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
                 .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
                 .truncationMode(.tail)
-
-            Spacer(minLength: 0)
+                .offset(y: -1)
 
             Button {
                 onRemovePane(pane.id)
             } label: {
                 LucideIcon(Lucide.x, size: 10)
                     .foregroundStyle(Color(tokens.textMuted))
-                    .frame(width: 20, height: 20)
-                    .background(hovered == .close(pane.id) ? Color(tokens.elementHover) : Color.clear)
+                    .padding(Spacing.sm)
+                    .background(
+                        RoundedRectangle(cornerRadius: Spacing.sm)
+                            .fill(hovered == .close(pane.id) ? Color(tokens.elementHover) : Color.clear)
+                    )
                     .contentShape(Rectangle())
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active: hovered = .close(pane.id)
+                        case .ended: if hovered == .close(pane.id) { hovered = nil }
+                        @unknown default: break
+                        }
+                    }
             }
             .buttonStyle(.plain)
-            .opacity(isHovered ? 1 : 0)
-            .onContinuousHover { phase in
-                switch phase {
-                case .active: hovered = .close(pane.id)
-                case .ended: if hovered == .close(pane.id) { hovered = nil }
-                @unknown default: break
-                }
-            }
+            .opacity(isHovered || hovered == .close(pane.id) ? 1 : 0)
         }
-        .padding(.leading, Spacing.lg)
+        .padding(.leading, Spacing.sm)
         .padding(.trailing, Spacing.sm)
         .frame(maxHeight: .infinity)
         .background(isSelected ? Color(tokens.tabActive) : Color.clear)
@@ -235,17 +240,20 @@ struct PaneGroupTabBar: View {
         .onContinuousHover { phase in
             switch phase {
             case .active:
-                if hovered != .tab(pane.id) { hovered = .tab(pane.id) }
+                if hovered != .tab(pane.id) && hovered != .close(pane.id) { hovered = .tab(pane.id) }
                 DispatchQueue.main.async { NSCursor.pointingHand.set() }
             case .ended:
                 if hovered == .tab(pane.id) { hovered = nil }
             @unknown default: break
             }
         }
+        .contentShape(Rectangle())
         .onTapGesture {
             group.selectPane(id: pane.id)
             onFocusPaneGroup()
         }
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(pane.displayName)
         .contextMenu {
             Button("Rename Tab") {
                 editingName = pane.displayName

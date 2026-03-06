@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import HoottyCore
 
@@ -56,7 +55,18 @@ struct SplitNodeView: View {
                         height: isH ? geometry.size.height : firstSize
                     )
 
-                // Visible divider line
+                // Second pane
+                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSplitPane: onSplitPane, onSave: onSave)
+                    .frame(
+                        width: isH ? secondSize : geometry.size.width,
+                        height: isH ? geometry.size.height : secondSize
+                    )
+                    .offset(
+                        x: isH ? secondPos : 0,
+                        y: isH ? 0 : secondPos
+                    )
+
+                // Visible divider line (on top of panes)
                 Rectangle()
                     .fill(Color(tokens.border))
                     .frame(
@@ -67,8 +77,9 @@ struct SplitNodeView: View {
                         x: isH ? dividerPos : 0,
                         y: isH ? 0 : dividerPos
                     )
+                    .allowsHitTesting(false)
 
-                // Invisible wide drag handle
+                // Invisible wide drag handle (on top of everything)
                 Color.clear
                     .frame(
                         width: isH ? 16 : geometry.size.width,
@@ -90,29 +101,60 @@ struct SplitNodeView: View {
                                 node.splitRatio = min(max(node.splitRatio + delta / usableSize, 0.1), 0.9)
                             }
                     )
-                    .onHover { hovering in
-                        if hovering {
-                            if isH {
-                                NSCursor.resizeLeftRight.push()
-                            } else {
-                                NSCursor.resizeUpDown.push()
-                            }
-                        } else {
-                            NSCursor.pop()
-                        }
-                    }
-
-                // Second pane
-                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSplitPane: onSplitPane, onSave: onSave)
-                    .frame(
-                        width: isH ? secondSize : geometry.size.width,
-                        height: isH ? geometry.size.height : secondSize
-                    )
-                    .offset(
-                        x: isH ? secondPos : 0,
-                        y: isH ? 0 : secondPos
-                    )
+                    .overlay(ResizeCursorView(isHorizontal: isH))
             }
         }
+    }
+}
+
+// MARK: - Resize Cursor NSView
+
+private struct ResizeCursorView: NSViewRepresentable {
+    let isHorizontal: Bool
+
+    func makeNSView(context: Context) -> _ResizeCursorNSView {
+        _ResizeCursorNSView(isHorizontal: isHorizontal)
+    }
+
+    func updateNSView(_ nsView: _ResizeCursorNSView, context: Context) {
+        nsView.isHorizontal = isHorizontal
+        nsView.window?.invalidateCursorRects(for: nsView)
+    }
+}
+
+final class _ResizeCursorNSView: NSView {
+    var isHorizontal: Bool
+    private var trackingArea: NSTrackingArea?
+
+    init(isHorizontal: Bool) {
+        self.isHorizontal = isHorizontal
+        super.init(frame: .zero)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea {
+            removeTrackingArea(existing)
+        }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.cursorUpdate, .activeInActiveApp, .mouseMoved],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        let cursor: NSCursor = isHorizontal ? .resizeLeftRight : .resizeUpDown
+        cursor.set()
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        nil
     }
 }

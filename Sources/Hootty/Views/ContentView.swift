@@ -1,9 +1,8 @@
-import AppKit
 import SwiftUI
 import HoottyCore
 
 struct ContentView: View {
-    var appModel: AppModel
+    @Bindable var appModel: AppModel
     @GestureState private var dragOffset: CGFloat = 0
 
     private var selectedWorkspace: Workspace? {
@@ -52,11 +51,16 @@ struct ContentView: View {
                         .frame(width: 16, height: geometry.size.height)
                         .contentShape(Rectangle())
                         .offset(x: sidebarW - 7.5)
-                        .onHover { hovering in
-                            if hovering {
-                                NSCursor.resizeLeftRight.push()
-                            } else {
-                                NSCursor.pop()
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                DispatchQueue.main.async {
+                                    NSCursor.resizeLeftRight.set()
+                                }
+                            case .ended:
+                                DispatchQueue.main.async {
+                                    NSCursor.arrow.set()
+                                }
                             }
                         }
                         .gesture(
@@ -85,7 +89,8 @@ struct ContentView: View {
             .frame(width: fullWidth, alignment: .topLeading)
             .clipped()
         }
-        .background(Color(tokens.surface).ignoresSafeArea())
+        .background(Color(tokens.surface), ignoresSafeAreaEdges: [])
+        .background(Color(tokens.background))
         .safeAreaInset(edge: .top, spacing: 0) {
             Rectangle()
                 .fill(Color(tokens.border))
@@ -104,10 +109,7 @@ struct ContentView: View {
     private var sidebar: some View {
         WorkspaceSidebar(
             workspaces: appModel.workspaces,
-            selectedWorkspaceID: Binding(
-                get: { appModel.selectedWorkspaceID },
-                set: { appModel.selectedWorkspaceID = $0 }
-            ),
+            selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
             flavor: flavor,
             onAddWorkspace: {
