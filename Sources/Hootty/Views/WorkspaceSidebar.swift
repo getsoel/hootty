@@ -5,6 +5,7 @@ struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let theme: TerminalTheme
+    let flavor: CatppuccinFlavor
     let isKanbanSelected: Bool
     var onSelectKanban: () -> Void
     var onAddWorkspace: () -> Void
@@ -38,7 +39,7 @@ struct WorkspaceSidebar: View {
             addWorkspaceButton
         }
         .frame(width: sidebarWidth)
-        .background(Color(theme.background))
+        .background(Color(theme.mantle))
         .alert("Rename Workspace", isPresented: Binding(
             get: { renameTargetID != nil },
             set: { if !$0 { renameTargetID = nil } }
@@ -51,36 +52,47 @@ struct WorkspaceSidebar: View {
 
     private var workspaceList: some View {
         ScrollView {
-            LazyVStack(spacing: 2) {
+            LazyVStack(spacing: 0) {
                 boardRow
 
                 ForEach(workspaces) { workspace in
                     workspaceRow(workspace)
 
                     if expandedWorkspaceIDs.contains(workspace.id) {
-                        ForEach(workspace.allPaneGroups) { group in
-                            groupRow(group, workspace: workspace)
+                        let groups = workspace.allPaneGroups
+                        ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
+                            let isLastGroup = groupIndex == groups.count - 1
+                            groupRow(
+                                group,
+                                workspace: workspace
+                            )
 
                             if group.panes.count > 1 {
                                 ForEach(group.panes) { pane in
-                                    paneRow(pane, group: group, workspace: workspace)
+                                    paneRow(
+                                        pane,
+                                        group: group,
+                                        workspace: workspace,
+                                        isLastGroup: isLastGroup
+                                    )
                                 }
                             }
                         }
                     }
                 }
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 8)
+            .padding(.top, 4)
         }
     }
 
     private var boardRow: some View {
         HStack(spacing: 6) {
-            Image(systemName: "square.grid.3x3.topleft.filled")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(isKanbanSelected ? theme.foreground : theme.sidebarTextSecondary))
-                .frame(width: 12)
+            CatppuccinIconView(
+                name: "todo",
+                size: 14,
+                flavor: flavor,
+                templateColor: Color(isKanbanSelected ? theme.foreground : theme.sidebarTextSecondary)
+            )
 
             Text("Board")
                 .font(.system(size: 13))
@@ -92,7 +104,7 @@ struct WorkspaceSidebar: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            Rectangle()
                 .fill(
                     isKanbanSelected
                         ? Color(theme.sidebarSurface)
@@ -134,24 +146,44 @@ struct WorkspaceSidebar: View {
         renameTargetID = nil
     }
 
+    // MARK: - Row icon color
+
+    private func iconColor(needsAttention: Bool, isFocused: Bool, isRunning: Bool) -> Color {
+        if needsAttention {
+            return Color(theme.attentionColor)
+        } else if isFocused {
+            return Color(theme.foreground)
+        } else if isRunning {
+            return Color(theme.sidebarRunningDot)
+        } else {
+            return Color(theme.sidebarTextSecondary)
+        }
+    }
+
+    // MARK: - Workspace row (depth 0, no tree lines)
+
     private func workspaceRow(_ workspace: Workspace) -> some View {
         let isSelected = workspace.id == selectedWorkspaceID
         let isHovered = workspace.id == hoveredWorkspaceID
         let isExpanded = expandedWorkspaceIDs.contains(workspace.id)
+        let color = iconColor(
+            needsAttention: workspace.hasAttentionGroup,
+            isFocused: isSelected,
+            isRunning: workspace.isRunning
+        )
         return HStack(spacing: 6) {
             Image(systemName: "chevron.right")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(Color(theme.sidebarTextSecondary))
                 .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 .animation(.easeInOut(duration: 0.15), value: isExpanded)
-                .frame(width: 12)
+                .frame(width: 10)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     toggleExpanded(workspace.id)
                 }
 
-            workspaceStatusDot(workspace)
-                .frame(width: 7, height: 7)
+            iconView(name: "_folder", size: 13, color: color, needsAttention: workspace.hasAttentionGroup)
 
             Text(workspace.name)
                 .font(.system(size: 13))
@@ -174,7 +206,7 @@ struct WorkspaceSidebar: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            Rectangle()
                 .fill(
                     isSelected
                         ? Color(theme.sidebarSurface)
@@ -198,41 +230,55 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    // MARK: - Group row (depth 1)
+
     private func groupRow(_ group: PaneGroup, workspace: Workspace) -> some View {
         let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
         let isHovered = group.id == hoveredGroupID
-        return HStack(spacing: 6) {
-            groupStatusDot(group)
-                .frame(width: 6, height: 6)
+        let color = iconColor(
+            needsAttention: group.needsAttention,
+            isFocused: isFocusedGroup,
+            isRunning: group.isRunning
+        )
+        return HStack(spacing: 0) {
+            TreeConnectorView(
+                depth: 1,
+                continuingLevels: [],
+                theme: theme
+            )
 
-            Text(group.displayName)
-                .font(.system(size: 12))
-                .foregroundStyle(Color(isFocusedGroup ? theme.foreground : theme.sidebarTextSecondary))
-                .lineLimit(1)
+            HStack(spacing: 6) {
+                iconView(name: "_folder_open", size: 13, color: color, needsAttention: group.needsAttention)
 
-            Spacer(minLength: 0)
+                Text(group.displayName)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(isFocusedGroup ? theme.foreground : theme.sidebarTextSecondary))
+                    .lineLimit(1)
 
-            if isHovered && workspace.allPaneGroups.count > 1 {
-                Button {
-                    onRemovePaneGroup(workspace.id, group.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(Color(theme.sidebarTextSecondary))
+                Spacer(minLength: 0)
+
+                if isHovered && workspace.allPaneGroups.count > 1 {
+                    Button {
+                        onRemovePaneGroup(workspace.id, group.id)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundStyle(Color(theme.sidebarTextSecondary))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.trailing, 8)
         }
-        .padding(.leading, 32)
-        .padding(.trailing, 8)
-        .padding(.vertical, 4)
+        .padding(.leading, 8)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 5)
+            Rectangle()
                 .fill(
                     isFocusedGroup
-                        ? Color(theme.sidebarSurface).opacity(0.7)
+                        ? Color(theme.sidebarSurface)
                         : isHovered
-                            ? Color(theme.sidebarSurface).opacity(0.3)
+                            ? Color(theme.sidebarSurface).opacity(0.4)
                             : Color.clear
                 )
         )
@@ -251,45 +297,62 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    private func paneRow(_ pane: Pane, group: PaneGroup, workspace: Workspace) -> some View {
+    // MARK: - Pane row (depth 2)
+
+    private func paneRow(_ pane: Pane, group: PaneGroup, workspace: Workspace, isLastGroup: Bool) -> some View {
         let isFocused = group.id == workspace.focusedPaneGroupID
             && workspace.id == selectedWorkspaceID
             && group.selectedPaneID == pane.id
         let isHovered = pane.id == hoveredPaneID
         let dirName = (pane.workingDirectory as NSString).lastPathComponent
+        let color = iconColor(
+            needsAttention: pane.needsAttention,
+            isFocused: isFocused,
+            isRunning: pane.isRunning
+        )
 
-        return HStack(spacing: 6) {
-            paneStatusDot(pane)
-                .frame(width: 5, height: 5)
+        // If the group is not the last sibling, we need a continuing vertical line at depth 1
+        let continuing: Set<Int> = isLastGroup ? [] : [1]
 
-            Text(dirName)
-                .font(.system(size: 11))
-                .foregroundStyle(Color(isFocused ? theme.foreground : theme.sidebarTextSecondary))
-                .lineLimit(1)
+        return HStack(spacing: 0) {
+            TreeConnectorView(
+                depth: 2,
+                continuingLevels: continuing,
+                theme: theme
+            )
 
-            Spacer(minLength: 0)
+            HStack(spacing: 6) {
+                iconView(name: "bash", size: 13, color: color, needsAttention: pane.needsAttention)
 
-            if isHovered && group.panes.count > 1 {
-                Button {
-                    onRemovePane(workspace.id, pane.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 7, weight: .semibold))
-                        .foregroundStyle(Color(theme.sidebarTextSecondary))
+                Text(dirName)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(isFocused ? theme.foreground : theme.sidebarTextSecondary))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if isHovered && group.panes.count > 1 {
+                    Button {
+                        onRemovePane(workspace.id, pane.id)
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 7, weight: .semibold))
+                            .foregroundStyle(Color(theme.sidebarTextSecondary))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
+            .padding(.trailing, 8)
         }
-        .padding(.leading, 48)
-        .padding(.trailing, 8)
-        .padding(.vertical, 3)
+        .padding(.leading, 8)
+        .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 4)
+            Rectangle()
                 .fill(
                     isFocused
-                        ? Color(theme.sidebarSurface).opacity(0.5)
+                        ? Color(theme.sidebarSurface)
                         : isHovered
-                            ? Color(theme.sidebarSurface).opacity(0.2)
+                            ? Color(theme.sidebarSurface).opacity(0.4)
                             : Color.clear
                 )
         )
@@ -308,16 +371,16 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    private func paneStatusDot(_ pane: Pane) -> some View {
-        StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, theme: theme)
-    }
+    // MARK: - Helpers
 
-    private func groupStatusDot(_ group: PaneGroup) -> some View {
-        StatusDotView(needsAttention: group.needsAttention, isRunning: group.isRunning, theme: theme)
-    }
-
-    private func workspaceStatusDot(_ workspace: Workspace) -> some View {
-        StatusDotView(needsAttention: workspace.hasAttentionGroup, isRunning: workspace.isRunning, theme: theme)
+    @ViewBuilder
+    private func iconView(name: String, size: CGFloat, color: Color, needsAttention: Bool) -> some View {
+        if needsAttention {
+            CatppuccinIconView(name: name, size: size, flavor: flavor, templateColor: color)
+                .modifier(PulseModifier())
+        } else {
+            CatppuccinIconView(name: name, size: size, flavor: flavor, templateColor: color)
+        }
     }
 
     private func toggleExpanded(_ id: UUID) {
@@ -326,6 +389,41 @@ struct WorkspaceSidebar: View {
         } else {
             expandedWorkspaceIDs.insert(id)
         }
+    }
+}
+
+// MARK: - Tree Connector
+
+private struct TreeConnectorView: View {
+    let depth: Int
+    let continuingLevels: Set<Int>
+    let theme: TerminalTheme
+
+    private let gutterWidth: CGFloat = 12
+
+    var body: some View {
+        Canvas { context, size in
+            let lineColor = Color(theme.sidebarTextSecondary).opacity(0.2)
+
+            // Draw continuing vertical lines for ancestor levels
+            for level in continuingLevels {
+                let x = CGFloat(level) * gutterWidth + gutterWidth / 2
+                var path = Path()
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+                context.stroke(path, with: .color(lineColor), lineWidth: 1)
+            }
+
+            // Draw vertical line at current depth — always full height
+            if depth > 0 {
+                let x = size.width - gutterWidth / 2
+                var verticalPath = Path()
+                verticalPath.move(to: CGPoint(x: x, y: 0))
+                verticalPath.addLine(to: CGPoint(x: x, y: size.height))
+                context.stroke(verticalPath, with: .color(lineColor), lineWidth: 1)
+            }
+        }
+        .frame(width: CGFloat(depth) * gutterWidth)
     }
 }
 

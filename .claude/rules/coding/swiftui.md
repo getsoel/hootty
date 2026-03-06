@@ -30,3 +30,7 @@ When refactoring stored properties to computed aggregates (e.g., `Tab.isRunning`
 For draggable dividers/resizable panes, never mutate `@Observable` properties on every drag frame — causes full observation propagation and layout stutter. Use `@GestureState` for the in-flight delta (commit to model on `.onEnded` only) and `GeometryReader` + `ZStack` with absolute positioning instead of `HStack`/`VStack` layout negotiation.
 
 With `.windowStyle(.hiddenTitleBar)`, `GeometryReader` reports width excluding safe area insets. When using `.clipped()` on a container, set `.frame(width:)` to the full width (geometry + safe area insets) *before* `.clipped()` — otherwise content beyond the safe-area-constrained width is invisibly clipped away.
+
+Never use `NSViewRepresentable` as `.overlay` on interactive SwiftUI views — the embedded NSView intercepts all mouse events, breaking `.onHover`, `.onTapGesture`, and gesture recognizers on the view underneath.
+
+Cursor management differs between AppKit and SwiftUI contexts. For NSView subclasses: add `.cursorUpdate` to `NSTrackingArea` options and override `cursorUpdate(with:)` to call `cursor.set()` — this fires at the AppKit level before SwiftUI can interfere. For SwiftUI views (macOS 14, pre-`.pointerStyle`): use `.onContinuousHover` with `DispatchQueue.main.async { NSCursor.pointingHand.set() }`. One-shot `NSCursor.set()` or `.push()`/`.pop()` in `.onHover` gets immediately overridden because SwiftUI resets cursors on every mouse move.

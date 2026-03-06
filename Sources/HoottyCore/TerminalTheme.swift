@@ -25,6 +25,7 @@ public struct TerminalTheme: Equatable {
     public let cursorColor: NSColor
     public let selectionBackground: NSColor
     public let selectionForeground: NSColor
+    public let mantle: NSColor                   // darker-than-background chrome color
     public let sidebarSurface: NSColor        // selected row bg / divider
     public let sidebarTextSecondary: NSColor   // subdued text
     public let sidebarRunningDot: NSColor      // green status dot
@@ -38,6 +39,7 @@ public struct TerminalTheme: Equatable {
             && lhs.cursorColor == rhs.cursorColor
             && lhs.selectionBackground == rhs.selectionBackground
             && lhs.selectionForeground == rhs.selectionForeground
+            && lhs.mantle == rhs.mantle
             && lhs.sidebarSurface == rhs.sidebarSurface
             && lhs.sidebarTextSecondary == rhs.sidebarTextSecondary
             && lhs.sidebarRunningDot == rhs.sidebarRunningDot
@@ -59,6 +61,7 @@ public struct TerminalTheme: Equatable {
                 cursorColor: hex(0xf5e0dc),
                 selectionBackground: hex(0x585b70),
                 selectionForeground: hex(0xcdd6f4),
+                mantle: hex(0x181825),                // mantle
                 sidebarSurface: hex(0x313244),       // surface0
                 sidebarTextSecondary: hex(0xa6adc8),  // subtext0
                 sidebarRunningDot: hex(0xa6e3a1),     // green
@@ -77,6 +80,7 @@ public struct TerminalTheme: Equatable {
                 cursorColor: hex(0xf4dbd6),
                 selectionBackground: hex(0x5b6078),
                 selectionForeground: hex(0xcad3f5),
+                mantle: hex(0x1e2030),                // mantle
                 sidebarSurface: hex(0x363a4f),       // surface0
                 sidebarTextSecondary: hex(0xa5adcb),  // subtext0
                 sidebarRunningDot: hex(0xa6da95),     // green
@@ -95,6 +99,7 @@ public struct TerminalTheme: Equatable {
                 cursorColor: hex(0xf2d5cf),
                 selectionBackground: hex(0x626880),
                 selectionForeground: hex(0xc6d0f5),
+                mantle: hex(0x292c3c),                // mantle
                 sidebarSurface: hex(0x414559),       // surface0
                 sidebarTextSecondary: hex(0xa5adce),  // subtext0
                 sidebarRunningDot: hex(0xa6d189),     // green
@@ -113,6 +118,7 @@ public struct TerminalTheme: Equatable {
                 cursorColor: hex(0xdc8a78),
                 selectionBackground: hex(0xacb0be),
                 selectionForeground: hex(0x4c4f69),
+                mantle: hex(0xe6e9ef),                // mantle
                 sidebarSurface: hex(0xccd0da),       // surface0
                 sidebarTextSecondary: hex(0x6c6f85),  // subtext0
                 sidebarRunningDot: hex(0x40a02b),     // green

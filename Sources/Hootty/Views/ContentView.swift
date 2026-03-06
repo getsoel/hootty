@@ -105,6 +105,7 @@ struct ContentView: View {
                 set: { appModel.selectedWorkspaceID = $0 }
             ),
             theme: theme,
+            flavor: flavor,
             isKanbanSelected: appModel.viewMode == .kanban,
             onSelectKanban: {
                 appModel.viewMode = .kanban

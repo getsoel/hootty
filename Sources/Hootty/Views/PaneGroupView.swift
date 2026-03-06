@@ -14,15 +14,12 @@ struct PaneGroupView: View {
         VStack(spacing: 0) {
             PaneGroupTabBar(
                 group: group,
+                isFocused: isFocused,
                 theme: theme,
                 onAddPane: onAddPane,
                 onRemovePane: onRemovePane,
                 onSave: onSave
             )
-
-            Rectangle()
-                .fill(Color(theme.sidebarSurface))
-                .frame(height: 1)
 
             ZStack {
                 ForEach(group.panes) { pane in
@@ -30,12 +27,6 @@ struct PaneGroupView: View {
                         .opacity(pane.id == group.selectedPaneID ? 1 : 0)
                         .allowsHitTesting(pane.id == group.selectedPaneID)
                 }
-            }
-        }
-        .overlay {
-            if !isFocused {
-                Color.black.opacity(0.15)
-                    .allowsHitTesting(false)
             }
         }
         .contentShape(Rectangle())

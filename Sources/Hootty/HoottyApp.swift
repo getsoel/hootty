@@ -68,6 +68,9 @@ struct HoottyApp: App {
                         workspace.closePane(id: paneID)
                         appModel.saveWorkspaces()
                     }
+                    GhosttyApp.shared.onPwdChanged = { [appModel] _, _ in
+                        appModel.debouncedSave()
+                    }
                     GhosttyApp.shared.onCloseTab = { [appModel] in
                         guard let workspace = appModel.selectedWorkspace,
                               let group = workspace.focusedPaneGroup,

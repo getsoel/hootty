@@ -32,6 +32,7 @@ let package = Package(
             dependencies: ["CGhostty", "HoottyCore"],
             path: "Sources/Hootty",
             exclude: ["Info.plist"],
+            resources: [.copy("Resources/Icons")],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
                               "-Xlinker", "__TEXT",

@@ -65,6 +65,8 @@ final class TerminalSurfaceView: NSView {
     private var pendingTextBytes = 0
     private static let maxPendingTextBytes = 1_048_576 // 1MB
 
+    private var currentCursor: NSCursor = .iBeam
+
     override var acceptsFirstResponder: Bool { true }
 
     // MARK: - Initialization
@@ -294,11 +296,24 @@ final class TerminalSurfaceView: NSView {
         ghostty_surface_set_size(surface, UInt32(scaledSize.width), UInt32(scaledSize.height))
     }
 
+    func setCursorShape(_ cursor: NSCursor) {
+        currentCursor = cursor
+        window?.invalidateCursorRects(for: self)
+    }
+
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: currentCursor)
+    }
+
+    override func cursorUpdate(with event: NSEvent) {
+        currentCursor.set()
+    }
+
     override func updateTrackingAreas() {
         trackingAreas.forEach { removeTrackingArea($0) }
         addTrackingArea(NSTrackingArea(
             rect: bounds,
-            options: [.mouseEnteredAndExited, .mouseMoved, .inVisibleRect, .activeAlways],
+            options: [.mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .inVisibleRect, .activeAlways],
             owner: self,
             userInfo: nil
         ))

@@ -3,6 +3,7 @@ import HoottyCore
 
 struct PaneGroupTabBar: View {
     let group: PaneGroup
+    let isFocused: Bool
     let theme: TerminalTheme
     var onAddPane: () -> Void
     var onRemovePane: (UUID) -> Void
@@ -24,7 +25,7 @@ struct PaneGroupTabBar: View {
                 let usableWidth = geometry.size.width - addButtonWidth
                 let tabWidth = min(maxTabWidth, max(minTabWidth, usableWidth / CGFloat(tabCount)))
 
-                HStack(spacing: 1) {
+                HStack(spacing: 0) {
                     ForEach(group.panes) { pane in
                         paneTab(pane)
                             .frame(width: tabWidth)
@@ -41,7 +42,7 @@ struct PaneGroupTabBar: View {
                             ))
                     }
                 }
-                .padding(.horizontal, 4)
+                .frame(maxHeight: .infinity)
             }
 
             Button(action: onAddPane) {
@@ -53,8 +54,14 @@ struct PaneGroupTabBar: View {
             .buttonStyle(.plain)
             .padding(.trailing, 4)
         }
-        .frame(height: 28)
-        .background(Color(theme.background).opacity(0.8))
+        .frame(height: 35)
+        .padding(.bottom, -1)
+        .background(
+            VStack(spacing: 0) {
+                Color(theme.mantle)
+                Rectangle().fill(Color(theme.sidebarSurface)).frame(height: 1)
+            }
+        )
         .alert("Rename Tab", isPresented: Binding(
             get: { renameTargetID != nil },
             set: { if !$0 { renameTargetID = nil } }
@@ -88,7 +95,7 @@ struct PaneGroupTabBar: View {
 
             Text(pane.displayName)
                 .font(.system(size: 11))
-                .foregroundStyle(Color(isSelected ? theme.foreground : theme.sidebarTextSecondary))
+                .foregroundStyle(Color(theme.sidebarTextSecondary))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
@@ -105,20 +112,31 @@ struct PaneGroupTabBar: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 12)
         .frame(maxHeight: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(
-                    isSelected
-                        ? Color(theme.sidebarSurface)
-                        : isHovered
-                            ? Color(theme.sidebarSurface).opacity(0.4)
-                            : Color.clear
-                )
-        )
-        .onHover { hovering in
-            hoveredPaneID = hovering ? pane.id : nil
+        .background(isSelected ? Color(theme.background) : Color.clear)
+        .overlay(alignment: .trailing) {
+            Rectangle().fill(Color(theme.sidebarSurface)).frame(width: 1)
+        }
+        .overlay(alignment: .top) {
+            if isSelected && isFocused {
+                Rectangle()
+                    .fill(Color(theme.palette[5]))
+                    .frame(height: 1)
+            }
+        }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                hoveredPaneID = pane.id
+                DispatchQueue.main.async {
+                    NSCursor.pointingHand.set()
+                }
+            case .ended:
+                hoveredPaneID = nil
+            @unknown default:
+                break
+            }
         }
         .onTapGesture {
             group.selectPane(id: pane.id)

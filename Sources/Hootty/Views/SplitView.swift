@@ -36,7 +36,7 @@ struct SplitNodeView: View {
         GeometryReader { geometry in
             let isH = direction == .horizontal
             let totalSize = isH ? geometry.size.width : geometry.size.height
-            let dividerThickness: CGFloat = 2
+            let dividerThickness: CGFloat = 1
             let usableSize = totalSize - dividerThickness
             let effectiveRatio = usableSize > 0
                 ? min(max(node.splitRatio + splitDragDelta / usableSize, 0.1), 0.9)
@@ -56,7 +56,7 @@ struct SplitNodeView: View {
 
                 // Visible divider line
                 Rectangle()
-                    .fill(Color(theme.palette[0]))
+                    .fill(Color(theme.sidebarSurface))
                     .frame(
                         width: isH ? dividerThickness : geometry.size.width,
                         height: isH ? geometry.size.height : dividerThickness
@@ -74,8 +74,8 @@ struct SplitNodeView: View {
                     )
                     .contentShape(Rectangle())
                     .offset(
-                        x: isH ? dividerPos - 3 : 0,
-                        y: isH ? 0 : dividerPos - 3
+                        x: isH ? dividerPos - 3.5 : 0,
+                        y: isH ? 0 : dividerPos - 3.5
                     )
                     .gesture(
                         DragGesture(minimumDistance: 1)

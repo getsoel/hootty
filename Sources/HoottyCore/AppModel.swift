@@ -36,12 +36,24 @@ public final class AppModel {
         }
     }
 
+    private var saveDebounceTask: DispatchWorkItem?
+
     public func saveWorkspaces() {
         let snapshot = WorkspaceSnapshot(
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID
         )
         workspaceStore.save(snapshot)
+    }
+
+    /// Debounced save — coalesces rapid calls (e.g. pwd changes) to at most one save per second.
+    public func debouncedSave() {
+        saveDebounceTask?.cancel()
+        let task = DispatchWorkItem { [weak self] in
+            self?.saveWorkspaces()
+        }
+        saveDebounceTask = task
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: task)
     }
 
     @discardableResult

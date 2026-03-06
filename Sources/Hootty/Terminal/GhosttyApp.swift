@@ -28,6 +28,9 @@ final class GhosttyApp {
     /// Called when ghostty dispatches a close_tab action.
     var onCloseTab: (() -> Void)?
 
+    /// Called when a surface's working directory changes (paneID, newPath).
+    var onPwdChanged: ((UUID, String) -> Void)?
+
     /// Pending parent surfaces for inherited config during split creation.
     private var pendingParentSurfaces: [UUID: ghostty_surface_t] = [:]
 
@@ -273,26 +276,30 @@ final class GhosttyApp {
     }
 
     private static func pwdChanged(target: ghostty_target_s, v: ghostty_action_pwd_s) -> Bool {
-        guard let view = surfaceView(from: target) else { return false }
+        guard let ctx = callbackContext(from: target) else { return false }
         guard let pwd = v.pwd else { return false }
         let pwdStr = String(cString: pwd)
+        let paneID = ctx.paneID
         DispatchQueue.main.async {
-            view.pwdDidChange?(pwdStr)
+            ctx.view?.pwdDidChange?(pwdStr)
+            GhosttyApp.shared.onPwdChanged?(paneID, pwdStr)
         }
         return true
     }
 
     private static func setMouseShape(target: ghostty_target_s, shape: ghostty_action_mouse_shape_e) -> Bool {
-        guard surfaceView(from: target) != nil else { return false }
+        guard let view = surfaceView(from: target) else { return false }
         DispatchQueue.main.async {
+            let cursor: NSCursor
             switch shape {
             case GHOSTTY_MOUSE_SHAPE_TEXT:
-                NSCursor.iBeam.set()
+                cursor = .iBeam
             case GHOSTTY_MOUSE_SHAPE_POINTER:
-                NSCursor.pointingHand.set()
+                cursor = .pointingHand
             default:
-                NSCursor.arrow.set()
+                cursor = .arrow
             }
+            view.setCursorShape(cursor)
         }
         return true
     }
