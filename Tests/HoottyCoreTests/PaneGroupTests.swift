@@ -92,10 +92,31 @@ import Foundation
         #expect(group.needsAttention == true)
     }
 
-    @Test func displayNameFromSelectedPane() {
-        let group = PaneGroup(name: "Test")
-        group.panes.first!.name = "zsh"
-        #expect(group.displayName == "zsh")
+    @Test func displayNameReturnsNameWhenNoCustomName() {
+        let group = PaneGroup(name: "Group 1")
+        #expect(group.displayName == "Group 1")
+    }
+
+    @Test func displayNameReturnsCustomNameWhenSet() {
+        let group = PaneGroup(name: "Group 1")
+        group.customName = "My Terminal"
+        #expect(group.displayName == "My Terminal")
+    }
+
+    @Test func displayNameRevertsWhenCustomNameCleared() {
+        let group = PaneGroup(name: "Group 1")
+        group.customName = "My Terminal"
+        #expect(group.displayName == "My Terminal")
+        group.customName = nil
+        #expect(group.displayName == "Group 1")
+    }
+
+    @Test func codableRoundTripWithCustomName() throws {
+        let group = PaneGroup(name: "Group 1", customName: "Custom")
+        let data = try JSONEncoder().encode(group)
+        let decoded = try JSONDecoder().decode(PaneGroup.self, from: data)
+        #expect(decoded.customName == "Custom")
+        #expect(decoded.displayName == "Custom")
     }
 
     @Test func addPaneInheritsWorkingDirectory() {

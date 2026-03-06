@@ -8,9 +8,8 @@ After cloning, run `make setup` to configure git hooks (pre-commit runs build + 
 ## Commands
 - `swift build`: compile
 - `swift test`: run unit tests (HoottyCoreTests)
+- `swift test --filter TestName`: run a single test
 - `swift run Hootty`: launch app (window appears with zsh session)
-
-After modifying Swift source files, verify `swift build` succeeds.
 
 ## Architecture
 ```
@@ -21,8 +20,8 @@ Sources/
     shims.c                    -- placeholder for SPM
   HoottyCore/                -- testable library target (no UI dependencies)
     AppModel.swift             -- @Observable app state, workspace management
-    Workspace.swift            -- @Observable: id, name, tabs[], selectedTabID
-    Tab.swift                  -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
+    Workspace.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneGroupID
+    PaneGroup.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
     Pane.swift                 -- @Observable: id, name, isRunning, shell, workingDirectory
     SplitNode.swift            -- @Observable binary tree: leaf(Pane) | split(direction, first, second)
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
@@ -32,7 +31,8 @@ Sources/
     Views/
       ContentView.swift        -- HStack: sidebar + detail (terminal view)
       WorkspaceSidebar.swift   -- Workspace list with status indicators
-      TabBar.swift             -- Tab strip within a workspace
+      PaneGroupTabBar.swift     -- Tab strip within a pane group region
+      PaneGroupView.swift      -- Per-region pane group container (tab bar + split content)
       SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers
       TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
     Terminal/
@@ -46,39 +46,23 @@ Vendors/
 
 Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emulation (PTY, ANSI/VT parsing, Metal rendering, Kitty keyboard protocol).
 
-## Rebuilding libghostty
-From the ghostty repo (not this repo). Default `zig build -Dapp-runtime=none` fails on macOS.
-```
-cd /path/to/ghostty
-zig build -Doptimize=ReleaseFast -Demit-xcframework=true -Dxcframework-target=native
-cp macos/GhosttyKit.xcframework/macos-arm64/libghostty-fat.a /path/to/hootty/Vendors/lib/libghostty.a
-cp -R macos/GhosttyKit.xcframework/macos-arm64/Headers/* /path/to/hootty/Sources/CGhostty/include/
-```
+Rebuilding libghostty: see `docs/REBUILDING.md`
 
 ### Data flow
 - ghostty_app_t (singleton) → manages config and dispatches actions via callbacks
 - ghostty_surface_t (per pane) → handles PTY, parsing, and Metal rendering internally
 - TerminalSurfaceView (NSView) → hosts the surface, forwards keyboard/mouse events
-- Action callbacks (title, pwd, exit) → update Pane model → Tab aggregates → SwiftUI reacts
-- Split panes: Tab.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
+- Action callbacks (title, pwd, exit) → update Pane model → PaneGroup aggregates → SwiftUI reacts
+- Split panes: PaneGroup.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 
-## Debugging
+Debugging/logging: see `docs/DEBUGGING.md` (read when investigating crashes or runtime issues)
 
-All runtime logging uses Apple's Unified Logging (`os.Logger`) with subsystem `com.soel.hootty`.
+### Naming: Tab vs Pane vs Group
+- **Tab**: UI presentation concept — items in the tab bar. Use in tab bar context: "Rename Tab", "Close Tab"
+- **Pane**: The underlying terminal session. Use in sidebar tree and split contexts: "Close Pane", "Split Pane"
+- **Group** / **PaneGroup**: Container of panes shown as a region with its own tab bar. Use in sidebar: "Close Group"
 
-```bash
-# Tail live logs while app runs (in a separate terminal):
-log stream --predicate 'subsystem == "com.soel.hootty"' --level debug
-
-# View recent logs after a crash:
-log show --predicate 'subsystem == "com.soel.hootty"' --last 5m --style compact
-
-# Filter by category (ghostty, surface, lifecycle, crash):
-log show --predicate 'subsystem == "com.soel.hootty" AND category == "ghostty"' --last 5m
-
-# Check crash log:
-cat ~/Library/Logs/Hootty/crash.log
-
-# Run with stderr visible:
-swift run Hootty 2>&1 | tee /tmp/hootty-stderr.log
-```
+## Before Finishing
+- `swift build` succeeds
+- `swift test` passes (ignore signal 10 exit — see CLAUDE.local.md)
+- Only task-relevant files changed

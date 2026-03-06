@@ -4,7 +4,7 @@ import HoottyCore
 struct PaneGroupView: View {
     @Bindable var group: PaneGroup
     let isFocused: Bool
-    let theme: TerminalTheme
+    let tokens: DesignTokens
     let onFocusPaneGroup: (UUID) -> Void
     let onAddPane: () -> Void
     let onRemovePane: (UUID) -> Void
@@ -15,7 +15,8 @@ struct PaneGroupView: View {
             PaneGroupTabBar(
                 group: group,
                 isFocused: isFocused,
-                theme: theme,
+                tokens: tokens,
+                onFocusPaneGroup: { onFocusPaneGroup(group.id) },
                 onAddPane: onAddPane,
                 onRemovePane: onRemovePane,
                 onSave: onSave

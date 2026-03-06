@@ -1,10 +1,12 @@
 import SwiftUI
 import HoottyCore
+import LucideIcons
 
 struct PaneGroupTabBar: View {
     let group: PaneGroup
     let isFocused: Bool
-    let theme: TerminalTheme
+    let tokens: DesignTokens
+    var onFocusPaneGroup: () -> Void
     var onAddPane: () -> Void
     var onRemovePane: (UUID) -> Void
     var onSave: (() -> Void)?
@@ -42,24 +44,23 @@ struct PaneGroupTabBar: View {
                             ))
                     }
                 }
-                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             }
 
             Button(action: onAddPane) {
-                Image(systemName: "plus")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(Color(theme.sidebarTextSecondary))
+                LucideIcon(Lucide.plus, size: 10)
+                    .foregroundStyle(Color(tokens.textMuted))
                     .frame(width: 24, height: 24)
             }
             .buttonStyle(.plain)
-            .padding(.trailing, 4)
+            .padding(.trailing, Spacing.sm)
         }
         .frame(height: 35)
         .padding(.bottom, -1)
         .background(
             VStack(spacing: 0) {
-                Color(theme.mantle)
-                Rectangle().fill(Color(theme.sidebarSurface)).frame(height: 1)
+                Color(tokens.tabBarBackground)
+                Rectangle().fill(Color(tokens.border)).frame(height: 1)
             }
         )
         .alert("Rename Tab", isPresented: Binding(
@@ -82,7 +83,7 @@ struct PaneGroupTabBar: View {
     }
 
     private func paneStatusDot(_ pane: Pane) -> some View {
-        StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, theme: theme)
+        StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, tokens: tokens)
     }
 
     private func paneTab(_ pane: Pane) -> some View {
@@ -94,8 +95,8 @@ struct PaneGroupTabBar: View {
                 .frame(width: 5, height: 5)
 
             Text(pane.displayName)
-                .font(.system(size: 11))
-                .foregroundStyle(Color(theme.sidebarTextSecondary))
+                .font(.system(size: TypeScale.captionSize))
+                .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
                 .truncationMode(.tail)
 
@@ -105,23 +106,22 @@ struct PaneGroupTabBar: View {
                 Button {
                     onRemovePane(pane.id)
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 7, weight: .semibold))
-                        .foregroundStyle(Color(theme.sidebarTextSecondary))
+                    LucideIcon(Lucide.x, size: 7)
+                        .foregroundStyle(Color(tokens.textMuted))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity)
-        .background(isSelected ? Color(theme.background) : Color.clear)
+        .background(isSelected ? Color(tokens.tabActive) : Color.clear)
         .overlay(alignment: .trailing) {
-            Rectangle().fill(Color(theme.sidebarSurface)).frame(width: 1)
+            Rectangle().fill(Color(tokens.border)).frame(width: 1)
         }
         .overlay(alignment: .top) {
             if isSelected && isFocused {
                 Rectangle()
-                    .fill(Color(theme.palette[5]))
+                    .fill(Color(tokens.borderFocused))
                     .frame(height: 1)
             }
         }
@@ -140,6 +140,7 @@ struct PaneGroupTabBar: View {
         }
         .onTapGesture {
             group.selectPane(id: pane.id)
+            onFocusPaneGroup()
         }
         .contextMenu {
             Button("Rename Tab") {

@@ -1,3 +1,7 @@
+---
+globs: Sources/HoottyCore/**/*.swift, Tests/HoottyCoreTests/**/*.swift
+---
+
 After modifying any file in Sources/HoottyCore/, run `swift test` to verify model logic.
 When adding new model logic, add corresponding tests in Tests/HoottyCoreTests/.
 

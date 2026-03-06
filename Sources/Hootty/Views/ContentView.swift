@@ -18,6 +18,10 @@ struct ContentView: View {
         appModel.themeManager.selectedFlavor
     }
 
+    private var tokens: DesignTokens {
+        DesignTokens.from(theme)
+    }
+
     /// Effective sidebar width: base + in-flight drag delta, clamped to bounds.
     private var effectiveSidebarWidth: CGFloat {
         let w = appModel.sidebarWidth + dragOffset
@@ -39,7 +43,7 @@ struct ContentView: View {
 
                     // Visible 1px divider line
                     Rectangle()
-                        .fill(Color(theme.sidebarSurface))
+                        .fill(Color(tokens.border))
                         .frame(width: 1, height: geometry.size.height)
                         .offset(x: sidebarW)
 
@@ -81,10 +85,10 @@ struct ContentView: View {
             .frame(width: fullWidth, alignment: .topLeading)
             .clipped()
         }
-        .background(Color(theme.background).ignoresSafeArea())
+        .background(Color(tokens.surface).ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) {
             Rectangle()
-                .fill(Color(theme.sidebarSurface))
+                .fill(Color(tokens.border))
                 .frame(height: 1)
         }
         .background(
@@ -104,7 +108,7 @@ struct ContentView: View {
                 get: { appModel.selectedWorkspaceID },
                 set: { appModel.selectedWorkspaceID = $0 }
             ),
-            theme: theme,
+            tokens: tokens,
             flavor: flavor,
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
@@ -151,7 +155,7 @@ struct ContentView: View {
             SplitNodeView(
                 node: workspace.rootNode,
                 focusedPaneGroupID: workspace.focusedPaneGroupID,
-                theme: theme,
+                tokens: tokens,
                 isInSplit: false,
                 onFocusPaneGroup: { groupID in
                     workspace.focusPaneGroup(id: groupID)

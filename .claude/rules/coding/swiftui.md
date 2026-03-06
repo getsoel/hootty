@@ -34,3 +34,9 @@ With `.windowStyle(.hiddenTitleBar)`, `GeometryReader` reports width excluding s
 Never use `NSViewRepresentable` as `.overlay` on interactive SwiftUI views — the embedded NSView intercepts all mouse events, breaking `.onHover`, `.onTapGesture`, and gesture recognizers on the view underneath.
 
 Cursor management differs between AppKit and SwiftUI contexts. For NSView subclasses: add `.cursorUpdate` to `NSTrackingArea` options and override `cursorUpdate(with:)` to call `cursor.set()` — this fires at the AppKit level before SwiftUI can interfere. For SwiftUI views (macOS 14, pre-`.pointerStyle`): use `.onContinuousHover` with `DispatchQueue.main.async { NSCursor.pointingHand.set() }`. One-shot `NSCursor.set()` or `.push()`/`.pop()` in `.onHover` gets immediately overridden because SwiftUI resets cursors on every mouse move.
+
+Never use `.resizable().frame(width:height:)` on Catppuccin SVG icons — they have a 16x16 viewBox and scaling causes bitmap blur on thin strokes. Use `.frame(width:height:)` alone to render at native size. Keep `.resizable()` only for SF Symbols.
+
+`.foregroundStyle()` is a no-op on `Image(nsImage:)` when the NSImage is a non-template image (e.g., SVGs with baked-in stroke colors). Don't pass tint colors to Catppuccin icon views — the SVGs already carry their Catppuccin palette colors.
+
+For continuous tree/indent lines drawn with `Canvas` across consecutive rows in a `LazyVStack(spacing: 0)`, place `.padding(.vertical:)` on the inner content view, not the outer row container. Outer padding creates gaps between rows where the Canvas doesn't draw, breaking line continuity.

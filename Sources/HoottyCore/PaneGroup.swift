@@ -4,6 +4,7 @@ import Foundation
 public final class PaneGroup: Identifiable {
     public let id: UUID
     public var name: String
+    public var customName: String?
     public var panes: [Pane]
     public var selectedPaneID: UUID?
     private var paneCounter = 0
@@ -22,12 +23,13 @@ public final class PaneGroup: Identifiable {
     }
 
     public var displayName: String {
-        selectedPane?.displayName ?? name
+        customName ?? name
     }
 
-    public init(name: String, shell: String = "/bin/zsh", workingDirectory: String? = nil) {
+    public init(name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil) {
         self.id = UUID()
         self.name = name
+        self.customName = customName
         let pane = Pane(name: name, shell: shell, workingDirectory: workingDirectory)
         self.panes = [pane]
         self.selectedPaneID = pane.id
@@ -35,9 +37,10 @@ public final class PaneGroup: Identifiable {
     }
 
     /// Restoration initializer for decoding persisted state.
-    public init(id: UUID, name: String, panes: [Pane], selectedPaneID: UUID?) {
+    public init(id: UUID, name: String, customName: String? = nil, panes: [Pane], selectedPaneID: UUID?) {
         self.id = id
         self.name = name
+        self.customName = customName
         self.panes = panes
         self.selectedPaneID = selectedPaneID
         self.paneCounter = panes.count
@@ -88,7 +91,7 @@ public final class PaneGroup: Identifiable {
 
 extension PaneGroup: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, panes, selectedPaneID
+        case id, name, customName, panes, selectedPaneID
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -96,6 +99,7 @@ extension PaneGroup: Codable {
         self.init(
             id: try container.decode(UUID.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
+            customName: try container.decodeIfPresent(String.self, forKey: .customName),
             panes: try container.decode([Pane].self, forKey: .panes),
             selectedPaneID: try container.decodeIfPresent(UUID.self, forKey: .selectedPaneID)
         )
@@ -105,6 +109,7 @@ extension PaneGroup: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(customName, forKey: .customName)
         try container.encode(panes, forKey: .panes)
         try container.encode(selectedPaneID, forKey: .selectedPaneID)
     }

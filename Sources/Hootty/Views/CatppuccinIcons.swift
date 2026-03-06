@@ -1,29 +1,19 @@
 import SwiftUI
 import HoottyCore
+import LucideIcons
 
 struct CatppuccinIconView: View {
     let name: String
     let size: CGFloat
     let flavor: CatppuccinFlavor
-    var templateColor: Color?
 
     var body: some View {
         if let image = Self.loadImage(name: name, flavor: flavor) {
-            if let tint = templateColor {
-                Image(nsImage: image)
-                    .resizable()
-                    .frame(width: size, height: size)
-                    .foregroundStyle(tint)
-            } else {
-                Image(nsImage: image)
-                    .resizable()
-                    .frame(width: size, height: size)
-            }
-        } else {
-            Image(systemName: "questionmark.square")
-                .font(.system(size: size))
-                .foregroundStyle(templateColor ?? .secondary)
+            Image(nsImage: image)
                 .frame(width: size, height: size)
+        } else {
+            LucideIcon(Lucide.circleQuestionMark, size: size)
+                .foregroundStyle(.secondary)
         }
     }
 

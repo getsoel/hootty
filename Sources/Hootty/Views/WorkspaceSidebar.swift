@@ -1,10 +1,11 @@
 import SwiftUI
 import HoottyCore
+import LucideIcons
 
 struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
-    let theme: TerminalTheme
+    let tokens: DesignTokens
     let flavor: CatppuccinFlavor
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
@@ -21,6 +22,8 @@ struct WorkspaceSidebar: View {
     @State private var hoveredPaneID: UUID?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
+    @State private var renameGroupTargetID: UUID?
+    @State private var editingGroupName: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,13 +33,23 @@ struct WorkspaceSidebar: View {
 
             // Divider
             Rectangle()
-                .fill(Color(theme.sidebarSurface))
+                .fill(Color(tokens.border))
                 .frame(height: 1)
 
             addWorkspaceButton
         }
         .frame(width: sidebarWidth)
-        .background(Color(theme.mantle))
+        .background(Color(tokens.background))
+        .onAppear {
+            if let id = selectedWorkspaceID {
+                expandedWorkspaceIDs.insert(id)
+            }
+        }
+        .onChange(of: selectedWorkspaceID) { _, newID in
+            if let id = newID {
+                expandedWorkspaceIDs.insert(id)
+            }
+        }
         .alert("Rename Workspace", isPresented: Binding(
             get: { renameTargetID != nil },
             set: { if !$0 { renameTargetID = nil } }
@@ -44,6 +57,14 @@ struct WorkspaceSidebar: View {
             TextField("Workspace name", text: $editingName)
             Button("OK") { commitRename() }
             Button("Cancel", role: .cancel) { renameTargetID = nil }
+        }
+        .alert("Rename Group", isPresented: Binding(
+            get: { renameGroupTargetID != nil },
+            set: { if !$0 { renameGroupTargetID = nil } }
+        )) {
+            TextField("Group name", text: $editingGroupName)
+            Button("OK") { commitGroupRename() }
+            Button("Cancel", role: .cancel) { renameGroupTargetID = nil }
         }
     }
 
@@ -62,36 +83,32 @@ struct WorkspaceSidebar: View {
                                 workspace: workspace
                             )
 
-                            if group.panes.count > 1 {
-                                ForEach(group.panes) { pane in
-                                    paneRow(
-                                        pane,
-                                        group: group,
-                                        workspace: workspace,
-                                        isLastGroup: isLastGroup
-                                    )
-                                }
+                            ForEach(group.panes) { pane in
+                                paneRow(
+                                    pane,
+                                    group: group,
+                                    workspace: workspace,
+                                    isLastGroup: isLastGroup
+                                )
                             }
                         }
                     }
                 }
             }
-            .padding(.top, 4)
         }
     }
 
     private var addWorkspaceButton: some View {
         Button(action: onAddWorkspace) {
             HStack {
-                Image(systemName: "plus")
-                    .font(.system(size: 12, weight: .medium))
+                LucideIcon(Lucide.plus, size: TypeScale.smallSize)
                 Text("New Workspace")
-                    .font(.system(size: 12))
+                    .font(.system(size: TypeScale.smallSize))
             }
-            .foregroundStyle(Color(theme.sidebarTextSecondary))
+            .foregroundStyle(Color(tokens.textMuted))
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
         }
         .buttonStyle(.plain)
     }
@@ -105,18 +122,18 @@ struct WorkspaceSidebar: View {
         renameTargetID = nil
     }
 
-    // MARK: - Row icon color
-
-    private func iconColor(needsAttention: Bool, isFocused: Bool, isRunning: Bool) -> Color {
-        if needsAttention {
-            return Color(theme.attentionColor)
-        } else if isFocused {
-            return Color(theme.foreground)
-        } else if isRunning {
-            return Color(theme.sidebarRunningDot)
-        } else {
-            return Color(theme.sidebarTextSecondary)
+    private func commitGroupRename() {
+        let trimmed = editingGroupName.trimmingCharacters(in: .whitespaces)
+        if let targetID = renameGroupTargetID {
+            for workspace in workspaces {
+                if let group = workspace.allPaneGroups.first(where: { $0.id == targetID }) {
+                    group.customName = trimmed.isEmpty ? nil : trimmed
+                    onSave?()
+                    break
+                }
+            }
         }
+        renameGroupTargetID = nil
     }
 
     // MARK: - Workspace row (depth 0, no tree lines)
@@ -125,28 +142,12 @@ struct WorkspaceSidebar: View {
         let isSelected = workspace.id == selectedWorkspaceID
         let isHovered = workspace.id == hoveredWorkspaceID
         let isExpanded = expandedWorkspaceIDs.contains(workspace.id)
-        let color = iconColor(
-            needsAttention: workspace.hasAttentionGroup,
-            isFocused: isSelected,
-            isRunning: workspace.isRunning
-        )
         return HStack(spacing: 6) {
-            Image(systemName: "chevron.right")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(Color(theme.sidebarTextSecondary))
-                .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                .animation(.easeInOut(duration: 0.15), value: isExpanded)
-                .frame(width: 10)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    toggleExpanded(workspace.id)
-                }
-
-            iconView(name: "_folder", size: 13, color: color, needsAttention: workspace.hasAttentionGroup)
+            iconView(name: isExpanded ? "_root_open" : "_root", size: TypeScale.iconSize, needsAttention: workspace.hasAttentionGroup)
 
             Text(workspace.name)
-                .font(.system(size: 13))
-                .foregroundStyle(Color(isSelected ? theme.foreground : theme.sidebarTextSecondary))
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
 
             Spacer(minLength: 0)
@@ -155,27 +156,32 @@ struct WorkspaceSidebar: View {
                 Button {
                     onRemoveWorkspace(workspace.id)
                 } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Color(theme.sidebarTextSecondary))
+                    LucideIcon(Lucide.x, size: 9)
+                        .foregroundStyle(Color(tokens.textMuted))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 4)
         .background(
             Rectangle()
                 .fill(
                     isSelected
-                        ? Color(theme.sidebarSurface)
+                        ? Color(tokens.elementSelected)
                         : isHovered
-                            ? Color(theme.sidebarSurface).opacity(0.4)
+                            ? Color(tokens.elementHover)
                             : Color.clear
                 )
         )
-        .onHover { hovering in
-            hoveredWorkspaceID = hovering ? workspace.id : nil
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                hoveredWorkspaceID = workspace.id
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+            case .ended:
+                hoveredWorkspaceID = nil
+            }
         }
         .onTapGesture {
             selectedWorkspaceID = workspace.id
@@ -194,24 +200,19 @@ struct WorkspaceSidebar: View {
     private func groupRow(_ group: PaneGroup, workspace: Workspace) -> some View {
         let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
         let isHovered = group.id == hoveredGroupID
-        let color = iconColor(
-            needsAttention: group.needsAttention,
-            isFocused: isFocusedGroup,
-            isRunning: group.isRunning
-        )
         return HStack(spacing: 0) {
             TreeConnectorView(
                 depth: 1,
                 continuingLevels: [],
-                theme: theme
+                tokens: tokens
             )
 
             HStack(spacing: 6) {
-                iconView(name: "_folder_open", size: 13, color: color, needsAttention: group.needsAttention)
+                iconView(name: "folder_command_open", size: TypeScale.iconSize, needsAttention: group.needsAttention)
 
                 Text(group.displayName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(isFocusedGroup ? theme.foreground : theme.sidebarTextSecondary))
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(isFocusedGroup ? tokens.text : tokens.textMuted))
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -220,34 +221,43 @@ struct WorkspaceSidebar: View {
                     Button {
                         onRemovePaneGroup(workspace.id, group.id)
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundStyle(Color(theme.sidebarTextSecondary))
+                        LucideIcon(Lucide.x, size: 8)
+                            .foregroundStyle(Color(tokens.textMuted))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.trailing, 8)
+            .padding(.trailing, Spacing.md)
+            .padding(.vertical, 4)
         }
-        .padding(.leading, 8)
-        .padding(.vertical, 6)
+        .padding(.leading, Spacing.md)
         .background(
             Rectangle()
                 .fill(
                     isFocusedGroup
-                        ? Color(theme.sidebarSurface)
+                        ? Color(tokens.elementSelected)
                         : isHovered
-                            ? Color(theme.sidebarSurface).opacity(0.4)
+                            ? Color(tokens.elementHover)
                             : Color.clear
                 )
         )
-        .onHover { hovering in
-            hoveredGroupID = hovering ? group.id : nil
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                hoveredGroupID = group.id
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+            case .ended:
+                hoveredGroupID = nil
+            }
         }
         .onTapGesture {
             onSelectPaneGroup(workspace.id, group.id)
         }
         .contextMenu {
+            Button("Rename Group") {
+                editingGroupName = group.customName ?? group.name
+                renameGroupTargetID = group.id
+            }
             if workspace.allPaneGroups.count > 1 {
                 Button("Close Group") {
                     onRemovePaneGroup(workspace.id, group.id)
@@ -259,33 +269,27 @@ struct WorkspaceSidebar: View {
     // MARK: - Pane row (depth 2)
 
     private func paneRow(_ pane: Pane, group: PaneGroup, workspace: Workspace, isLastGroup: Bool) -> some View {
-        let isFocused = group.id == workspace.focusedPaneGroupID
-            && workspace.id == selectedWorkspaceID
-            && group.selectedPaneID == pane.id
+        let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
+        let isFocusedPane = isFocusedGroup && group.selectedPaneID == pane.id
         let isHovered = pane.id == hoveredPaneID
-        let dirName = (pane.workingDirectory as NSString).lastPathComponent
-        let color = iconColor(
-            needsAttention: pane.needsAttention,
-            isFocused: isFocused,
-            isRunning: pane.isRunning
-        )
+        let displayName = pane.displayName
 
         // If the group is not the last sibling, we need a continuing vertical line at depth 1
-        let continuing: Set<Int> = isLastGroup ? [] : [1]
+        let continuing: Set<Int> = isLastGroup ? [] : [0]
 
         return HStack(spacing: 0) {
             TreeConnectorView(
                 depth: 2,
                 continuingLevels: continuing,
-                theme: theme
+                tokens: tokens
             )
 
             HStack(spacing: 6) {
-                iconView(name: "bash", size: 13, color: color, needsAttention: pane.needsAttention)
+                iconView(name: "bash", size: TypeScale.iconSize, needsAttention: pane.needsAttention)
 
-                Text(dirName)
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(isFocused ? theme.foreground : theme.sidebarTextSecondary))
+                Text(displayName)
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(isFocusedGroup ? tokens.text : tokens.textMuted))
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -294,29 +298,35 @@ struct WorkspaceSidebar: View {
                     Button {
                         onRemovePane(workspace.id, pane.id)
                     } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 7, weight: .semibold))
-                            .foregroundStyle(Color(theme.sidebarTextSecondary))
+                        LucideIcon(Lucide.x, size: 7)
+                            .foregroundStyle(Color(tokens.textMuted))
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.trailing, 8)
+            .padding(.trailing, Spacing.md)
+            .padding(.vertical, 4)
         }
-        .padding(.leading, 8)
-        .padding(.vertical, 6)
+        .padding(.leading, Spacing.md)
         .background(
             Rectangle()
                 .fill(
-                    isFocused
-                        ? Color(theme.sidebarSurface)
+                    isFocusedGroup
+                        ? Color(tokens.elementSelected)
                         : isHovered
-                            ? Color(theme.sidebarSurface).opacity(0.4)
+                            ? Color(tokens.elementHover)
                             : Color.clear
                 )
         )
-        .onHover { hovering in
-            hoveredPaneID = hovering ? pane.id : nil
+        .border(Color(isFocusedPane ? tokens.textAccent : .clear), width: 1)
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                hoveredPaneID = pane.id
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+            case .ended:
+                hoveredPaneID = nil
+            }
         }
         .onTapGesture {
             onSelectPane(workspace.id, pane.id)
@@ -333,12 +343,12 @@ struct WorkspaceSidebar: View {
     // MARK: - Helpers
 
     @ViewBuilder
-    private func iconView(name: String, size: CGFloat, color: Color, needsAttention: Bool) -> some View {
+    private func iconView(name: String, size: CGFloat, needsAttention: Bool) -> some View {
         if needsAttention {
-            CatppuccinIconView(name: name, size: size, flavor: flavor, templateColor: color)
+            CatppuccinIconView(name: name, size: size, flavor: flavor)
                 .modifier(PulseModifier())
         } else {
-            CatppuccinIconView(name: name, size: size, flavor: flavor, templateColor: color)
+            CatppuccinIconView(name: name, size: size, flavor: flavor)
         }
     }
 
@@ -356,13 +366,13 @@ struct WorkspaceSidebar: View {
 private struct TreeConnectorView: View {
     let depth: Int
     let continuingLevels: Set<Int>
-    let theme: TerminalTheme
+    let tokens: DesignTokens
 
-    private let gutterWidth: CGFloat = 12
+    private let gutterWidth: CGFloat = 16
 
     var body: some View {
         Canvas { context, size in
-            let lineColor = Color(theme.sidebarTextSecondary).opacity(0.2)
+            let lineColor = Color(tokens.textMuted).opacity(0.3)
 
             // Draw continuing vertical lines for ancestor levels
             for level in continuingLevels {
@@ -389,16 +399,16 @@ private struct TreeConnectorView: View {
 struct StatusDotView: View {
     let needsAttention: Bool
     let isRunning: Bool
-    let theme: TerminalTheme
+    let tokens: DesignTokens
 
     var body: some View {
         if needsAttention {
             Circle()
-                .fill(Color(theme.attentionColor))
+                .fill(Color(tokens.statusWarning))
                 .modifier(PulseModifier())
         } else {
             Circle()
-                .fill(Color(isRunning ? theme.sidebarRunningDot : theme.sidebarStoppedDot))
+                .fill(Color(isRunning ? tokens.statusSuccess : tokens.statusInactive))
         }
     }
 }

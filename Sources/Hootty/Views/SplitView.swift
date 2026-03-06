@@ -5,7 +5,7 @@ import HoottyCore
 struct SplitNodeView: View {
     @Bindable var node: SplitNode
     let focusedPaneGroupID: UUID?
-    let theme: TerminalTheme
+    let tokens: DesignTokens
     let isInSplit: Bool
     let onFocusPaneGroup: (UUID) -> Void
     let onAddPane: (UUID) -> Void
@@ -18,7 +18,7 @@ struct SplitNodeView: View {
             PaneGroupView(
                 group: group,
                 isFocused: group.id == focusedPaneGroupID,
-                theme: theme,
+                tokens: tokens,
                 onFocusPaneGroup: onFocusPaneGroup,
                 onAddPane: { onAddPane(group.id) },
                 onRemovePane: onRemovePane,
@@ -48,7 +48,7 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneGroupID: focusedPaneGroupID, theme: theme, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSave: onSave)
+                SplitNodeView(node: first, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSave: onSave)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
@@ -56,7 +56,7 @@ struct SplitNodeView: View {
 
                 // Visible divider line
                 Rectangle()
-                    .fill(Color(theme.sidebarSurface))
+                    .fill(Color(tokens.border))
                     .frame(
                         width: isH ? dividerThickness : geometry.size.width,
                         height: isH ? geometry.size.height : dividerThickness
@@ -101,7 +101,7 @@ struct SplitNodeView: View {
                     }
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, theme: theme, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSave: onSave)
+                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSave: onSave)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize

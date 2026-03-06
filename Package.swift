@@ -5,6 +5,9 @@ import PackageDescription
 let package = Package(
     name: "Hootty",
     platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(url: "https://github.com/JakubMazur/lucide-icons-swift.git", from: "0.577.0"),
+    ],
     targets: [
         .target(
             name: "CGhostty",
@@ -29,7 +32,7 @@ let package = Package(
         .target(name: "HoottyCore", path: "Sources/HoottyCore"),
         .executableTarget(
             name: "Hootty",
-            dependencies: ["CGhostty", "HoottyCore"],
+            dependencies: ["CGhostty", "HoottyCore", .product(name: "LucideIcons", package: "lucide-icons-swift")],
             path: "Sources/Hootty",
             exclude: ["Info.plist"],
             resources: [.copy("Resources/Icons")],
