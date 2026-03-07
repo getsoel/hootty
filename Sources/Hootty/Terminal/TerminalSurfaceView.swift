@@ -131,10 +131,14 @@ final class TerminalSurfaceView: NSView {
             // Inherited config path for split surfaces
             var config = ghostty_surface_inherited_config(parentSurface, GHOSTTY_SURFACE_CONTEXT_SPLIT)
             applyPlatformConfig(&config, userdata: ctx.retainedPointer())
+            let envAlloc = applyHoottyEnvVars(to: &config)
+            defer { freeEnvVarAllocations(envAlloc.cStrings, envAlloc.envArray) }
             self.surface = ghostty_surface_new(app, &config)
         } else {
             var config = ghostty_surface_config_new()
             applyPlatformConfig(&config, userdata: ctx.retainedPointer())
+            let envAlloc = applyHoottyEnvVars(to: &config)
+            defer { freeEnvVarAllocations(envAlloc.cStrings, envAlloc.envArray) }
 
             if let wd = initialWorkingDirectory {
                 wd.withCString { ptr in
@@ -175,6 +179,47 @@ final class TerminalSurfaceView: NSView {
 
         // Flush any pending text
         flushPendingText()
+    }
+
+    // MARK: - Hootty Env Vars
+
+    private static let hoottyBinPath: String? = {
+        HoottyBundle.resourceBundle?.url(forResource: "bin", withExtension: nil)?.path
+    }()
+
+    /// Inject HOOTTY_PANE_ID and prepend our bin/ to PATH in the surface config.
+    /// Returns allocated C strings that must be freed after `ghostty_surface_new`.
+    private func applyHoottyEnvVars(to config: inout ghostty_surface_config_s) -> (cStrings: [UnsafeMutablePointer<CChar>], envArray: UnsafeMutablePointer<ghostty_env_var_s>) {
+        var cStrings: [UnsafeMutablePointer<CChar>] = []
+        var envVars: [ghostty_env_var_s] = []
+
+        func addVar(_ key: String, _ value: String) {
+            let k = strdup(key)!
+            let v = strdup(value)!
+            cStrings.append(k)
+            cStrings.append(v)
+            envVars.append(ghostty_env_var_s(key: k, value: v))
+        }
+
+        addVar("HOOTTY_PANE_ID", paneID.uuidString)
+
+        if let binPath = Self.hoottyBinPath {
+            let current = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
+            addVar("PATH", "\(binPath):\(current)")
+        }
+
+        let arr = UnsafeMutablePointer<ghostty_env_var_s>.allocate(capacity: envVars.count)
+        for (i, ev) in envVars.enumerated() { arr[i] = ev }
+        config.env_vars = arr
+        config.env_var_count = envVars.count
+
+        return (cStrings, arr)
+    }
+
+    /// Free allocations from `applyHoottyEnvVars`.
+    private func freeEnvVarAllocations(_ cStrings: [UnsafeMutablePointer<CChar>], _ envArray: UnsafeMutablePointer<ghostty_env_var_s>) {
+        for ptr in cStrings { free(ptr) }
+        envArray.deallocate()
     }
 
     private func applyPlatformConfig(_ config: inout ghostty_surface_config_s, userdata: UnsafeMutableRawPointer) {
@@ -658,6 +703,13 @@ extension TerminalSurfaceView: NSTextInputClient {
                 ghostty_surface_text(surface, ptr, UInt(str.utf8.count))
             }
         }
+    }
+
+    override func doCommand(by selector: Selector) {
+        // Intentionally empty: prevents NSBeep for unhandled selectors.
+        // interpretKeyEvents() dispatches command selectors (moveUp:, insertNewline:, etc.)
+        // for non-text keys. The default NSResponder implementation beeps for each one.
+        // We handle all key input via ghostty_surface_key() instead.
     }
 
     func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {

@@ -225,7 +225,7 @@ struct PaneGroupTabBar: View {
         }
         .padding(.leading, Spacing.sm)
         .padding(.trailing, Spacing.sm)
-        .frame(maxHeight: .infinity)
+        .frame(maxWidth: 200, maxHeight: .infinity)
         .background(isSelected ? Color(tokens.tabActive) : Color.clear)
         .overlay(alignment: .trailing) {
             Rectangle().fill(Color(tokens.border)).frame(width: 1)

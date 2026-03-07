@@ -107,8 +107,9 @@ public final class Workspace: Identifiable {
     }
 
     public func focusPaneGroup(id: UUID) {
-        guard rootNode.allPaneGroups().contains(where: { $0.id == id }) else { return }
+        guard let group = rootNode.allPaneGroups().first(where: { $0.id == id }) else { return }
         focusedPaneGroupID = id
+        group.selectedPane?.needsAttention = false
     }
 
     public func focusPane(id: UUID) {

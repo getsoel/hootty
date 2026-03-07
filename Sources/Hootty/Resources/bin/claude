@@ -1,0 +1,33 @@
+#!/bin/bash
+# Hootty claude wrapper — injects hooks so Claude Code notifications
+# trigger Hootty's attention indicators automatically.
+# Outside Hootty, passes through to the real claude unchanged.
+
+# Find the real claude binary, skipping our own directory
+find_real_claude() {
+    local self_dir
+    self_dir="$(cd "$(dirname "$0")" && pwd -P)"
+    local IFS=:
+    for d in $PATH; do
+        [[ "$d" == "$self_dir" ]] && continue
+        [[ -x "$d/claude" ]] && printf '%s' "$d/claude" && return 0
+    done
+    return 1
+}
+
+REAL_CLAUDE="$(find_real_claude)" || { echo "Error: claude not found in PATH" >&2; exit 127; }
+
+# Pass through if not inside Hootty
+if [[ -z "$HOOTTY_PANE_ID" ]]; then
+    exec "$REAL_CLAUDE" "$@"
+fi
+
+# Pass through subcommands that don't support --settings
+case "${1:-}" in
+    mcp|config|api-key) exec "$REAL_CLAUDE" "$@" ;;
+esac
+
+# Inject hooks that emit OSC 9 sequences (triggers ghostty's attention system)
+HOOKS_JSON='{"hooks":{"Notification":[{"matcher":"idle_prompt|permission_prompt","hooks":[{"type":"command","command":"printf '"'"'\\e]9;Claude Code needs attention\\a'"'"'"}]}]}}'
+
+exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"

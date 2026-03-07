@@ -33,6 +33,7 @@ release:
 	cp "$(RELEASE_PRODUCTS)/$(APP_NAME)" "$(RELEASE_APP_BUNDLE)/Contents/MacOS/$(APP_NAME)"
 	cp Sources/Hootty/Info.plist "$(RELEASE_APP_BUNDLE)/Contents/Info.plist"
 	cp -R Assets/AppIcon.icon "$(RELEASE_APP_BUNDLE)/Contents/Resources/AppIcon.icon"
+	cp -R "$(RELEASE_PRODUCTS)/Hootty_Hootty.bundle" "$(RELEASE_APP_BUNDLE)/Contents/Resources/Hootty_Hootty.bundle"
 	@echo "Built $(RELEASE_APP_BUNDLE)"
 
 install: release

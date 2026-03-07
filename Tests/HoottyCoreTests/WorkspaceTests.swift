@@ -130,4 +130,15 @@ import Foundation
         workspace.closePane(id: paneID)
         #expect(workspace.allPaneGroups.count == 1)
     }
+
+    @Test func focusPaneGroupClearsSelectedPaneAttention() {
+        let workspace = Workspace(name: "Test")
+        let first = workspace.allPaneGroups[0]
+        _ = workspace.splitFocusedGroup(direction: .horizontal)
+        // first group is now unfocused; flag its pane
+        first.panes.first!.needsAttention = true
+        // focusing the group should clear attention on its selected pane
+        workspace.focusPaneGroup(id: first.id)
+        #expect(first.panes.first!.needsAttention == false)
+    }
 }

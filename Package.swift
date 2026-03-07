@@ -35,7 +35,7 @@ let package = Package(
             dependencies: ["CGhostty", "HoottyCore", .product(name: "LucideIcons", package: "lucide-icons-swift")],
             path: "Sources/Hootty",
             exclude: ["Info.plist"],
-            resources: [.copy("Resources/Icons")],
+            resources: [.copy("Resources/Icons"), .copy("Resources/bin")],
             linkerSettings: [
                 .unsafeFlags(["-Xlinker", "-sectcreate",
                               "-Xlinker", "__TEXT",
