@@ -23,7 +23,7 @@ debug: build
 	"$(DEBUG_PRODUCTS)/$(APP_NAME)"; kill %1 2>/dev/null || true
 
 setup:
-	git config core.hooksPath .githooks
+	./scripts/setup.sh
 
 release:
 	$(XCODEBUILD) -configuration Release build
