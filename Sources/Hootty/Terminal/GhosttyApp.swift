@@ -42,6 +42,23 @@ final class GhosttyApp {
         pendingParentSurfaces.removeValue(forKey: paneID)
     }
 
+    /// Cached surface views keyed by pane ID.
+    /// Prevents SwiftUI structural identity changes from destroying surfaces
+    /// when the split tree restructures (e.g., leaf → split transition).
+    private var surfaceViews: [UUID: TerminalSurfaceView] = [:]
+
+    func cacheSurfaceView(_ view: TerminalSurfaceView, for paneID: UUID) {
+        surfaceViews[paneID] = view
+    }
+
+    func cachedSurfaceView(for paneID: UUID) -> TerminalSurfaceView? {
+        surfaceViews[paneID]
+    }
+
+    func removeCachedSurfaceView(for paneID: UUID) {
+        surfaceViews.removeValue(forKey: paneID)
+    }
+
     private var focusObservers: [NSObjectProtocol] = []
 
     /// Path to Hootty-managed ghostty config file.

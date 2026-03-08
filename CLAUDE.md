@@ -29,6 +29,7 @@ Sources/
     ThemeManager.swift         -- Persisted theme selection
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
+    HoottyBundle.swift         -- shared SPM resource bundle resolver (use for all bundled resources)
     Views/
       ContentView.swift        -- HStack: sidebar + detail (terminal view)
       WorkspaceSidebar.swift   -- Workspace list with status indicators
@@ -57,6 +58,7 @@ Rebuilding libghostty: see `docs/REBUILDING.md`
 - Split panes: PaneGroup.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 
 Debugging/logging: see `docs/DEBUGGING.md` (read when investigating crashes or runtime issues)
+Claude Code hooks: see `docs/HOOKS.md` (read when modifying the wrapper script, env var injection, or attention indicators)
 
 ### Naming: Tab vs Pane vs Group
 - **Tab**: UI presentation concept — items in the tab bar. Use in tab bar context: "Rename Tab", "Close Tab"

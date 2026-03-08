@@ -55,16 +55,20 @@ public final class SplitNode: Identifiable {
     }
 
     @discardableResult
-    public func splitGroup(groupID: UUID, direction: SplitDirection, newGroup: PaneGroup) -> Bool {
+    public func splitGroup(groupID: UUID, direction: SplitDirection, newGroup: PaneGroup, placeBefore: Bool = false) -> Bool {
         switch content {
         case .leaf(let group) where group.id == groupID:
             let oldNode = SplitNode(paneGroup: group)
             let newNode = SplitNode(paneGroup: newGroup)
-            self.content = .split(direction: direction, first: oldNode, second: newNode)
+            if placeBefore {
+                self.content = .split(direction: direction, first: newNode, second: oldNode)
+            } else {
+                self.content = .split(direction: direction, first: oldNode, second: newNode)
+            }
             return true
         case .split(_, let first, let second):
-            return first.splitGroup(groupID: groupID, direction: direction, newGroup: newGroup)
-                || second.splitGroup(groupID: groupID, direction: direction, newGroup: newGroup)
+            return first.splitGroup(groupID: groupID, direction: direction, newGroup: newGroup, placeBefore: placeBefore)
+                || second.splitGroup(groupID: groupID, direction: direction, newGroup: newGroup, placeBefore: placeBefore)
         default:
             return false
         }

@@ -22,3 +22,5 @@ Split API types: `ghostty_action_split_direction_e` with constants `GHOSTTY_SPLI
 In `performKeyEquivalent`, claim Escape (keyCode `0x35`) by calling `keyDown(with:)` and returning `true`. Returning `false` propagates Escape up the responder chain where SwiftUI/AppKit interprets it as a cancel/close action on the window.
 
 `close_surface_cb` receives app-level userdata (`ghostty_app_t` runtime userdata), not a `SurfaceCallbackContext`. To close a specific pane from a runtime callback, route through action callbacks (`GHOSTTY_ACTION_SHOW_CHILD_EXITED` → `processDidExit`) or static helpers that accept pane IDs.
+
+To inject env vars into a surface's PTY, use `env_vars`/`env_var_count` on `ghostty_surface_config_s`. Keys and values must be `strdup`'d C strings (ghostty reads them during `ghostty_surface_new`). Always `defer { free/deallocate }` immediately after allocation — never rely on manual free at end of scope, as future edits may add early returns.

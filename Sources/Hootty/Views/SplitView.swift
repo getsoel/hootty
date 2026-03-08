@@ -9,7 +9,7 @@ struct SplitNodeView: View {
     let onFocusPaneGroup: (UUID) -> Void
     let onAddPane: (UUID) -> Void
     let onRemovePane: (UUID) -> Void
-    var onSplitPane: ((SplitDirection) -> Void)?
+    var onSplitPane: ((SplitDirection, Bool) -> Void)?
     let onSave: () -> Void
 
     var body: some View {

@@ -18,12 +18,12 @@ struct HoottyApp: App {
 
     @State private var appModel = AppModel()
 
-    private func splitFocusedGroup(direction: SplitDirection) {
+    private func splitFocusedGroup(direction: SplitDirection, placeBefore: Bool = false) {
         guard let workspace = appModel.selectedWorkspace else { return }
 
         let parentSurface = GhosttyApp.shared.focusedSurface
 
-        if let newGroup = workspace.splitFocusedGroup(direction: direction) {
+        if let newGroup = workspace.splitFocusedGroup(direction: direction, placeBefore: placeBefore) {
             if let parentSurface, let newPane = newGroup.panes.first {
                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
             }
@@ -64,6 +64,7 @@ struct HoottyApp: App {
                         }
                     }
                     GhosttyApp.shared.onCloseSurface = { [appModel] paneID in
+                        GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                         guard let (workspace, _, _) = appModel.findPane(id: paneID) else { return }
                         workspace.closePane(id: paneID)
                         appModel.saveWorkspaces()
@@ -75,6 +76,7 @@ struct HoottyApp: App {
                         guard let workspace = appModel.selectedWorkspace,
                               let group = workspace.focusedPaneGroup,
                               let selectedPaneID = group.selectedPaneID else { return }
+                        GhosttyApp.shared.removeCachedSurfaceView(for: selectedPaneID)
                         workspace.closePane(id: selectedPaneID)
                         appModel.saveWorkspaces()
                     }
@@ -106,6 +108,18 @@ struct HoottyApp: App {
                     splitFocusedGroup(direction: .vertical)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Split Left") {
+                    splitFocusedGroup(direction: .horizontal, placeBefore: true)
+                }
+                .keyboardShortcut("d", modifiers: [.command, .option])
+
+                Button("Split Up") {
+                    splitFocusedGroup(direction: .vertical, placeBefore: true)
+                }
+                .keyboardShortcut("d", modifiers: [.command, .option, .shift])
             }
             CommandMenu("Theme") {
                 ForEach(CatppuccinFlavor.allCases, id: \.self) { flavor in

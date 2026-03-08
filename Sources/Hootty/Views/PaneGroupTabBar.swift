@@ -9,8 +9,10 @@ struct PaneGroupTabBar: View {
     var onFocusPaneGroup: () -> Void
     var onAddPane: () -> Void
     var onRemovePane: (UUID) -> Void
-    var onSplitPane: ((SplitDirection) -> Void)?
+    var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onSave: (() -> Void)?
+    var unifiedBorderPaneID: UUID?
+    var onSelectedTabFrameChange: ((CGRect?) -> Void)?
 
     private enum HoveredElement: Equatable {
         case navLeft, navRight, add, split, close(UUID), tab(UUID)
@@ -59,6 +61,11 @@ struct PaneGroupTabBar: View {
                             }
                         }
                     }
+                }
+            }
+            .background {
+                GeometryReader { geo in
+                    Color.clear.preference(key: ScrollAreaFrameKey.self, value: geo.frame(in: .global))
                 }
             }
 
@@ -122,8 +129,11 @@ struct PaneGroupTabBar: View {
 
             if onSplitPane != nil {
                 iconMenu(.split, icon: Lucide.columns2, accessibilityLabel: "Split pane") {
-                    Button("Split Right") { onSplitPane?(.horizontal) }
-                    Button("Split Down") { onSplitPane?(.vertical) }
+                    Button("Split Right") { onSplitPane?(.horizontal, false) }
+                    Button("Split Down") { onSplitPane?(.vertical, false) }
+                    Divider()
+                    Button("Split Left") { onSplitPane?(.horizontal, true) }
+                    Button("Split Up") { onSplitPane?(.vertical, true) }
                 }
             }
         }
@@ -227,6 +237,16 @@ struct PaneGroupTabBar: View {
         .padding(.trailing, Spacing.sm)
         .frame(maxWidth: 200, maxHeight: .infinity)
         .background(isSelected ? Color(tokens.tabActive) : Color.clear)
+        .background {
+            if isSelected {
+                GeometryReader { geo in
+                    Color.clear
+                        .onChange(of: geo.frame(in: .global), initial: true) { _, newFrame in
+                            onSelectedTabFrameChange?(newFrame)
+                        }
+                }
+            }
+        }
         .overlay(alignment: .trailing) {
             Rectangle().fill(Color(tokens.border)).frame(width: 1)
         }
@@ -238,7 +258,7 @@ struct PaneGroupTabBar: View {
             }
         }
         .overlay {
-            if pane.needsAttention {
+            if pane.needsAttention && pane.id != unifiedBorderPaneID {
                 Color.clear
                     .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
             }

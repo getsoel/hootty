@@ -6,6 +6,11 @@ struct TerminalPaneView: NSViewRepresentable {
     let isFocused: Bool
 
     func makeNSView(context: Context) -> TerminalSurfaceView {
+        // Reuse cached view if available (survives SwiftUI structural identity changes)
+        if let cached = GhosttyApp.shared.cachedSurfaceView(for: pane.id) {
+            return cached
+        }
+
         guard let app = GhosttyApp.shared.app else {
             fatalError("GhosttyApp not initialized")
         }
@@ -33,6 +38,8 @@ struct TerminalPaneView: NSViewRepresentable {
                 GhosttyApp.requestCloseSurface(paneID: paneID)
             }
         }
+
+        GhosttyApp.shared.cacheSurfaceView(view, for: pane.id)
 
         DispatchQueue.main.async {
             view.window?.makeFirstResponder(view)

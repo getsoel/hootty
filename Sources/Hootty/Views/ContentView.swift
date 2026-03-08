@@ -168,11 +168,12 @@ struct ContentView: View {
                     appModel.saveWorkspaces()
                 },
                 onRemovePane: { paneID in
+                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                     workspace.closePane(id: paneID)
                     appModel.saveWorkspaces()
                 },
-                onSplitPane: { direction in
-                    workspace.splitFocusedGroup(direction: direction)
+                onSplitPane: { direction, placeBefore in
+                    workspace.splitFocusedGroup(direction: direction, placeBefore: placeBefore)
                     appModel.saveWorkspaces()
                 },
                 onSave: { appModel.saveWorkspaces() }

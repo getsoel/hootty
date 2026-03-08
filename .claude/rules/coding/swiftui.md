@@ -56,3 +56,5 @@ Never use `if condition { View() }` to show/hide elements when the surrounding l
 Always add `.contentShape(Rectangle())` before `.onTapGesture` on container views (HStacks, tab rows, toolbar items). Without it, taps only register on visible content (text, icons), not the empty space within the container's frame.
 
 When visually balancing left/right elements in an HStack (e.g., status indicator and close button flanking a label), compute total rendered size (icon size + padding on each side) to ensure both containers occupy the same width. A 10pt icon with `Spacing.sm` padding ≠ a 20pt frame with `Spacing.sm` padding — the latter is 10pt wider.
+
+`PreferenceKey` values set inside an `NSHostingView` (via `NSViewRepresentable`) don't reliably fire `.onPreferenceChange` within that hosting context. To report geometry out of an `NSViewRepresentable`, use `.onChange(of: geo.frame(in: .global), initial: true)` on a `GeometryReader` and call a closure callback directly. PreferenceKeys work normally outside the `NSViewRepresentable` boundary.

@@ -64,7 +64,7 @@ public final class Workspace: Identifiable {
     }
 
     @discardableResult
-    public func splitFocusedGroup(direction: SplitDirection) -> PaneGroup? {
+    public func splitFocusedGroup(direction: SplitDirection, placeBefore: Bool = false) -> PaneGroup? {
         guard let group = focusedPaneGroup else { return nil }
         groupCounter += 1
         let selectedPane = group.selectedPane
@@ -73,7 +73,7 @@ public final class Workspace: Identifiable {
             shell: selectedPane?.shell ?? "/bin/zsh",
             workingDirectory: selectedPane?.workingDirectory
         )
-        if rootNode.splitGroup(groupID: group.id, direction: direction, newGroup: newGroup) {
+        if rootNode.splitGroup(groupID: group.id, direction: direction, newGroup: newGroup, placeBefore: placeBefore) {
             focusedPaneGroupID = newGroup.id
             return newGroup
         }
