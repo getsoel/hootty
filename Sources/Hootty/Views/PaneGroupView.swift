@@ -9,6 +9,7 @@ struct PaneGroupView: View {
     let onAddPane: () -> Void
     let onRemovePane: (UUID) -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
+    var onResumeClaudeSession: ((UUID) -> Void)?
     let onSave: () -> Void
 
     @State private var selectedTabGlobalFrame: CGRect?
@@ -25,6 +26,7 @@ struct PaneGroupView: View {
                 onAddPane: onAddPane,
                 onRemovePane: onRemovePane,
                 onSplitPane: onSplitPane,
+                onResumeClaudeSession: onResumeClaudeSession,
                 onSave: onSave,
                 unifiedBorderPaneID: showUnifiedBorder ? group.selectedPaneID : nil,
                 onSelectedTabFrameChange: { selectedTabGlobalFrame = $0 }

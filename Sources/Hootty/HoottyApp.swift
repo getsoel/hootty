@@ -53,6 +53,12 @@ struct HoottyApp: App {
                     GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID in
                         appModel.handlePaneNeedsAttention(paneID)
                     }
+                    GhosttyApp.shared.onClaudeSessionDetected = { [appModel] paneID, sessionID in
+                        if let (_, _, pane) = appModel.findPane(id: paneID) {
+                            pane.claudeSessionID = sessionID
+                            appModel.debouncedSave()
+                        }
+                    }
                     GhosttyApp.shared.onNewSplit = { [appModel] paneID, direction, parentSurface in
                         guard let (workspace, group, _) = appModel.findPane(id: paneID) else { return }
                         workspace.focusPaneGroup(id: group.id)

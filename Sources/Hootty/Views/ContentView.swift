@@ -176,6 +176,14 @@ struct ContentView: View {
                     workspace.splitFocusedGroup(direction: direction, placeBefore: placeBefore)
                     appModel.saveWorkspaces()
                 },
+                onResumeClaudeSession: { paneID in
+                    guard let (_, group, pane) = appModel.findPane(id: paneID),
+                          let sessionID = pane.claudeSessionID else { return }
+                    let newPane = group.addPane(workingDirectory: pane.workingDirectory)
+                    newPane.claudeSessionID = sessionID
+                    GhosttyApp.shared.registerPendingCommand(newPane.id, command: "claude --resume \(sessionID)\n")
+                    appModel.saveWorkspaces()
+                },
                 onSave: { appModel.saveWorkspaces() }
             )
             .id(workspace.id)

@@ -34,12 +34,17 @@ struct TerminalPaneView: NSViewRepresentable {
         }
         view.processDidExit = { [weak pane] _ in
             pane?.isRunning = false
+            pane?.claudeSessionID = nil
             if let paneID = pane?.id {
                 GhosttyApp.requestCloseSurface(paneID: paneID)
             }
         }
 
         GhosttyApp.shared.cacheSurfaceView(view, for: pane.id)
+
+        if let command = GhosttyApp.shared.consumePendingCommand(for: pane.id) {
+            view.queueText(command)
+        }
 
         DispatchQueue.main.async {
             view.window?.makeFirstResponder(view)

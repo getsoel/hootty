@@ -66,4 +66,24 @@ import Foundation
         #expect(decoded.displayName == "My Pane")
         #expect(decoded.name == "zsh")
     }
+
+    @Test func claudeSessionIDDefaultsToNil() {
+        let pane = Pane(name: "Test")
+        #expect(pane.claudeSessionID == nil)
+    }
+
+    @Test func codableRoundTripWithClaudeSessionID() throws {
+        let pane = Pane(name: "claude", shell: "/bin/zsh", workingDirectory: "/tmp")
+        pane.claudeSessionID = "10d9b41b-9d67-4cf5-baec-247da4c70a43"
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.claudeSessionID == "10d9b41b-9d67-4cf5-baec-247da4c70a43")
+    }
+
+    @Test func codableRoundTripWithoutClaudeSessionID() throws {
+        let pane = Pane(name: "zsh", shell: "/bin/zsh", workingDirectory: "/tmp")
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.claudeSessionID == nil)
+    }
 }

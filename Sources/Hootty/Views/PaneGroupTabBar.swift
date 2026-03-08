@@ -10,6 +10,7 @@ struct PaneGroupTabBar: View {
     var onAddPane: () -> Void
     var onRemovePane: (UUID) -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
+    var onResumeClaudeSession: ((UUID) -> Void)?
     var onSave: (() -> Void)?
     var unifiedBorderPaneID: UUID?
     var onSelectedTabFrameChange: ((CGRect?) -> Void)?
@@ -284,6 +285,12 @@ struct PaneGroupTabBar: View {
             Button("Rename Tab") {
                 editingName = pane.displayName
                 renameTargetID = pane.id
+            }
+            if pane.claudeSessionID != nil {
+                Divider()
+                Button("Resume Claude Session") {
+                    onResumeClaudeSession?(pane.id)
+                }
             }
         }
     }

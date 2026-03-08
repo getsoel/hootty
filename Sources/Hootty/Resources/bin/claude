@@ -28,6 +28,8 @@ case "${1:-}" in
 esac
 
 # Inject hooks that emit OSC 9 sequences (triggers ghostty's attention system)
-HOOKS_JSON='{"hooks":{"Notification":[{"matcher":"idle_prompt|permission_prompt","hooks":[{"type":"command","command":"printf '"'"'\\e]9;Claude Code needs attention\\a'"'"'"}]}]}}'
+# - Notification: attention indicators for idle/permission prompts
+# - SessionStart: reports session ID back to Hootty for resume support
+HOOKS_JSON='{"hooks":{"Notification":[{"matcher":"idle_prompt|permission_prompt","hooks":[{"type":"command","command":"printf '"'"'\\e]9;Claude Code needs attention\\a'"'"'"}]}],"SessionStart":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:session:${CLAUDE_SESSION_ID}\\a'"'"'"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"

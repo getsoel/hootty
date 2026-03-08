@@ -19,6 +19,9 @@ final class GhosttyApp {
     /// Called when a surface rings the bell or sends a desktop notification.
     var onPaneNeedsAttention: ((UUID) -> Void)?
 
+    /// Called when a Claude Code session ID is detected via OSC 9 (paneID, sessionID).
+    var onClaudeSessionDetected: ((UUID, String) -> Void)?
+
     /// Called when ghostty dispatches a new_split action (e.g. keybinding).
     var onNewSplit: ((UUID, SplitDirection, ghostty_surface_t?) -> Void)?
 
@@ -57,6 +60,17 @@ final class GhosttyApp {
 
     func removeCachedSurfaceView(for paneID: UUID) {
         surfaceViews.removeValue(forKey: paneID)
+    }
+
+    /// Pending commands to send to surfaces after creation (for session resume).
+    private var pendingCommands: [UUID: String] = [:]
+
+    func registerPendingCommand(_ paneID: UUID, command: String) {
+        pendingCommands[paneID] = command
+    }
+
+    func consumePendingCommand(for paneID: UUID) -> String? {
+        pendingCommands.removeValue(forKey: paneID)
     }
 
     private var focusObservers: [NSObjectProtocol] = []
@@ -232,7 +246,7 @@ final class GhosttyApp {
         case GHOSTTY_ACTION_RING_BELL:
             return signalAttention(target: target)
         case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
-            return signalAttention(target: target)
+            return handleDesktopNotification(target: target, v: action.action.desktop_notification)
         case GHOSTTY_ACTION_NEW_TAB:
             DispatchQueue.main.async {
                 GhosttyApp.shared.onNewTab?()
@@ -278,6 +292,32 @@ final class GhosttyApp {
         let paneID = ctx.paneID
         DispatchQueue.main.async {
             GhosttyApp.shared.onPaneNeedsAttention?(paneID)
+        }
+        return true
+    }
+
+    private static let hoottySessionPrefix = "hootty:session:"
+
+    private static func handleDesktopNotification(target: ghostty_target_s, v: ghostty_action_desktop_notification_s) -> Bool {
+        guard let ctx = callbackContext(from: target) else { return false }
+        let paneID = ctx.paneID
+
+        // Copy C string synchronously before async dispatch (ghostty may free the buffer)
+        let body: String? = v.body.map { String(cString: $0) }
+
+        if let body, body.hasPrefix(hoottySessionPrefix) {
+            let sessionID = String(body.dropFirst(hoottySessionPrefix.count))
+            guard UUID(uuidString: sessionID) != nil else {
+                Log.ghostty.warning("Invalid Claude session ID received: \(sessionID)")
+                return true
+            }
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onClaudeSessionDetected?(paneID, sessionID)
+            }
+        } else {
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onPaneNeedsAttention?(paneID)
+            }
         }
         return true
     }

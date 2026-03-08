@@ -9,23 +9,25 @@ public final class Pane: Identifiable {
     public var needsAttention = false
     public var shell: String
     public var workingDirectory: String
+    public var claudeSessionID: String?
 
     public var displayName: String {
         customName ?? name
     }
 
-    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil) {
+    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, claudeSessionID: String? = nil) {
         self.id = id
         self.name = name
         self.customName = customName
         self.shell = shell
         self.workingDirectory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
+        self.claudeSessionID = claudeSessionID
     }
 }
 
 extension Pane: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, customName, shell, workingDirectory
+        case id, name, customName, shell, workingDirectory, claudeSessionID
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -35,7 +37,8 @@ extension Pane: Codable {
             name: try container.decode(String.self, forKey: .name),
             customName: try container.decodeIfPresent(String.self, forKey: .customName),
             shell: try container.decode(String.self, forKey: .shell),
-            workingDirectory: try container.decode(String.self, forKey: .workingDirectory)
+            workingDirectory: try container.decode(String.self, forKey: .workingDirectory),
+            claudeSessionID: try container.decodeIfPresent(String.self, forKey: .claudeSessionID)
         )
     }
 
@@ -46,5 +49,6 @@ extension Pane: Codable {
         try container.encodeIfPresent(customName, forKey: .customName)
         try container.encode(shell, forKey: .shell)
         try container.encode(workingDirectory, forKey: .workingDirectory)
+        try container.encodeIfPresent(claudeSessionID, forKey: .claudeSessionID)
     }
 }
