@@ -51,7 +51,10 @@ else
     # Re-check cache after acquiring lock (another process may have built it)
     if [ ! -f "$SHA_CACHE/libghostty.a" ]; then
         cd "$GHOSTTY_DIR"
-        zig build -Doptimize=ReleaseFast -Demit-xcframework=true -Dxcframework-target=native
+        # The zig build may fail on the full app bundle xcodebuild step, but we
+        # only need the xcframework artifact (libghostty-fat.a + headers).
+        # Tolerate the exit code and validate the artifact below.
+        zig build -Doptimize=ReleaseFast -Demit-xcframework=true -Dxcframework-target=native || true
 
         # Determine architecture-specific path
         ARCH="$(uname -m)"
