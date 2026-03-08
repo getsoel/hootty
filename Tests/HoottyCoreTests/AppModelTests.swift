@@ -69,8 +69,20 @@ import Foundation
         let pane2 = group.addPane()
         // pane2 is selected, signal attention for pane1
         model.selectedWorkspaceID = workspace.id
-        model.handlePaneNeedsAttention(pane1.id)
-        #expect(pane1.needsAttention == true)
+        model.handlePaneNeedsAttention(pane1.id, kind: .input)
+        #expect(pane1.attentionKind == .input)
+        _ = pane2
+    }
+
+    @Test func handlePaneAttentionIdleKind() {
+        let model = makeModel()
+        let workspace = model.workspaces[0]
+        let group = workspace.allPaneGroups[0]
+        let pane1 = group.panes[0]
+        let pane2 = group.addPane()
+        model.selectedWorkspaceID = workspace.id
+        model.handlePaneNeedsAttention(pane1.id, kind: .idle)
+        #expect(pane1.attentionKind == .idle)
         _ = pane2
     }
 
@@ -81,8 +93,8 @@ import Foundation
         let pane = group.panes[0]
         model.selectedWorkspaceID = workspace.id
         // pane is the only one and focused
-        model.handlePaneNeedsAttention(pane.id)
-        #expect(pane.needsAttention == false)
+        model.handlePaneNeedsAttention(pane.id, kind: .input)
+        #expect(pane.attentionKind == nil)
     }
 
     @Test func handlePaneAttentionFlagsInBackgroundGroup() {
@@ -92,8 +104,8 @@ import Foundation
         let pane1 = group1.panes[0]
         _ = workspace.splitFocusedGroup(direction: .horizontal) // group2 is now focused
         model.selectedWorkspaceID = workspace.id
-        model.handlePaneNeedsAttention(pane1.id)
-        #expect(pane1.needsAttention == true)
+        model.handlePaneNeedsAttention(pane1.id, kind: .input)
+        #expect(pane1.attentionKind == .input)
     }
 
     @Test func selectedWorkspaceReturnsCorrectWorkspace() {

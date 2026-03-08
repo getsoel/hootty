@@ -194,7 +194,7 @@ struct PaneGroupTabBar: View {
     }
 
     private func paneStatusDot(_ pane: Pane) -> some View {
-        StatusDotView(needsAttention: pane.needsAttention, isRunning: pane.isRunning, tokens: tokens)
+        StatusDotView(attentionKind: pane.attentionKind, isRunning: pane.isRunning, tokens: tokens)
     }
 
     private func paneTab(_ pane: Pane) -> some View {
@@ -259,9 +259,9 @@ struct PaneGroupTabBar: View {
             }
         }
         .overlay {
-            if pane.needsAttention && pane.id != unifiedBorderPaneID {
+            if let kind = pane.attentionKind, pane.id != unifiedBorderPaneID {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
             }
         }
         .onContinuousHover { phase in

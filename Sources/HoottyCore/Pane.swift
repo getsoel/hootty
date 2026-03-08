@@ -1,12 +1,21 @@
 import Foundation
 
+public enum AttentionKind: String, Codable, Sendable {
+    /// Claude finished and is waiting for the next prompt.
+    case idle
+    /// Claude needs user input (permission approval, question, etc.)
+    case input
+}
+
 @Observable
 public final class Pane: Identifiable {
     public let id: UUID
     public var name: String
     public var customName: String?
     public var isRunning = true
-    public var needsAttention = false
+    public var attentionKind: AttentionKind?
+
+    public var needsAttention: Bool { attentionKind != nil }
     public var shell: String
     public var workingDirectory: String
     public var claudeSessionID: String?

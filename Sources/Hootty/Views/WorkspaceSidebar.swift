@@ -182,9 +182,9 @@ struct WorkspaceSidebar: View {
                 )
         )
         .overlay {
-            if !isExpanded && workspace.hasAttentionGroup {
+            if !isExpanded, let kind = workspace.attentionKind {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
             }
         }
         .onContinuousHover { phase in
@@ -329,9 +329,9 @@ struct WorkspaceSidebar: View {
                 )
         )
         .overlay {
-            if pane.needsAttention {
+            if let kind = pane.attentionKind {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
             } else if isFocusedPane {
                 Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
             }
@@ -411,9 +411,9 @@ struct WorkspaceSidebar: View {
                 )
         )
         .overlay {
-            if pane.needsAttention {
+            if let kind = pane.attentionKind {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 1)
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
             } else if isFocusedPane {
                 Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
             }

@@ -27,16 +27,28 @@ public final class Workspace: Identifiable {
     }
 
     public var hasAttentionGroup: Bool {
+        attentionKind != nil
+    }
+
+    /// Returns the most urgent attention kind across unfocused groups/panes (input > idle).
+    public var attentionKind: AttentionKind? {
         let groups = allPaneGroups
+        var result: AttentionKind?
         for group in groups where group.id != focusedPaneGroupID {
-            if group.needsAttention { return true }
+            if let kind = group.attentionKind {
+                if kind == .input { return .input }
+                result = kind
+            }
         }
         if let focused = groups.first(where: { $0.id == focusedPaneGroupID }) {
             for pane in focused.panes where pane.id != focused.selectedPaneID {
-                if pane.needsAttention { return true }
+                if let kind = pane.attentionKind {
+                    if kind == .input { return .input }
+                    result = kind
+                }
             }
         }
-        return false
+        return result
     }
 
     public init(name: String) {
@@ -109,7 +121,7 @@ public final class Workspace: Identifiable {
     public func focusPaneGroup(id: UUID) {
         guard let group = rootNode.allPaneGroups().first(where: { $0.id == id }) else { return }
         focusedPaneGroupID = id
-        group.selectedPane?.needsAttention = false
+        group.selectedPane?.attentionKind = nil
     }
 
     public func focusPane(id: UUID) {

@@ -40,16 +40,16 @@ struct PaneGroupView: View {
                 }
             }
             .overlay {
-                if showFallbackPaneBorder {
+                if let kind = selectedPaneAttentionKind, selectedTabLocalRect == nil {
                     Color.clear
-                        .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.statusWarning), lineWidth: 2)
+                        .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 2)
                 }
             }
         }
         .overlay {
-            if selectedPaneNeedsAttention, let tabLocalRect = selectedTabLocalRect {
+            if let kind = selectedPaneAttentionKind, let tabLocalRect = selectedTabLocalRect {
                 Color.clear
-                    .animatedBorderSegment(shape: TabConnectedShape(tabRect: tabLocalRect), color: Color(tokens.statusWarning), lineWidth: 2)
+                    .animatedBorderSegment(shape: TabConnectedShape(tabRect: tabLocalRect), color: Color(tokens.attentionColor(for: kind)), lineWidth: 2)
             }
         }
         .background {
@@ -65,8 +65,8 @@ struct PaneGroupView: View {
         }
     }
 
-    private var selectedPaneNeedsAttention: Bool {
-        group.selectedPane?.needsAttention ?? false
+    private var selectedPaneAttentionKind: AttentionKind? {
+        group.selectedPane?.attentionKind
     }
 
     private var selectedTabLocalRect: CGRect? {
@@ -89,10 +89,6 @@ struct PaneGroupView: View {
     }
 
     private var showUnifiedBorder: Bool {
-        selectedPaneNeedsAttention && selectedTabLocalRect != nil
-    }
-
-    private var showFallbackPaneBorder: Bool {
-        selectedPaneNeedsAttention && selectedTabLocalRect == nil
+        selectedPaneAttentionKind != nil && selectedTabLocalRect != nil
     }
 }

@@ -17,7 +17,7 @@ final class GhosttyApp {
     var onNewTab: (() -> Void)?
 
     /// Called when a surface rings the bell or sends a desktop notification.
-    var onPaneNeedsAttention: ((UUID) -> Void)?
+    var onPaneNeedsAttention: ((UUID, AttentionKind) -> Void)?
 
     /// Called when a Claude Code session ID is detected via OSC 9 (paneID, sessionID).
     var onClaudeSessionDetected: ((UUID, String) -> Void)?
@@ -287,16 +287,17 @@ final class GhosttyApp {
         callbackContext(from: target)?.view
     }
 
-    private static func signalAttention(target: ghostty_target_s) -> Bool {
+    private static func signalAttention(target: ghostty_target_s, kind: AttentionKind = .input) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
         let paneID = ctx.paneID
         DispatchQueue.main.async {
-            GhosttyApp.shared.onPaneNeedsAttention?(paneID)
+            GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
         }
         return true
     }
 
     private static let hoottySessionPrefix = "hootty:session:"
+    private static let hoottyAttentionPrefix = "hootty:attention:"
 
     private static func handleDesktopNotification(target: ghostty_target_s, v: ghostty_action_desktop_notification_s) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
@@ -314,9 +315,15 @@ final class GhosttyApp {
             DispatchQueue.main.async {
                 GhosttyApp.shared.onClaudeSessionDetected?(paneID, sessionID)
             }
+        } else if let body, body.hasPrefix(hoottyAttentionPrefix) {
+            let kindStr = String(body.dropFirst(hoottyAttentionPrefix.count))
+            let kind = AttentionKind(rawValue: kindStr) ?? .input
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
+            }
         } else {
             DispatchQueue.main.async {
-                GhosttyApp.shared.onPaneNeedsAttention?(paneID)
+                GhosttyApp.shared.onPaneNeedsAttention?(paneID, .input)
             }
         }
         return true

@@ -70,14 +70,14 @@ public final class AppModel {
         saveWorkspaces()
     }
 
-    public func handlePaneNeedsAttention(_ paneID: UUID) {
+    public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) {
         for workspace in workspaces {
             guard let (group, pane) = workspace.findPane(id: paneID) else { continue }
             let isActiveGroup = workspace.id == selectedWorkspaceID
                 && workspace.focusedPaneGroupID == group.id
             let isFocusedPane = isActiveGroup && group.selectedPaneID == paneID
             if !isFocusedPane {
-                pane.needsAttention = true
+                pane.attentionKind = kind
             }
             break
         }

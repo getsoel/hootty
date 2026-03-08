@@ -69,6 +69,14 @@ public struct DesignTokens {
     /// Active/selected tab background. Same as surface (Base).
     public let tabActive: NSColor
 
+    /// Returns the appropriate status color for an attention kind.
+    public func attentionColor(for kind: AttentionKind) -> NSColor {
+        switch kind {
+        case .idle: return statusSuccess
+        case .input: return statusWarning
+        }
+    }
+
     /// Derive semantic tokens from a TerminalTheme.
     public static func from(_ theme: TerminalTheme) -> DesignTokens {
         DesignTokens(

@@ -26,8 +26,9 @@ import Foundation
         #expect(pane.isRunning == true)
     }
 
-    @Test func needsAttentionDefaultsToFalse() {
+    @Test func attentionKindDefaultsToNil() {
         let pane = Pane(name: "Test")
+        #expect(pane.attentionKind == nil)
         #expect(pane.needsAttention == false)
     }
 

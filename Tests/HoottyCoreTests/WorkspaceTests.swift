@@ -99,8 +99,9 @@ import Foundation
         let first = workspace.allPaneGroups[0]
         _ = workspace.splitFocusedGroup(direction: .horizontal)
         // first is now unfocused
-        first.panes.first!.needsAttention = true
+        first.panes.first!.attentionKind = .input
         #expect(workspace.hasAttentionGroup == true)
+        #expect(workspace.attentionKind == .input)
     }
 
     @Test func allPanesAcrossGroups() {
@@ -136,9 +137,9 @@ import Foundation
         let first = workspace.allPaneGroups[0]
         _ = workspace.splitFocusedGroup(direction: .horizontal)
         // first group is now unfocused; flag its pane
-        first.panes.first!.needsAttention = true
+        first.panes.first!.attentionKind = .idle
         // focusing the group should clear attention on its selected pane
         workspace.focusPaneGroup(id: first.id)
-        #expect(first.panes.first!.needsAttention == false)
+        #expect(first.panes.first!.attentionKind == nil)
     }
 }

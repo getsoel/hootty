@@ -17,6 +17,17 @@ public final class PaneGroup: Identifiable {
         panes.contains { $0.needsAttention }
     }
 
+    /// Returns the most urgent attention kind across all panes (input > idle).
+    public var attentionKind: AttentionKind? {
+        var result: AttentionKind?
+        for pane in panes {
+            guard let kind = pane.attentionKind else { continue }
+            if kind == .input { return .input }
+            result = kind
+        }
+        return result
+    }
+
     public var selectedPane: Pane? {
         guard let selectedPaneID else { return panes.first }
         return panes.first { $0.id == selectedPaneID } ?? panes.first
@@ -75,7 +86,7 @@ public final class PaneGroup: Identifiable {
     public func selectPane(id: UUID) {
         guard let pane = panes.first(where: { $0.id == id }) else { return }
         selectedPaneID = id
-        pane.needsAttention = false
+        pane.attentionKind = nil
     }
 
     public func selectPreviousPane() {

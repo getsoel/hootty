@@ -3,14 +3,14 @@ import HoottyCore
 import LucideIcons
 
 struct StatusDotView: View {
-    let needsAttention: Bool
+    let attentionKind: AttentionKind?
     let isRunning: Bool
     let tokens: DesignTokens
 
     var body: some View {
-        if needsAttention {
+        if let kind = attentionKind {
             LucideIcon(Lucide.bell, size: 12)
-                .foregroundStyle(Color(tokens.statusWarning))
+                .foregroundStyle(Color(tokens.attentionColor(for: kind)))
         } else if isRunning {
             LucideIcon(Lucide.play, size: 12)
                 .foregroundStyle(Color(tokens.statusSuccess))

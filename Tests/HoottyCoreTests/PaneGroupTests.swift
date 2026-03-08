@@ -54,9 +54,9 @@ import Foundation
         let group = PaneGroup(name: "Test")
         let first = group.panes[0]
         let second = group.addPane()
-        first.needsAttention = true
+        first.attentionKind = .input
         group.selectPane(id: first.id)
-        #expect(first.needsAttention == false)
+        #expect(first.attentionKind == nil)
         _ = second
     }
 
@@ -88,8 +88,19 @@ import Foundation
     @Test func needsAttentionAggregatesPanes() {
         let group = PaneGroup(name: "Test")
         #expect(group.needsAttention == false)
-        group.panes.first!.needsAttention = true
+        #expect(group.attentionKind == nil)
+        group.panes.first!.attentionKind = .idle
         #expect(group.needsAttention == true)
+        #expect(group.attentionKind == .idle)
+    }
+
+    @Test func attentionKindPrioritizesInput() {
+        let group = PaneGroup(name: "Test")
+        let first = group.panes[0]
+        let second = group.addPane()
+        first.attentionKind = .idle
+        second.attentionKind = .input
+        #expect(group.attentionKind == .input)
     }
 
     @Test func displayNameReturnsNameWhenNoCustomName() {

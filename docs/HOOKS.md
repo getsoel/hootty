@@ -1,6 +1,6 @@
 # Claude Code Hook Integration
 
-Hootty automatically injects Claude Code notification hooks so that idle prompts and permission prompts trigger attention indicators (animated borders, bell icons) — zero user configuration required.
+Hootty automatically injects Claude Code hooks so that turn completion and permission prompts trigger attention indicators (animated borders, bell icons) — zero user configuration required.
 
 ## How It Works
 
@@ -8,7 +8,7 @@ Hootty automatically injects Claude Code notification hooks so that idle prompts
 User types `claude` in a Hootty pane
   → Shell's PATH resolves to Hootty's bundled wrapper script (prepended at surface creation)
   → Wrapper detects HOOTTY_PANE_ID env var → confirms it's running inside Hootty
-  → Injects --settings with hook JSON that emits OSC 9 on idle_prompt / permission_prompt
+  → Injects --settings with hook JSON that emits OSC 9 on Stop / permission_prompt
   → Claude Code runs normally with the extra hooks merged into settings
   → Hook fires: printf '\e]9;Claude Code needs attention\a'
   → ghostty parses OSC 9 → GHOSTTY_ACTION_DESKTOP_NOTIFICATION callback
@@ -27,7 +27,7 @@ Bundled as an SPM resource via `Package.swift`. A bash script that:
 - Searches `PATH` (excluding its own directory) to find the real `claude` binary
 - If `HOOTTY_PANE_ID` is unset, passes through with `exec` — no overhead
 - Passes through subcommands that don't support `--settings` (`mcp`, `config`, `api-key`)
-- Injects `--settings` with inline JSON containing notification hooks
+- Injects `--settings` with inline JSON containing Stop, Notification, and SessionStart hooks
 
 The `--settings` flag merges additively with the user's `~/.claude/settings.json`, so existing user hooks are preserved.
 
@@ -86,4 +86,4 @@ The unfocused pane should show an animated yellow border and bell icon. Clicking
 
 ### Test with Claude Code
 
-If Claude Code is installed, run `claude` in a pane, switch to another pane, and wait for an idle prompt. The original pane should signal attention.
+If Claude Code is installed, run `claude` in a pane, switch to another pane, and trigger a task. The original pane should signal attention immediately when Claude's turn finishes (green indicator). Permission prompts should show a yellow indicator.
