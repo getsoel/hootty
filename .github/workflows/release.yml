@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: brew install zig gettext
+
+      - name: Build libghostty
+        run: make setup
+
+      - name: Set version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          BUILD="$(git rev-list --count HEAD)"
+          ./scripts/set-version.sh "$VERSION" "$BUILD"
+
+      - name: Build release and create DMG
+        run: make dmg
+
+      - name: Create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" Hootty.dmg --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

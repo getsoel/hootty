@@ -1,4 +1,4 @@
-.PHONY: build test run debug setup release install uninstall
+.PHONY: build test run debug setup release dmg install uninstall
 
 APP_NAME := Hootty
 INSTALL_DIR := /Applications
@@ -34,7 +34,21 @@ release:
 	cp Sources/Hootty/Info.plist "$(RELEASE_APP_BUNDLE)/Contents/Info.plist"
 	cp -R Assets/AppIcon.icon "$(RELEASE_APP_BUNDLE)/Contents/Resources/AppIcon.icon"
 	cp -R "$(RELEASE_PRODUCTS)/Hootty_Hootty.bundle" "$(RELEASE_APP_BUNDLE)/Contents/Resources/Hootty_Hootty.bundle"
+	codesign -s - --deep --force "$(RELEASE_APP_BUNDLE)"
 	@echo "Built $(RELEASE_APP_BUNDLE)"
+
+DMG_NAME := $(APP_NAME).dmg
+DMG_STAGING := .build/dmg-staging
+
+dmg: release
+	rm -rf "$(DMG_STAGING)" "$(DMG_NAME)"
+	mkdir -p "$(DMG_STAGING)"
+	cp -R "$(RELEASE_APP_BUNDLE)" "$(DMG_STAGING)/$(APP_NAME).app"
+	ln -s /Applications "$(DMG_STAGING)/Applications"
+	hdiutil create -volname "$(APP_NAME)" -srcfolder "$(DMG_STAGING)" \
+		-ov -format UDZO "$(DMG_NAME)"
+	rm -rf "$(DMG_STAGING)"
+	@echo "Created $(DMG_NAME)"
 
 install: release
 	-killall -w $(APP_NAME) 2>/dev/null || true
