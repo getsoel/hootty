@@ -31,7 +31,7 @@ jobs:
       - name: Build release and create DMG
         run: make dmg
 
-      - name: Create GitHub Release
-        run: gh release create "$GITHUB_REF_NAME" Hootty.dmg --generate-notes
+      - name: Upload DMG to GitHub Release
+        run: gh release upload "$GITHUB_REF_NAME" Hootty.dmg --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
