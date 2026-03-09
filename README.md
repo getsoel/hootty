@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Assets/AppIcon.png" width="128" height="128" alt="Hootty app icon">
+</p>
+
 # Hootty
 
 A macOS terminal emulator powered by [libghostty](https://github.com/ghostty-org/ghostty).
