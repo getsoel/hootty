@@ -34,6 +34,7 @@ release:
 	cp Sources/Hootty/Info.plist "$(RELEASE_APP_BUNDLE)/Contents/Info.plist"
 	cp Assets/AppIcon.icns "$(RELEASE_APP_BUNDLE)/Contents/Resources/AppIcon.icns"
 	cp -R "$(RELEASE_PRODUCTS)/Hootty_Hootty.bundle" "$(RELEASE_APP_BUNDLE)/Contents/Resources/Hootty_Hootty.bundle"
+	cp -R "$(RELEASE_PRODUCTS)/LucideIcons_LucideIcons.bundle" "$(RELEASE_APP_BUNDLE)/Contents/Resources/LucideIcons_LucideIcons.bundle"
 	codesign -s - --deep --force "$(RELEASE_APP_BUNDLE)"
 	@echo "Built $(RELEASE_APP_BUNDLE)"
 
