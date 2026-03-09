@@ -72,10 +72,9 @@ public final class AppModel {
 
     public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) {
         for workspace in workspaces {
-            guard let (group, pane) = workspace.findPane(id: paneID) else { continue }
-            let isActiveGroup = workspace.id == selectedWorkspaceID
-                && workspace.focusedPaneGroupID == group.id
-            let isFocusedPane = isActiveGroup && group.selectedPaneID == paneID
+            guard let pane = workspace.findPane(id: paneID) else { continue }
+            let isFocusedPane = workspace.id == selectedWorkspaceID
+                && workspace.focusedPaneID == paneID
             if !isFocusedPane {
                 pane.attentionKind = kind
             }
@@ -83,10 +82,21 @@ public final class AppModel {
         }
     }
 
-    public func findPane(id: UUID) -> (Workspace, PaneGroup, Pane)? {
+    public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
         for workspace in workspaces {
-            if let (group, pane) = workspace.findPane(id: id) {
-                return (workspace, group, pane)
+            guard let pane = workspace.findPane(id: paneID) else { continue }
+            pane.isThinking = isThinking
+            if isThinking {
+                pane.attentionKind = nil
+            }
+            break
+        }
+    }
+
+    public func findPane(id: UUID) -> (Workspace, Pane)? {
+        for workspace in workspaces {
+            if let pane = workspace.findPane(id: id) {
+                return (workspace, pane)
             }
         }
         return nil

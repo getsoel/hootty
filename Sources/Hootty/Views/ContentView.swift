@@ -122,27 +122,16 @@ struct ContentView: View {
                     appModel.selectedWorkspaceID = appModel.workspaces.first?.id
                 }
             },
-            onSelectPaneGroup: { workspaceID, groupID in
-                appModel.selectedWorkspaceID = workspaceID
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.focusPaneGroup(id: groupID)
-                }
-            },
             onSelectPane: { workspaceID, paneID in
                 appModel.selectedWorkspaceID = workspaceID
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
                     workspace.focusPane(id: paneID)
                 }
             },
-            onRemovePaneGroup: { workspaceID, groupID in
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.removePaneGroup(id: groupID)
-                    appModel.saveWorkspaces()
-                }
-            },
             onRemovePane: { workspaceID, paneID in
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.closePane(id: paneID)
+                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                    workspace.removePane(id: paneID)
                     appModel.saveWorkspaces()
                 }
             },
@@ -156,33 +145,20 @@ struct ContentView: View {
         if let workspace = selectedWorkspace {
             SplitNodeView(
                 node: workspace.rootNode,
-                focusedPaneGroupID: workspace.focusedPaneGroupID,
+                focusedPaneID: workspace.focusedPaneID,
                 tokens: tokens,
                 isInSplit: false,
-                onFocusPaneGroup: { groupID in
-                    workspace.focusPaneGroup(id: groupID)
-                },
-                onAddPane: { groupID in
-                    workspace.focusPaneGroup(id: groupID)
-                    workspace.addPaneToFocusedGroup()
-                    appModel.saveWorkspaces()
-                },
-                onRemovePane: { paneID in
-                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    workspace.closePane(id: paneID)
-                    appModel.saveWorkspaces()
+                onFocusPane: { paneID in
+                    workspace.focusPane(id: paneID)
                 },
                 onSplitPane: { direction, placeBefore in
-                    workspace.splitFocusedGroup(direction: direction, placeBefore: placeBefore)
-                    appModel.saveWorkspaces()
-                },
-                onResumeClaudeSession: { paneID in
-                    guard let (_, group, pane) = appModel.findPane(id: paneID),
-                          let sessionID = pane.claudeSessionID else { return }
-                    let newPane = group.addPane(workingDirectory: pane.workingDirectory)
-                    newPane.claudeSessionID = sessionID
-                    GhosttyApp.shared.registerPendingCommand(newPane.id, command: "claude --resume \(sessionID)\n")
-                    appModel.saveWorkspaces()
+                    let parentSurface = GhosttyApp.shared.focusedSurface
+                    if let newPane = workspace.splitFocusedPane(direction: direction, placeBefore: placeBefore) {
+                        if let parentSurface {
+                            GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                        }
+                        appModel.saveWorkspaces()
+                    }
                 },
                 onSave: { appModel.saveWorkspaces() }
             )

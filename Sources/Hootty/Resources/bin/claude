@@ -31,6 +31,6 @@ esac
 # - Stop: idle indicator (fires immediately when Claude's turn ends)
 # - Notification: input indicator for permission/elicitation prompts
 # - SessionStart: reports session ID back to Hootty for resume support
-HOOKS_JSON='{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:attention:idle\\a'"'"'"}]}],"Notification":[{"matcher":"permission_prompt|elicitation_dialog","hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:attention:input\\a'"'"'"}]}],"SessionStart":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:session:${CLAUDE_SESSION_ID}\\a'"'"'"}]}]}}'
+HOOKS_JSON='{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:thinking:start\\a'"'"'"}]}],"Stop":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:thinking:stop\\a'"'"' && printf '"'"'\\e]9;hootty:attention:idle\\a'"'"'"}]}],"Notification":[{"matcher":"permission_prompt|elicitation_dialog","hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:attention:input\\a'"'"'"}]}],"SessionStart":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:session:${CLAUDE_SESSION_ID}\\a'"'"'"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"

@@ -14,6 +14,7 @@ public final class Pane: Identifiable {
     public var customName: String?
     public var isRunning = true
     public var attentionKind: AttentionKind?
+    public var isThinking = false
 
     public var needsAttention: Bool { attentionKind != nil }
     public var shell: String

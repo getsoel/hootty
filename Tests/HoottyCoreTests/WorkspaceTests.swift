@@ -3,84 +3,65 @@ import Foundation
 @testable import HoottyCore
 
 @Suite struct WorkspaceTests {
-    @Test func initCreatesOnePaneGroup() {
+    @Test func initCreatesOnePane() {
         let workspace = Workspace(name: "Test")
-        #expect(workspace.allPaneGroups.count == 1)
-        #expect(workspace.focusedPaneGroupID == workspace.allPaneGroups.first?.id)
+        #expect(workspace.allPanes.count == 1)
+        #expect(workspace.focusedPaneID == workspace.allPanes.first?.id)
     }
 
-    @Test func addPaneToFocusedGroup() {
+    @Test func splitFocusedPaneCreatesNewPane() {
         let workspace = Workspace(name: "Test")
-        let pane = workspace.addPaneToFocusedGroup()
-        #expect(pane != nil)
-        #expect(workspace.focusedPaneGroup?.panes.count == 2)
+        let newPane = workspace.splitFocusedPane(direction: .horizontal)
+        #expect(newPane != nil)
+        #expect(workspace.allPanes.count == 2)
+        #expect(workspace.focusedPaneID == newPane?.id)
     }
 
-    @Test func splitFocusedGroupCreatesNewGroup() {
+    @Test func removePaneUpdatesSelection() {
         let workspace = Workspace(name: "Test")
-        let newGroup = workspace.splitFocusedGroup(direction: .horizontal)
-        #expect(newGroup != nil)
-        #expect(workspace.allPaneGroups.count == 2)
-        #expect(workspace.focusedPaneGroupID == newGroup?.id)
+        let first = workspace.allPanes[0]
+        let second = workspace.splitFocusedPane(direction: .horizontal)!
+        workspace.removePane(id: second.id)
+        #expect(workspace.allPanes.count == 1)
+        #expect(workspace.focusedPaneID == first.id)
     }
 
-    @Test func removePaneGroupUpdatesSelection() {
+    @Test func removeLastPaneCreatesNewOne() {
         let workspace = Workspace(name: "Test")
-        let first = workspace.allPaneGroups[0]
-        let second = workspace.splitFocusedGroup(direction: .horizontal)!
-        workspace.removePaneGroup(id: second.id)
-        #expect(workspace.allPaneGroups.count == 1)
-        #expect(workspace.focusedPaneGroupID == first.id)
+        let paneID = workspace.allPanes.first!.id
+        workspace.removePane(id: paneID)
+        #expect(workspace.allPanes.count == 1)
+        #expect(workspace.allPanes.first?.id != paneID)
     }
 
-    @Test func removeLastGroupCreatesNewOne() {
-        let workspace = Workspace(name: "Test")
-        let groupID = workspace.allPaneGroups.first!.id
-        workspace.removePaneGroup(id: groupID)
-        #expect(workspace.allPaneGroups.count == 1)
-        #expect(workspace.allPaneGroups.first?.id != groupID)
-    }
-
-    @Test func isRunningReflectsGroupState() {
+    @Test func isRunningReflectsPaneState() {
         let workspace = Workspace(name: "Test")
         #expect(workspace.isRunning == true)
         workspace.allPanes.first!.isRunning = false
         #expect(workspace.isRunning == false)
     }
 
-    @Test func focusPaneGroupSetsID() {
+    @Test func focusPaneSetsID() {
         let workspace = Workspace(name: "Test")
-        let first = workspace.allPaneGroups[0]
-        let second = workspace.splitFocusedGroup(direction: .horizontal)!
-        #expect(workspace.focusedPaneGroupID == second.id)
-        workspace.focusPaneGroup(id: first.id)
-        #expect(workspace.focusedPaneGroupID == first.id)
+        let first = workspace.allPanes[0]
+        let second = workspace.splitFocusedPane(direction: .horizontal)!
+        #expect(workspace.focusedPaneID == second.id)
+        workspace.focusPane(id: first.id)
+        #expect(workspace.focusedPaneID == first.id)
     }
 
-    @Test func focusPaneGroupIgnoresUnknownID() {
+    @Test func focusPaneIgnoresUnknownID() {
         let workspace = Workspace(name: "Test")
-        let currentID = workspace.focusedPaneGroupID
-        workspace.focusPaneGroup(id: UUID())
-        #expect(workspace.focusedPaneGroupID == currentID)
+        let currentID = workspace.focusedPaneID
+        workspace.focusPane(id: UUID())
+        #expect(workspace.focusedPaneID == currentID)
     }
 
-    @Test func focusPaneFindsGroupAndSelectsPane() {
+    @Test func findPaneReturnsCorrectPane() {
         let workspace = Workspace(name: "Test")
-        let group = workspace.allPaneGroups[0]
-        let pane1 = group.panes[0]
-        let pane2 = group.addPane()
-        #expect(group.selectedPaneID == pane2.id)
-        workspace.focusPane(id: pane1.id)
-        #expect(group.selectedPaneID == pane1.id)
-    }
-
-    @Test func findPaneReturnsCorrectGroupAndPane() {
-        let workspace = Workspace(name: "Test")
-        let group = workspace.allPaneGroups[0]
-        let pane = group.panes[0]
+        let pane = workspace.allPanes[0]
         let result = workspace.findPane(id: pane.id)
-        #expect(result?.0.id == group.id)
-        #expect(result?.1.id == pane.id)
+        #expect(result?.id == pane.id)
     }
 
     @Test func findPaneReturnsNilForUnknownID() {
@@ -89,57 +70,44 @@ import Foundation
         #expect(result == nil)
     }
 
-    @Test func hasAttentionGroupFalseWhenNone() {
+    @Test func hasAttentionFalseWhenNone() {
         let workspace = Workspace(name: "Test")
-        #expect(workspace.hasAttentionGroup == false)
+        #expect(workspace.hasAttention == false)
     }
 
-    @Test func hasAttentionGroupTrueForUnfocusedGroup() {
+    @Test func hasAttentionTrueForUnfocusedPane() {
         let workspace = Workspace(name: "Test")
-        let first = workspace.allPaneGroups[0]
-        _ = workspace.splitFocusedGroup(direction: .horizontal)
+        let first = workspace.allPanes[0]
+        _ = workspace.splitFocusedPane(direction: .horizontal)
         // first is now unfocused
-        first.panes.first!.attentionKind = .input
-        #expect(workspace.hasAttentionGroup == true)
+        first.attentionKind = .input
+        #expect(workspace.hasAttention == true)
         #expect(workspace.attentionKind == .input)
     }
 
-    @Test func allPanesAcrossGroups() {
+    @Test func allPanesAcrossSplits() {
         let workspace = Workspace(name: "Test")
-        workspace.addPaneToFocusedGroup()
-        _ = workspace.splitFocusedGroup(direction: .horizontal)
-        #expect(workspace.allPanes.count == 3) // 2 in first group, 1 in new group
+        _ = workspace.splitFocusedPane(direction: .horizontal)
+        #expect(workspace.allPanes.count == 2)
     }
 
-    @Test func closePaneRemovesPaneFromGroup() {
+    @Test func removePaneFromSplit() {
         let workspace = Workspace(name: "Test")
-        let group = workspace.allPaneGroups[0]
-        let pane1 = group.panes[0]
-        let pane2 = group.addPane()
-        workspace.closePane(id: pane1.id)
-        #expect(group.panes.count == 1)
-        #expect(group.panes.first?.id == pane2.id)
+        let first = workspace.allPanes[0]
+        _ = workspace.splitFocusedPane(direction: .horizontal)
+        #expect(workspace.allPanes.count == 2)
+        workspace.removePane(id: first.id)
+        #expect(workspace.allPanes.count == 1)
     }
 
-    @Test func closePaneRemovesGroupWhenLastPane() {
+    @Test func focusPaneClearsAttention() {
         let workspace = Workspace(name: "Test")
-        _ = workspace.splitFocusedGroup(direction: .horizontal)
-        let groups = workspace.allPaneGroups
-        #expect(groups.count == 2)
-        let groupToClose = groups[0]
-        let paneID = groupToClose.panes.first!.id
-        workspace.closePane(id: paneID)
-        #expect(workspace.allPaneGroups.count == 1)
-    }
-
-    @Test func focusPaneGroupClearsSelectedPaneAttention() {
-        let workspace = Workspace(name: "Test")
-        let first = workspace.allPaneGroups[0]
-        _ = workspace.splitFocusedGroup(direction: .horizontal)
-        // first group is now unfocused; flag its pane
-        first.panes.first!.attentionKind = .idle
-        // focusing the group should clear attention on its selected pane
-        workspace.focusPaneGroup(id: first.id)
-        #expect(first.panes.first!.attentionKind == nil)
+        let first = workspace.allPanes[0]
+        _ = workspace.splitFocusedPane(direction: .horizontal)
+        // first is now unfocused; flag it
+        first.attentionKind = .idle
+        // focusing should clear attention
+        workspace.focusPane(id: first.id)
+        #expect(first.attentionKind == nil)
     }
 }

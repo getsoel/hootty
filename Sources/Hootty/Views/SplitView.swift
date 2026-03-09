@@ -3,28 +3,22 @@ import HoottyCore
 
 struct SplitNodeView: View {
     @Bindable var node: SplitNode
-    let focusedPaneGroupID: UUID?
+    let focusedPaneID: UUID?
     let tokens: DesignTokens
     let isInSplit: Bool
-    let onFocusPaneGroup: (UUID) -> Void
-    let onAddPane: (UUID) -> Void
-    let onRemovePane: (UUID) -> Void
+    let onFocusPane: (UUID) -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
-    var onResumeClaudeSession: ((UUID) -> Void)?
     let onSave: () -> Void
 
     var body: some View {
         switch node.content {
-        case .leaf(let group):
-            PaneGroupView(
-                group: group,
-                isFocused: group.id == focusedPaneGroupID,
+        case .leaf(let pane):
+            PaneContentView(
+                pane: pane,
+                isFocused: pane.id == focusedPaneID,
                 tokens: tokens,
-                onFocusPaneGroup: onFocusPaneGroup,
-                onAddPane: { onAddPane(group.id) },
-                onRemovePane: onRemovePane,
+                onFocusPane: { onFocusPane(pane.id) },
                 onSplitPane: onSplitPane,
-                onResumeClaudeSession: onResumeClaudeSession,
                 onSave: onSave
             )
 
@@ -51,14 +45,14 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSplitPane: onSplitPane, onResumeClaudeSession: onResumeClaudeSession, onSave: onSave)
+                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onSave: onSave)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
                     )
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneGroupID: focusedPaneGroupID, tokens: tokens, isInSplit: true, onFocusPaneGroup: onFocusPaneGroup, onAddPane: onAddPane, onRemovePane: onRemovePane, onSplitPane: onSplitPane, onResumeClaudeSession: onResumeClaudeSession, onSave: onSave)
+                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onSave: onSave)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize

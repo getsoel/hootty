@@ -87,4 +87,17 @@ import Foundation
         let decoded = try JSONDecoder().decode(Pane.self, from: data)
         #expect(decoded.claudeSessionID == nil)
     }
+
+    @Test func isThinkingDefaultsToFalse() {
+        let pane = Pane(name: "Test")
+        #expect(pane.isThinking == false)
+    }
+
+    @Test func isThinkingNotPersistedInCodable() throws {
+        let pane = Pane(name: "Test", shell: "/bin/zsh", workingDirectory: "/tmp")
+        pane.isThinking = true
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.isThinking == false)
+    }
 }

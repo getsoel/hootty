@@ -3,107 +3,104 @@ import Foundation
 @testable import HoottyCore
 
 @Suite struct SplitNodeTests {
-    @Test func leafHasOneGroup() {
-        let group = PaneGroup(name: "Test")
-        let node = SplitNode(paneGroup: group)
-        #expect(node.allPaneGroups().count == 1)
-        #expect(node.allPaneGroups().first?.id == group.id)
+    @Test func leafHasOnePane() {
+        let pane = Pane(name: "Test")
+        let node = SplitNode(pane: pane)
         #expect(node.allPanes().count == 1)
+        #expect(node.allPanes().first?.id == pane.id)
     }
 
     @Test func splitCreatesTwoChildren() {
-        let group = PaneGroup(name: "Original")
-        let node = SplitNode(paneGroup: group)
-        let newGroup = PaneGroup(name: "New")
-        let result = node.splitGroup(groupID: group.id, direction: .horizontal, newGroup: newGroup)
+        let pane = Pane(name: "Original")
+        let node = SplitNode(pane: pane)
+        let newPane = Pane(name: "New")
+        let result = node.splitPane(paneID: pane.id, direction: .horizontal, newPane: newPane)
         #expect(result == true)
-        #expect(node.allPaneGroups().count == 2)
-        #expect(node.allPaneGroups().map(\.id).contains(group.id))
-        #expect(node.allPaneGroups().map(\.id).contains(newGroup.id))
+        #expect(node.allPanes().count == 2)
+        #expect(node.allPanes().map(\.id).contains(pane.id))
+        #expect(node.allPanes().map(\.id).contains(newPane.id))
     }
 
     @Test func splitPreservesOrder() {
-        let group = PaneGroup(name: "Original")
-        let node = SplitNode(paneGroup: group)
-        let newGroup = PaneGroup(name: "New")
-        node.splitGroup(groupID: group.id, direction: .horizontal, newGroup: newGroup)
-        let groups = node.allPaneGroups()
-        #expect(groups[0].id == group.id)
-        #expect(groups[1].id == newGroup.id)
+        let pane = Pane(name: "Original")
+        let node = SplitNode(pane: pane)
+        let newPane = Pane(name: "New")
+        node.splitPane(paneID: pane.id, direction: .horizontal, newPane: newPane)
+        let panes = node.allPanes()
+        #expect(panes[0].id == pane.id)
+        #expect(panes[1].id == newPane.id)
     }
 
     @Test func nestedSplit() {
-        let group1 = PaneGroup(name: "G1")
-        let node = SplitNode(paneGroup: group1)
-        let group2 = PaneGroup(name: "G2")
-        node.splitGroup(groupID: group1.id, direction: .horizontal, newGroup: group2)
-        let group3 = PaneGroup(name: "G3")
-        node.splitGroup(groupID: group2.id, direction: .vertical, newGroup: group3)
-        #expect(node.allPaneGroups().count == 3)
+        let pane1 = Pane(name: "P1")
+        let node = SplitNode(pane: pane1)
+        let pane2 = Pane(name: "P2")
+        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
+        let pane3 = Pane(name: "P3")
+        node.splitPane(paneID: pane2.id, direction: .vertical, newPane: pane3)
+        #expect(node.allPanes().count == 3)
     }
 
-    @Test func splitUnknownGroupReturnsFalse() {
-        let group = PaneGroup(name: "Test")
-        let node = SplitNode(paneGroup: group)
-        let result = node.splitGroup(groupID: UUID(), direction: .horizontal, newGroup: PaneGroup(name: "New"))
+    @Test func splitUnknownPaneReturnsFalse() {
+        let pane = Pane(name: "Test")
+        let node = SplitNode(pane: pane)
+        let result = node.splitPane(paneID: UUID(), direction: .horizontal, newPane: Pane(name: "New"))
         #expect(result == false)
-        #expect(node.allPaneGroups().count == 1)
+        #expect(node.allPanes().count == 1)
     }
 
-    @Test func removePaneGroupCollapsesParent() {
-        let group1 = PaneGroup(name: "G1")
-        let node = SplitNode(paneGroup: group1)
-        let group2 = PaneGroup(name: "G2")
-        node.splitGroup(groupID: group1.id, direction: .horizontal, newGroup: group2)
-        let result = node.removePaneGroup(id: group2.id)
+    @Test func removePaneCollapsesParent() {
+        let pane1 = Pane(name: "P1")
+        let node = SplitNode(pane: pane1)
+        let pane2 = Pane(name: "P2")
+        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
+        let result = node.removePane(id: pane2.id)
         #expect(result == true)
-        #expect(node.allPaneGroups().count == 1)
-        #expect(node.allPaneGroups().first?.id == group1.id)
+        #expect(node.allPanes().count == 1)
+        #expect(node.allPanes().first?.id == pane1.id)
     }
 
-    @Test func removePaneGroupNoOpOnLeaf() {
-        let group = PaneGroup(name: "Test")
-        let node = SplitNode(paneGroup: group)
-        let result = node.removePaneGroup(id: group.id)
+    @Test func removePaneNoOpOnLeaf() {
+        let pane = Pane(name: "Test")
+        let node = SplitNode(pane: pane)
+        let result = node.removePane(id: pane.id)
         #expect(result == false)
-        #expect(node.allPaneGroups().count == 1)
+        #expect(node.allPanes().count == 1)
     }
 
     @Test func removeFromNestedSplit() {
-        let group1 = PaneGroup(name: "G1")
-        let node = SplitNode(paneGroup: group1)
-        let group2 = PaneGroup(name: "G2")
-        node.splitGroup(groupID: group1.id, direction: .horizontal, newGroup: group2)
-        let group3 = PaneGroup(name: "G3")
-        node.splitGroup(groupID: group2.id, direction: .vertical, newGroup: group3)
-        let result = node.removePaneGroup(id: group2.id)
+        let pane1 = Pane(name: "P1")
+        let node = SplitNode(pane: pane1)
+        let pane2 = Pane(name: "P2")
+        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
+        let pane3 = Pane(name: "P3")
+        node.splitPane(paneID: pane2.id, direction: .vertical, newPane: pane3)
+        let result = node.removePane(id: pane2.id)
         #expect(result == true)
-        #expect(node.allPaneGroups().count == 2)
-        #expect(node.allPaneGroups().map(\.id).contains(group1.id))
-        #expect(node.allPaneGroups().map(\.id).contains(group3.id))
+        #expect(node.allPanes().count == 2)
+        #expect(node.allPanes().map(\.id).contains(pane1.id))
+        #expect(node.allPanes().map(\.id).contains(pane3.id))
     }
 
-    @Test func findPaneGroupContainingPaneID() {
-        let group = PaneGroup(name: "Test")
-        let paneID = group.panes.first!.id
-        let node = SplitNode(paneGroup: group)
-        let found = node.findPaneGroup(containingPaneID: paneID)
-        #expect(found?.id == group.id)
+    @Test func findPaneByID() {
+        let pane = Pane(name: "Test")
+        let node = SplitNode(pane: pane)
+        let found = node.findPane(id: pane.id)
+        #expect(found?.id == pane.id)
     }
 
-    @Test func findPaneGroupReturnsNilForUnknown() {
-        let group = PaneGroup(name: "Test")
-        let node = SplitNode(paneGroup: group)
-        let found = node.findPaneGroup(containingPaneID: UUID())
+    @Test func findPaneReturnsNilForUnknown() {
+        let pane = Pane(name: "Test")
+        let node = SplitNode(pane: pane)
+        let found = node.findPane(id: UUID())
         #expect(found == nil)
     }
 
-    @Test func allPanesAcrossGroups() {
-        let group1 = PaneGroup(name: "G1")
-        group1.addPane()
-        let node = SplitNode(paneGroup: group1)
-        let group2 = PaneGroup(name: "G2")
-        node.splitGroup(groupID: group1.id, direction: .horizontal, newGroup: group2)
-        #expect(node.allPanes().count == 3) // 2 in group1, 1 in group2
+    @Test func allPanesAcrossSplits() {
+        let pane1 = Pane(name: "P1")
+        let node = SplitNode(pane: pane1)
+        let pane2 = Pane(name: "P2")
+        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
+        #expect(node.allPanes().count == 2)
     }
 }

@@ -61,51 +61,34 @@ import Foundation
         #expect(model.sidebarVisible == true)
     }
 
-    @Test func handlePaneAttentionFlagsBackgroundPane() {
+    @Test func handlePaneAttentionFlagsUnfocusedPane() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let group = workspace.allPaneGroups[0]
-        let pane1 = group.panes[0]
-        let pane2 = group.addPane()
-        // pane2 is selected, signal attention for pane1
+        let pane1 = workspace.allPanes[0]
+        _ = workspace.splitFocusedPane(direction: .horizontal) // pane2 is now focused
         model.selectedWorkspaceID = workspace.id
         model.handlePaneNeedsAttention(pane1.id, kind: .input)
         #expect(pane1.attentionKind == .input)
-        _ = pane2
     }
 
     @Test func handlePaneAttentionIdleKind() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let group = workspace.allPaneGroups[0]
-        let pane1 = group.panes[0]
-        let pane2 = group.addPane()
+        let pane1 = workspace.allPanes[0]
+        _ = workspace.splitFocusedPane(direction: .horizontal)
         model.selectedWorkspaceID = workspace.id
         model.handlePaneNeedsAttention(pane1.id, kind: .idle)
         #expect(pane1.attentionKind == .idle)
-        _ = pane2
     }
 
     @Test func handlePaneAttentionIgnoresFocusedPane() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let group = workspace.allPaneGroups[0]
-        let pane = group.panes[0]
+        let pane = workspace.allPanes[0]
         model.selectedWorkspaceID = workspace.id
         // pane is the only one and focused
         model.handlePaneNeedsAttention(pane.id, kind: .input)
         #expect(pane.attentionKind == nil)
-    }
-
-    @Test func handlePaneAttentionFlagsInBackgroundGroup() {
-        let model = makeModel()
-        let workspace = model.workspaces[0]
-        let group1 = workspace.allPaneGroups[0]
-        let pane1 = group1.panes[0]
-        _ = workspace.splitFocusedGroup(direction: .horizontal) // group2 is now focused
-        model.selectedWorkspaceID = workspace.id
-        model.handlePaneNeedsAttention(pane1.id, kind: .input)
-        #expect(pane1.attentionKind == .input)
     }
 
     @Test func selectedWorkspaceReturnsCorrectWorkspace() {
@@ -117,20 +100,48 @@ import Foundation
         #expect(model.selectedWorkspace?.id == second.id)
     }
 
-    @Test func findPaneReturnsWorkspaceGroupAndPane() {
+    @Test func findPaneReturnsWorkspaceAndPane() {
         let model = makeModel()
         let workspace = model.workspaces[0]
-        let group = workspace.allPaneGroups[0]
-        let pane = group.panes[0]
+        let pane = workspace.allPanes[0]
         let result = model.findPane(id: pane.id)
         #expect(result?.0.id == workspace.id)
-        #expect(result?.1.id == group.id)
-        #expect(result?.2.id == pane.id)
+        #expect(result?.1.id == pane.id)
     }
 
     @Test func findPaneReturnsNilForUnknownID() {
         let model = makeModel()
         let result = model.findPane(id: UUID())
         #expect(result == nil)
+    }
+
+    @Test func handlePaneThinkingStartSetsThinking() {
+        let model = makeModel()
+        let pane = model.workspaces[0].allPanes[0]
+        model.handlePaneThinkingChanged(pane.id, isThinking: true)
+        #expect(pane.isThinking == true)
+    }
+
+    @Test func handlePaneThinkingStartClearsAttention() {
+        let model = makeModel()
+        let workspace = model.workspaces[0]
+        let pane1 = workspace.allPanes[0]
+        _ = workspace.splitFocusedPane(direction: .horizontal)
+        model.selectedWorkspaceID = workspace.id
+        // Set attention on unfocused pane
+        model.handlePaneNeedsAttention(pane1.id, kind: .idle)
+        #expect(pane1.attentionKind == .idle)
+        // Thinking start should clear attention
+        model.handlePaneThinkingChanged(pane1.id, isThinking: true)
+        #expect(pane1.attentionKind == nil)
+    }
+
+    @Test func handlePaneThinkingStopClearsThinking() {
+        let model = makeModel()
+        let pane = model.workspaces[0].allPanes[0]
+        model.handlePaneThinkingChanged(pane.id, isThinking: true)
+        #expect(pane.isThinking == true)
+        model.handlePaneThinkingChanged(pane.id, isThinking: false)
+        #expect(pane.isThinking == false)
     }
 }

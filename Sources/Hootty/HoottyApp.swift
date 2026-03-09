@@ -18,13 +18,13 @@ struct HoottyApp: App {
 
     @State private var appModel = AppModel()
 
-    private func splitFocusedGroup(direction: SplitDirection, placeBefore: Bool = false) {
+    private func splitFocusedPane(direction: SplitDirection, placeBefore: Bool = false) {
         guard let workspace = appModel.selectedWorkspace else { return }
 
         let parentSurface = GhosttyApp.shared.focusedSurface
 
-        if let newGroup = workspace.splitFocusedGroup(direction: direction, placeBefore: placeBefore) {
-            if let parentSurface, let newPane = newGroup.panes.first {
+        if let newPane = workspace.splitFocusedPane(direction: direction, placeBefore: placeBefore) {
+            if let parentSurface {
                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
             }
             appModel.saveWorkspaces()
@@ -47,23 +47,26 @@ struct HoottyApp: App {
                     }
 
                     GhosttyApp.shared.onNewTab = { [appModel] in
-                        appModel.selectedWorkspace?.addPaneToFocusedGroup()
-                        appModel.saveWorkspaces()
+                        let workspace = appModel.addWorkspace()
+                        appModel.selectedWorkspaceID = workspace.id
                     }
                     GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID, kind in
                         appModel.handlePaneNeedsAttention(paneID, kind: kind)
                     }
+                    GhosttyApp.shared.onPaneThinkingChanged = { [appModel] paneID, isThinking in
+                        appModel.handlePaneThinkingChanged(paneID, isThinking: isThinking)
+                    }
                     GhosttyApp.shared.onClaudeSessionDetected = { [appModel] paneID, sessionID in
-                        if let (_, _, pane) = appModel.findPane(id: paneID) {
+                        if let (_, pane) = appModel.findPane(id: paneID) {
                             pane.claudeSessionID = sessionID
                             appModel.debouncedSave()
                         }
                     }
                     GhosttyApp.shared.onNewSplit = { [appModel] paneID, direction, parentSurface in
-                        guard let (workspace, group, _) = appModel.findPane(id: paneID) else { return }
-                        workspace.focusPaneGroup(id: group.id)
-                        if let newGroup = workspace.splitFocusedGroup(direction: direction) {
-                            if let parentSurface, let newPane = newGroup.panes.first {
+                        guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
+                        workspace.focusPane(id: paneID)
+                        if let newPane = workspace.splitFocusedPane(direction: direction) {
+                            if let parentSurface {
                                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
                             }
                             appModel.saveWorkspaces()
@@ -71,8 +74,8 @@ struct HoottyApp: App {
                     }
                     GhosttyApp.shared.onCloseSurface = { [appModel] paneID in
                         GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                        guard let (workspace, _, _) = appModel.findPane(id: paneID) else { return }
-                        workspace.closePane(id: paneID)
+                        guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
+                        workspace.removePane(id: paneID)
                         appModel.saveWorkspaces()
                     }
                     GhosttyApp.shared.onPwdChanged = { [appModel] _, _ in
@@ -80,10 +83,9 @@ struct HoottyApp: App {
                     }
                     GhosttyApp.shared.onCloseTab = { [appModel] in
                         guard let workspace = appModel.selectedWorkspace,
-                              let group = workspace.focusedPaneGroup,
-                              let selectedPaneID = group.selectedPaneID else { return }
-                        GhosttyApp.shared.removeCachedSurfaceView(for: selectedPaneID)
-                        workspace.closePane(id: selectedPaneID)
+                              let focusedPaneID = workspace.focusedPaneID else { return }
+                        GhosttyApp.shared.removeCachedSurfaceView(for: focusedPaneID)
+                        workspace.removePane(id: focusedPaneID)
                         appModel.saveWorkspaces()
                     }
                 }
@@ -97,33 +99,33 @@ struct HoottyApp: App {
                 .keyboardShortcut("s", modifiers: [.command, .shift])
             }
             CommandMenu("Shell") {
-                Button("New Tab") {
-                    appModel.selectedWorkspace?.addPaneToFocusedGroup()
-                    appModel.saveWorkspaces()
+                Button("New Workspace") {
+                    let workspace = appModel.addWorkspace()
+                    appModel.selectedWorkspaceID = workspace.id
                 }
                 .keyboardShortcut("t", modifiers: .command)
 
                 Divider()
 
                 Button("Split Right") {
-                    splitFocusedGroup(direction: .horizontal)
+                    splitFocusedPane(direction: .horizontal)
                 }
                 .keyboardShortcut("d", modifiers: .command)
 
                 Button("Split Down") {
-                    splitFocusedGroup(direction: .vertical)
+                    splitFocusedPane(direction: .vertical)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
 
                 Divider()
 
                 Button("Split Left") {
-                    splitFocusedGroup(direction: .horizontal, placeBefore: true)
+                    splitFocusedPane(direction: .horizontal, placeBefore: true)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .option])
 
                 Button("Split Up") {
-                    splitFocusedGroup(direction: .vertical, placeBefore: true)
+                    splitFocusedPane(direction: .vertical, placeBefore: true)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .option, .shift])
             }

@@ -9,21 +9,18 @@ struct WorkspaceSidebar: View {
     let flavor: CatppuccinFlavor
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
-    var onSelectPaneGroup: (UUID, UUID) -> Void
     var onSelectPane: (UUID, UUID) -> Void
-    var onRemovePaneGroup: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
     var onSave: (() -> Void)?
     var sidebarWidth: CGFloat
 
     @State private var expandedWorkspaceIDs: Set<UUID> = []
     @State private var hoveredWorkspaceID: UUID?
-    @State private var hoveredGroupID: UUID?
     @State private var hoveredPaneID: UUID?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
-    @State private var renameGroupTargetID: UUID?
-    @State private var editingGroupName: String = ""
+    @State private var renamePaneTargetID: UUID?
+    @State private var editingPaneName: String = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,13 +55,13 @@ struct WorkspaceSidebar: View {
             Button("OK") { commitRename() }
             Button("Cancel", role: .cancel) { renameTargetID = nil }
         }
-        .alert("Rename Group", isPresented: Binding(
-            get: { renameGroupTargetID != nil },
-            set: { if !$0 { renameGroupTargetID = nil } }
+        .alert("Rename Pane", isPresented: Binding(
+            get: { renamePaneTargetID != nil },
+            set: { if !$0 { renamePaneTargetID = nil } }
         )) {
-            TextField("Group name", text: $editingGroupName)
-            Button("OK") { commitGroupRename() }
-            Button("Cancel", role: .cancel) { renameGroupTargetID = nil }
+            TextField("Pane name", text: $editingPaneName)
+            Button("OK") { commitPaneRename() }
+            Button("Cancel", role: .cancel) { renamePaneTargetID = nil }
         }
     }
 
@@ -75,30 +72,14 @@ struct WorkspaceSidebar: View {
                     workspaceRow(workspace)
 
                     if expandedWorkspaceIDs.contains(workspace.id) {
-                        let groups = workspace.allPaneGroups
-                        ForEach(Array(groups.enumerated()), id: \.element.id) { groupIndex, group in
-                            let isLastGroup = groupIndex == groups.count - 1
-                            if group.panes.count == 1, let pane = group.panes.first {
-                                singlePaneGroupRow(
-                                    pane: pane,
-                                    group: group,
-                                    workspace: workspace
-                                )
-                            } else {
-                                groupRow(
-                                    group,
-                                    workspace: workspace
-                                )
-
-                                ForEach(group.panes) { pane in
-                                    paneRow(
-                                        pane,
-                                        group: group,
-                                        workspace: workspace,
-                                        isLastGroup: isLastGroup
-                                    )
-                                }
-                            }
+                        let panes = workspace.allPanes
+                        let canClose = panes.count > 1
+                        ForEach(panes) { pane in
+                            paneRow(
+                                pane,
+                                workspace: workspace,
+                                canClose: canClose
+                            )
                         }
                     }
                 }
@@ -130,18 +111,18 @@ struct WorkspaceSidebar: View {
         renameTargetID = nil
     }
 
-    private func commitGroupRename() {
-        let trimmed = editingGroupName.trimmingCharacters(in: .whitespaces)
-        if let targetID = renameGroupTargetID {
+    private func commitPaneRename() {
+        let trimmed = editingPaneName.trimmingCharacters(in: .whitespaces)
+        if let targetID = renamePaneTargetID {
             for workspace in workspaces {
-                if let group = workspace.allPaneGroups.first(where: { $0.id == targetID }) {
-                    group.customName = trimmed.isEmpty ? nil : trimmed
+                if let pane = workspace.findPane(id: targetID) {
+                    pane.customName = trimmed.isEmpty ? nil : trimmed
                     onSave?()
                     break
                 }
             }
         }
-        renameGroupTargetID = nil
+        renamePaneTargetID = nil
     }
 
     // MARK: - Workspace row (depth 0, no tree lines)
@@ -151,7 +132,7 @@ struct WorkspaceSidebar: View {
         let isHovered = workspace.id == hoveredWorkspaceID
         let isExpanded = expandedWorkspaceIDs.contains(workspace.id)
         return HStack(spacing: 6) {
-            iconView(name: isExpanded ? "_root_open" : "_root", size: TypeScale.iconSize, needsAttention: workspace.hasAttentionGroup)
+            iconView(name: isExpanded ? "_root_open" : "_root", size: TypeScale.iconSize)
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
@@ -210,11 +191,12 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    // MARK: - Group row (depth 1)
+    // MARK: - Pane row (depth 1)
 
-    private func groupRow(_ group: PaneGroup, workspace: Workspace) -> some View {
-        let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
-        let isHovered = group.id == hoveredGroupID
+    private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool) -> some View {
+        let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
+        let isHovered = pane.id == hoveredPaneID
+
         return HStack(spacing: 0) {
             TreeConnectorView(
                 depth: 1,
@@ -223,166 +205,11 @@ struct WorkspaceSidebar: View {
             )
 
             HStack(spacing: 6) {
-                iconView(name: "folder_command_open", size: TypeScale.iconSize, needsAttention: group.needsAttention)
-
-                Text(group.displayName)
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedGroup ? tokens.text : tokens.textMuted))
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
-
-                Button {
-                    onRemovePaneGroup(workspace.id, group.id)
-                } label: {
-                    LucideIcon(Lucide.x, size: 8)
-                        .foregroundStyle(Color(tokens.textMuted))
-                }
-                .buttonStyle(.plain)
-                .opacity(isHovered && workspace.allPaneGroups.count > 1 ? 1 : 0)
-            }
-            .padding(.trailing, Spacing.md)
-            .padding(.vertical, Spacing.md)
-        }
-        .padding(.leading, Spacing.md)
-        .background(
-            Rectangle()
-                .fill(
-                    isFocusedGroup
-                        ? Color(tokens.elementSelected)
-                        : isHovered
-                            ? Color(tokens.elementHover)
-                            : Color.clear
-                )
-        )
-        .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                hoveredGroupID = group.id
-                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-            case .ended:
-                hoveredGroupID = nil
-            }
-        }
-        .onTapGesture {
-            onSelectPaneGroup(workspace.id, group.id)
-        }
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(group.displayName)
-        .contextMenu {
-            Button("Rename Group") {
-                editingGroupName = group.customName ?? group.name
-                renameGroupTargetID = group.id
-            }
-            if workspace.allPaneGroups.count > 1 {
-                Button("Close Group") {
-                    onRemovePaneGroup(workspace.id, group.id)
-                }
-            }
-        }
-    }
-
-    // MARK: - Single-pane group row (depth 1, inlined)
-
-    private func singlePaneGroupRow(pane: Pane, group: PaneGroup, workspace: Workspace) -> some View {
-        let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
-        let isFocusedPane = isFocusedGroup && group.selectedPaneID == pane.id
-        let isHovered = group.id == hoveredGroupID
-        return HStack(spacing: 0) {
-            TreeConnectorView(
-                depth: 1,
-                continuingLevels: [],
-                tokens: tokens
-            )
-
-            HStack(spacing: 6) {
-                iconView(name: "bash", size: TypeScale.iconSize, needsAttention: pane.needsAttention)
+                iconView(name: "bash", size: TypeScale.iconSize)
 
                 Text(pane.displayName)
                     .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedGroup ? tokens.text : tokens.textMuted))
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
-
-                Button {
-                    onRemovePaneGroup(workspace.id, group.id)
-                } label: {
-                    LucideIcon(Lucide.x, size: 8)
-                        .foregroundStyle(Color(tokens.textMuted))
-                }
-                .buttonStyle(.plain)
-                .opacity(isHovered && workspace.allPaneGroups.count > 1 ? 1 : 0)
-            }
-            .padding(.trailing, Spacing.md)
-            .padding(.vertical, Spacing.md)
-        }
-        .padding(.leading, Spacing.md)
-        .background(
-            Rectangle()
-                .fill(
-                    isFocusedGroup
-                        ? Color(tokens.elementSelected)
-                        : isHovered
-                            ? Color(tokens.elementHover)
-                            : Color.clear
-                )
-        )
-        .overlay {
-            if let kind = pane.attentionKind {
-                Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
-            } else if isFocusedPane {
-                Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
-            }
-        }
-        .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                hoveredGroupID = group.id
-                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-            case .ended:
-                hoveredGroupID = nil
-            }
-        }
-        .onTapGesture {
-            onSelectPaneGroup(workspace.id, group.id)
-        }
-        .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(pane.displayName)
-        .contextMenu {
-            if workspace.allPaneGroups.count > 1 {
-                Button("Close Pane") {
-                    onRemovePaneGroup(workspace.id, group.id)
-                }
-            }
-        }
-    }
-
-    // MARK: - Pane row (depth 2)
-
-    private func paneRow(_ pane: Pane, group: PaneGroup, workspace: Workspace, isLastGroup: Bool) -> some View {
-        let isFocusedGroup = group.id == workspace.focusedPaneGroupID && workspace.id == selectedWorkspaceID
-        let isFocusedPane = isFocusedGroup && group.selectedPaneID == pane.id
-        let isHovered = pane.id == hoveredPaneID
-        let displayName = pane.displayName
-
-        // If the group is not the last sibling, we need a continuing vertical line at depth 1
-        let continuing: Set<Int> = isLastGroup ? [] : [0]
-
-        return HStack(spacing: 0) {
-            TreeConnectorView(
-                depth: 2,
-                continuingLevels: continuing,
-                tokens: tokens
-            )
-
-            HStack(spacing: 6) {
-                iconView(name: "bash", size: TypeScale.iconSize, needsAttention: pane.needsAttention)
-
-                Text(displayName)
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedGroup ? tokens.text : tokens.textMuted))
+                    .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -390,11 +217,11 @@ struct WorkspaceSidebar: View {
                 Button {
                     onRemovePane(workspace.id, pane.id)
                 } label: {
-                    LucideIcon(Lucide.x, size: 7)
+                    LucideIcon(Lucide.x, size: 8)
                         .foregroundStyle(Color(tokens.textMuted))
                 }
                 .buttonStyle(.plain)
-                .opacity(isHovered && group.panes.count > 1 ? 1 : 0)
+                .opacity(isHovered && canClose ? 1 : 0)
             }
             .padding(.trailing, Spacing.md)
             .padding(.vertical, Spacing.md)
@@ -403,7 +230,7 @@ struct WorkspaceSidebar: View {
         .background(
             Rectangle()
                 .fill(
-                    isFocusedGroup
+                    isFocusedPane
                         ? Color(tokens.elementSelected)
                         : isHovered
                             ? Color(tokens.elementHover)
@@ -431,9 +258,13 @@ struct WorkspaceSidebar: View {
             onSelectPane(workspace.id, pane.id)
         }
         .accessibilityAddTraits(.isButton)
-        .accessibilityLabel(displayName)
+        .accessibilityLabel(pane.displayName)
         .contextMenu {
-            if group.panes.count > 1 {
+            Button("Rename Pane") {
+                editingPaneName = pane.displayName
+                renamePaneTargetID = pane.id
+            }
+            if canClose {
                 Button("Close Pane") {
                     onRemovePane(workspace.id, pane.id)
                 }
@@ -443,16 +274,8 @@ struct WorkspaceSidebar: View {
 
     // MARK: - Helpers
 
-    private func iconView(name: String, size: CGFloat, needsAttention: Bool) -> some View {
+    private func iconView(name: String, size: CGFloat) -> some View {
         CatppuccinIconView(name: name, size: size, flavor: flavor)
-    }
-
-    private func toggleExpanded(_ id: UUID) {
-        if expandedWorkspaceIDs.contains(id) {
-            expandedWorkspaceIDs.remove(id)
-        } else {
-            expandedWorkspaceIDs.insert(id)
-        }
     }
 }
 

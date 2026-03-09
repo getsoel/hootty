@@ -34,6 +34,7 @@ struct TerminalPaneView: NSViewRepresentable {
         }
         view.processDidExit = { [weak pane] _ in
             pane?.isRunning = false
+            pane?.isThinking = false
             pane?.claudeSessionID = nil
             if let paneID = pane?.id {
                 GhosttyApp.requestCloseSurface(paneID: paneID)

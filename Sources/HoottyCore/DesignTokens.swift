@@ -61,6 +61,9 @@ public struct DesignTokens {
     /// Error state (red).
     public let statusError: NSColor
 
+    /// Thinking/processing state (blue).
+    public let statusThinking: NSColor
+
     // MARK: - Component-Specific
 
     /// Tab bar background. Same as background (Mantle).
@@ -95,6 +98,7 @@ public struct DesignTokens {
             statusInactive: theme.sidebarStoppedDot,
             statusWarning: theme.attentionColor,
             statusError: theme.palette[1],
+            statusThinking: theme.palette[4],
             tabBarBackground: theme.mantle,
             tabActive: theme.background
         )

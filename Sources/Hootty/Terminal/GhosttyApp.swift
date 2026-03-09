@@ -22,6 +22,9 @@ final class GhosttyApp {
     /// Called when a Claude Code session ID is detected via OSC 9 (paneID, sessionID).
     var onClaudeSessionDetected: ((UUID, String) -> Void)?
 
+    /// Called when a pane's thinking state changes (paneID, isThinking).
+    var onPaneThinkingChanged: ((UUID, Bool) -> Void)?
+
     /// Called when ghostty dispatches a new_split action (e.g. keybinding).
     var onNewSplit: ((UUID, SplitDirection, ghostty_surface_t?) -> Void)?
 
@@ -290,13 +293,12 @@ final class GhosttyApp {
     private static func signalAttention(target: ghostty_target_s, kind: AttentionKind = .input) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
         let paneID = ctx.paneID
-        DispatchQueue.main.async {
-            GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
-        }
+        GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
         return true
     }
 
     private static let hoottySessionPrefix = "hootty:session:"
+    private static let hoottyThinkingPrefix = "hootty:thinking:"
     private static let hoottyAttentionPrefix = "hootty:attention:"
 
     private static func handleDesktopNotification(target: ghostty_target_s, v: ghostty_action_desktop_notification_s) -> Bool {
@@ -315,16 +317,22 @@ final class GhosttyApp {
             DispatchQueue.main.async {
                 GhosttyApp.shared.onClaudeSessionDetected?(paneID, sessionID)
             }
+        } else if let body, body.hasPrefix(hoottyThinkingPrefix) {
+            let value = String(body.dropFirst(hoottyThinkingPrefix.count))
+            guard value == "start" || value == "stop" else {
+                Log.ghostty.warning("Invalid thinking state: \(value)")
+                return true
+            }
+            let isThinking = value == "start"
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onPaneThinkingChanged?(paneID, isThinking)
+            }
         } else if let body, body.hasPrefix(hoottyAttentionPrefix) {
             let kindStr = String(body.dropFirst(hoottyAttentionPrefix.count))
             let kind = AttentionKind(rawValue: kindStr) ?? .input
-            DispatchQueue.main.async {
-                GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
-            }
+            GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
         } else {
-            DispatchQueue.main.async {
-                GhosttyApp.shared.onPaneNeedsAttention?(paneID, .input)
-            }
+            GhosttyApp.shared.onPaneNeedsAttention?(paneID, .input)
         }
         return true
     }
