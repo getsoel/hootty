@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import HoottyCore
 import LucideIcons
 
@@ -9,6 +10,7 @@ struct WorkspaceSidebar: View {
     let flavor: CatppuccinFlavor
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
+    var onMoveWorkspace: (UUID, Int) -> Void
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
     var onSave: (() -> Void)?
@@ -21,6 +23,9 @@ struct WorkspaceSidebar: View {
     @State private var editingName: String = ""
     @State private var renamePaneTargetID: UUID?
     @State private var editingPaneName: String = ""
+    @State private var dropTargetWorkspaceID: UUID?
+    @State private var dropEdge: VerticalEdge?
+    @State private var workspaceRowHeight: CGFloat = 32
 
     var body: some View {
         VStack(spacing: 0) {
@@ -181,6 +186,32 @@ struct WorkspaceSidebar: View {
             selectedWorkspaceID = workspace.id
             expandedWorkspaceIDs.insert(workspace.id)
         }
+        .overlay(alignment: dropEdge == .top ? .top : .bottom) {
+            if dropTargetWorkspaceID == workspace.id, let edge = dropEdge {
+                Rectangle()
+                    .fill(Color(tokens.textAccent))
+                    .frame(height: 2)
+                    .frame(maxWidth: .infinity)
+                    .offset(y: edge == .top ? -1 : 1)
+            }
+        }
+        .background(GeometryReader { geo in
+            Color.clear.onChange(of: geo.size.height, initial: true) { _, h in
+                workspaceRowHeight = h
+            }
+        })
+        .draggable(workspace.id.uuidString)
+        .onDrop(of: [.utf8PlainText], delegate: WorkspaceRowDropDelegate(
+            workspaceID: workspace.id,
+            onMove: { sourceID in
+                guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                let insertIndex = dropEdge == .top ? targetIndex : targetIndex + 1
+                onMoveWorkspace(sourceID, insertIndex)
+            },
+            dropTargetWorkspaceID: $dropTargetWorkspaceID,
+            dropEdge: $dropEdge,
+            rowHeight: workspaceRowHeight
+        ))
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(workspace.name)
         .contextMenu {
@@ -276,6 +307,53 @@ struct WorkspaceSidebar: View {
 
     private func iconView(name: String, size: CGFloat) -> some View {
         CatppuccinIconView(name: name, size: size, flavor: flavor)
+    }
+}
+
+// MARK: - Workspace Drag-and-Drop
+
+private struct WorkspaceRowDropDelegate: DropDelegate {
+    let workspaceID: UUID
+    let onMove: (UUID) -> Void
+    @Binding var dropTargetWorkspaceID: UUID?
+    @Binding var dropEdge: VerticalEdge?
+    let rowHeight: CGFloat
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.utf8PlainText])
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        let newEdge: VerticalEdge = info.location.y < rowHeight / 2 ? .top : .bottom
+        if dropEdge != newEdge || dropTargetWorkspaceID != workspaceID {
+            dropEdge = newEdge
+            dropTargetWorkspaceID = workspaceID
+        }
+        return DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.utf8PlainText]).first else { return false }
+        let capturedOnMove = onMove
+
+        provider.loadObject(ofClass: NSString.self) { nsString, _ in
+            guard let uuidString = nsString as? String,
+                  let sourceID = UUID(uuidString: uuidString) else { return }
+            DispatchQueue.main.async {
+                capturedOnMove(sourceID)
+            }
+        }
+
+        dropTargetWorkspaceID = nil
+        dropEdge = nil
+        return true
+    }
+
+    func dropExited(info: DropInfo) {
+        if dropTargetWorkspaceID == workspaceID {
+            dropTargetWorkspaceID = nil
+            dropEdge = nil
+        }
     }
 }
 

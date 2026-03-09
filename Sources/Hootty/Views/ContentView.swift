@@ -74,6 +74,7 @@ struct ContentView: View {
                                         max(newWidth, AppModel.sidebarMinWidth),
                                         AppModel.sidebarMaxWidth
                                     )
+                                    appModel.debouncedSave()
                                 }
                         )
                 }
@@ -121,6 +122,9 @@ struct ContentView: View {
                 if appModel.selectedWorkspaceID == id {
                     appModel.selectedWorkspaceID = appModel.workspaces.first?.id
                 }
+            },
+            onMoveWorkspace: { id, toIndex in
+                appModel.moveWorkspace(id: id, toIndex: toIndex)
             },
             onSelectPane: { workspaceID, paneID in
                 appModel.selectedWorkspaceID = workspaceID

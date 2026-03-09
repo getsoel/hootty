@@ -21,15 +21,18 @@ Sources/
     shims.c                    -- placeholder for SPM
   HoottyCore/                -- testable library target (no UI dependencies)
     AppModel.swift             -- @Observable app state, workspace management
-    Workspace.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneGroupID
-    PaneGroup.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
+    Workspace.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
     Pane.swift                 -- @Observable: id, name, isRunning, shell, workingDirectory
     SplitNode.swift            -- @Observable binary tree: leaf(Pane) | split(direction, first, second)
+    WorkspaceStore.swift       -- Persistence: save/load workspaces to disk
+    DesignTokens.swift         -- Semantic color/spacing tokens (see docs/DESIGN.md)
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
     HoottyBundle.swift         -- shared SPM resource bundle resolver (use for all bundled resources)
+    CrashHandler.swift         -- Crash log writer (~/Library/Logs/Hootty/)
+    Log.swift                  -- os.Logger wrapper (subsystem: com.soel.hootty)
     Views/
       ContentView.swift        -- HStack: sidebar + detail (terminal view)
       WorkspaceSidebar.swift   -- Workspace list with status indicators
@@ -37,6 +40,11 @@ Sources/
       PaneGroupView.swift      -- Per-region pane group container (tab bar + split content)
       SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers
       TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
+      AnimatedBorderModifier.swift -- Animated gradient border for attention state
+      CatppuccinIcons.swift    -- Catppuccin SVG icon views
+      LucideIcon.swift         -- Lucide icon helper
+      StatusDotView.swift      -- Colored status dot indicator
+      WindowAccessor.swift     -- NSWindow access from SwiftUI
     Terminal/
       GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
       TerminalSurfaceView.swift -- NSView hosting ghostty_surface_t (Metal rendering, keyboard/mouse input)
@@ -54,8 +62,8 @@ Rebuilding libghostty: see `docs/REBUILDING.md`
 - ghostty_app_t (singleton) → manages config and dispatches actions via callbacks
 - ghostty_surface_t (per pane) → handles PTY, parsing, and Metal rendering internally
 - TerminalSurfaceView (NSView) → hosts the surface, forwards keyboard/mouse events
-- Action callbacks (title, pwd, exit) → update Pane model → PaneGroup aggregates → SwiftUI reacts
-- Split panes: PaneGroup.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
+- Action callbacks (title, pwd, exit) → update Pane model → Workspace aggregates → SwiftUI reacts
+- Split panes: Workspace.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 
 Debugging/logging: see `docs/DEBUGGING.md` (read when investigating crashes or runtime issues)
 Claude Code hooks: see `docs/HOOKS.md` (read when modifying the wrapper script, env var injection, or attention indicators)

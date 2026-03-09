@@ -66,6 +66,7 @@ Semantic status indicators for process state and alerts:
 | `statusInactive` | `ignored` | `sidebarStoppedDot` | Overlay0 |
 | `statusWarning` | `warning` | `attentionColor` (palette[3]) | Yellow |
 | `statusError` | `error` | `palette[1]` | Red |
+| `statusThinking` | -- | `palette[4]` | Blue |
 
 ### Component-Specific Tokens
 
@@ -118,6 +119,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 - Text secondary: `textMuted`
 - Status dot running: `statusSuccess`
 - Status dot stopped: `statusInactive`
+- Status dot thinking: `statusThinking`
 - Status dot attention: `statusWarning`
 
 ### Tab Bar

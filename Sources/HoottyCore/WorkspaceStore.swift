@@ -4,10 +4,19 @@ import os
 public struct WorkspaceSnapshot: Codable {
     public var workspaces: [Workspace]
     public var selectedWorkspaceID: UUID?
+    public var sidebarWidth: CGFloat?
+    public var sidebarVisible: Bool?
 
-    public init(workspaces: [Workspace], selectedWorkspaceID: UUID?) {
+    public init(
+        workspaces: [Workspace],
+        selectedWorkspaceID: UUID?,
+        sidebarWidth: CGFloat? = nil,
+        sidebarVisible: Bool? = nil
+    ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
+        self.sidebarWidth = sidebarWidth
+        self.sidebarVisible = sidebarVisible
     }
 }
 
@@ -18,7 +27,11 @@ public final class WorkspaceStore {
 
     public init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        #if DEBUG
+        let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
+        #else
         let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
+        #endif
         self.fileURL = dir.appendingPathComponent("workspaces.json")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     }

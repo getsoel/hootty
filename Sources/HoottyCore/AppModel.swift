@@ -23,6 +23,12 @@ public final class AppModel {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
             self.workspaceCounter = snapshot.workspaces.count
+            if let width = snapshot.sidebarWidth {
+                self.sidebarWidth = width
+            }
+            if let visible = snapshot.sidebarVisible {
+                self.sidebarVisible = visible
+            }
         } else {
             let workspace = addWorkspace()
             selectedWorkspaceID = workspace.id
@@ -34,7 +40,9 @@ public final class AppModel {
     public func saveWorkspaces() {
         let snapshot = WorkspaceSnapshot(
             workspaces: workspaces,
-            selectedWorkspaceID: selectedWorkspaceID
+            selectedWorkspaceID: selectedWorkspaceID,
+            sidebarWidth: sidebarWidth,
+            sidebarVisible: sidebarVisible
         )
         workspaceStore.save(snapshot)
     }
@@ -67,6 +75,16 @@ public final class AppModel {
 
     public func removeWorkspace(id: UUID) {
         workspaces.removeAll { $0.id == id }
+        saveWorkspaces()
+    }
+
+    public func moveWorkspace(id: UUID, toIndex: Int) {
+        guard let fromIndex = workspaces.firstIndex(where: { $0.id == id }),
+              fromIndex != toIndex,
+              toIndex >= 0, toIndex <= workspaces.count else { return }
+        let workspace = workspaces.remove(at: fromIndex)
+        let insertIndex = toIndex > fromIndex ? toIndex - 1 : toIndex
+        workspaces.insert(workspace, at: insertIndex)
         saveWorkspaces()
     }
 
@@ -104,5 +122,6 @@ public final class AppModel {
 
     public func toggleSidebar() {
         sidebarVisible.toggle()
+        saveWorkspaces()
     }
 }

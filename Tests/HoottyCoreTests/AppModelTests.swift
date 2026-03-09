@@ -144,4 +144,57 @@ import Foundation
         model.handlePaneThinkingChanged(pane.id, isThinking: false)
         #expect(pane.isThinking == false)
     }
+
+    // MARK: - moveWorkspace
+
+    @Test func moveWorkspaceDown() {
+        let model = makeModel()
+        let first = model.workspaces[0]
+        let second = model.addWorkspace()
+        let third = model.addWorkspace()
+        // Move first to after third (toIndex=3)
+        model.moveWorkspace(id: first.id, toIndex: 3)
+        #expect(model.workspaces.map(\.id) == [second.id, third.id, first.id])
+    }
+
+    @Test func moveWorkspaceUp() {
+        let model = makeModel()
+        let first = model.workspaces[0]
+        let second = model.addWorkspace()
+        let third = model.addWorkspace()
+        // Move third to before first (toIndex=0)
+        model.moveWorkspace(id: third.id, toIndex: 0)
+        #expect(model.workspaces.map(\.id) == [third.id, first.id, second.id])
+    }
+
+    @Test func moveWorkspaceSameIndexNoOp() {
+        let model = makeModel()
+        let first = model.workspaces[0]
+        let second = model.addWorkspace()
+        let third = model.addWorkspace()
+        // Move second to index 1 (same position) — no-op
+        model.moveWorkspace(id: second.id, toIndex: 1)
+        #expect(model.workspaces.map(\.id) == [first.id, second.id, third.id])
+    }
+
+    @Test func moveWorkspaceInvalidIDNoOp() {
+        let model = makeModel()
+        let first = model.workspaces[0]
+        let second = model.addWorkspace()
+        model.moveWorkspace(id: UUID(), toIndex: 0)
+        #expect(model.workspaces.map(\.id) == [first.id, second.id])
+    }
+
+    @Test func moveWorkspacePersistsOrder() {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        let store = WorkspaceStore(fileURL: url)
+        let model = AppModel(workspaceStore: store)
+        let first = model.workspaces[0]
+        let second = model.addWorkspace()
+        let third = model.addWorkspace()
+        model.moveWorkspace(id: third.id, toIndex: 0)
+        // Reload from same store
+        let reloaded = AppModel(workspaceStore: WorkspaceStore(fileURL: url))
+        #expect(reloaded.workspaces.map(\.id) == [third.id, first.id, second.id])
+    }
 }

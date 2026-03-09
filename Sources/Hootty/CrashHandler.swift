@@ -3,8 +3,13 @@ import os
 
 enum CrashHandler {
     private static let logger = Logger(subsystem: "com.soel.hootty", category: "crash")
+    #if DEBUG
+    private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Logs/Hootty-Dev")
+    #else
     private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Logs/Hootty")
+    #endif
     private static let logFile = logDirectory.appendingPathComponent("crash.log")
 
     static func install() {

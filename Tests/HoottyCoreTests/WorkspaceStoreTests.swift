@@ -142,6 +142,78 @@ import Foundation
         #expect(model.selectedWorkspaceID == ws.id)
     }
 
+    @Test func snapshotWithSidebarFieldsRoundTrip() throws {
+        let ws = Workspace(name: "Test")
+        let snapshot = WorkspaceSnapshot(
+            workspaces: [ws],
+            selectedWorkspaceID: ws.id,
+            sidebarWidth: 280,
+            sidebarVisible: false
+        )
+        let data = try JSONEncoder().encode(snapshot)
+        let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
+        #expect(decoded.sidebarWidth == 280)
+        #expect(decoded.sidebarVisible == false)
+    }
+
+    @Test func snapshotWithoutSidebarFieldsDecodesAsNil() throws {
+        // Simulates loading an older workspaces.json that lacks sidebar fields
+        let ws = Workspace(name: "Old")
+        let json: [String: Any] = [
+            "workspaces": [try JSONSerialization.jsonObject(with: JSONEncoder().encode(ws))],
+            "selectedWorkspaceID": ws.id.uuidString
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
+        #expect(decoded.sidebarWidth == nil)
+        #expect(decoded.sidebarVisible == nil)
+    }
+
+    @Test func appModelRestoresSidebarState() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
+            .appendingPathComponent("workspaces.json")
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let store = WorkspaceStore(fileURL: url)
+        let ws = Workspace(name: "Sidebar")
+        let snapshot = WorkspaceSnapshot(
+            workspaces: [ws],
+            selectedWorkspaceID: ws.id,
+            sidebarWidth: 300,
+            sidebarVisible: false
+        )
+        store.save(snapshot)
+
+        let model = AppModel(workspaceStore: store)
+        #expect(model.sidebarWidth == 300)
+        #expect(model.sidebarVisible == false)
+    }
+
+    @Test func appModelDefaultsSidebarWhenNotPersisted() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
+            .appendingPathComponent("workspaces.json")
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let store = WorkspaceStore(fileURL: url)
+        let ws = Workspace(name: "NoSidebar")
+        let snapshot = WorkspaceSnapshot(workspaces: [ws], selectedWorkspaceID: ws.id)
+        store.save(snapshot)
+
+        let model = AppModel(workspaceStore: store)
+        #expect(model.sidebarWidth == 200)
+        #expect(model.sidebarVisible == true)
+    }
+
     @Test func appModelFallsBackToDefault() {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-test-\(UUID().uuidString)")
