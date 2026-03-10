@@ -101,7 +101,7 @@ struct ContentView: View {
             WindowAccessor { window in
                 window.isOpaque = true
                 window.backgroundColor = tokens.background
-                window.appearance = NSAppearance(named: flavor.isLight ? .aqua : .darkAqua)
+                window.appearance = NSAppearance(named: theme.isLight ? .aqua : .darkAqua)
             }
         )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)

@@ -11,7 +11,7 @@ import AppKit
     }
 
     @Test func hexConvertsCorrectly() {
-        // Mocha background: 0x1e1e2e → r=30, g=30, b=46
+        // Mocha background: 0x1e1e2e -> r=30, g=30, b=46
         let color = TerminalTheme.hex(0x1e1e2e)
         #expect(abs(color.redComponent - 30.0 / 255.0) < 0.001)
         #expect(abs(color.greenComponent - 30.0 / 255.0) < 0.001)
@@ -30,12 +30,27 @@ import AppKit
     @Test func themeHasAllRequiredColors() {
         for flavor in CatppuccinFlavor.allCases {
             let theme = TerminalTheme.catppuccin(flavor)
-            // These just verify the properties exist and are non-nil NSColors
             #expect(theme.background.alphaComponent == 1.0)
             #expect(theme.foreground.alphaComponent == 1.0)
             #expect(theme.cursorColor.alphaComponent == 1.0)
             #expect(theme.selectionBackground.alphaComponent == 1.0)
-            #expect(theme.crust.alphaComponent == 1.0)
         }
+    }
+
+    @Test func latteIsLight() {
+        let latte = TerminalTheme.catppuccin(.latte)
+        #expect(latte.isLight)
+    }
+
+    @Test func mochaIsDark() {
+        let mocha = TerminalTheme.catppuccin(.mocha)
+        #expect(!mocha.isLight)
+    }
+
+    @Test func ghosttyThemeNameMatchesFlavor() {
+        #expect(CatppuccinFlavor.mocha.ghosttyThemeName == "catppuccin-mocha")
+        #expect(CatppuccinFlavor.latte.ghosttyThemeName == "catppuccin-latte")
+        #expect(CatppuccinFlavor.frappe.ghosttyThemeName == "catppuccin-frappe")
+        #expect(CatppuccinFlavor.macchiato.ghosttyThemeName == "catppuccin-macchiato")
     }
 }

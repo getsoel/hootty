@@ -2,7 +2,9 @@ import Foundation
 
 @Observable
 public final class AppModel {
-    public let themeManager = ThemeManager()
+    public let configFile: ConfigFile
+    public let themeManager: ThemeManager
+    public let soundManager: SoundManager
     public let workspaceStore: WorkspaceStore
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
@@ -17,7 +19,11 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore()) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile = ConfigFile()) {
+        self.configFile = configFile
+        configFile.ensureExists()
+        self.themeManager = ThemeManager(configFile: configFile)
+        self.soundManager = SoundManager(configFile: configFile)
         self.workspaceStore = workspaceStore
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
@@ -88,16 +94,19 @@ public final class AppModel {
         saveWorkspaces()
     }
 
-    public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) {
+    @discardableResult
+    public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
         for workspace in workspaces {
             guard let pane = workspace.findPane(id: paneID) else { continue }
             let isFocusedPane = workspace.id == selectedWorkspaceID
                 && workspace.focusedPaneID == paneID
             if !isFocusedPane {
                 pane.attentionKind = kind
+                return true
             }
-            break
+            return false
         }
+        return false
     }
 
     public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {

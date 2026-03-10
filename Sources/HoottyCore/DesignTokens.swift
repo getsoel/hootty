@@ -84,27 +84,29 @@ public struct DesignTokens {
     }
 
     /// Derive semantic tokens from a TerminalTheme.
+    /// Chrome shares the terminal background (no crust/mantle depth layers).
+    /// Visual separation uses palette[0] highlights and borders.
     public static func from(_ theme: TerminalTheme) -> DesignTokens {
         DesignTokens(
-            background: theme.crust,
-            surfaceLow: theme.mantle,
+            background: theme.background,
+            surfaceLow: theme.background,
             surface: theme.background,
-            surfaceHighlight: theme.sidebarSurface,
-            elementHover: theme.sidebarSurface.withAlphaComponent(0.4),
-            elementSelected: theme.sidebarSurface,
+            surfaceHighlight: theme.palette[0],
+            elementHover: theme.palette[0].withAlphaComponent(0.4),
+            elementSelected: theme.palette[0],
             text: theme.foreground,
-            textMuted: theme.sidebarTextSecondary,
+            textMuted: theme.palette[7],
             textAccent: theme.palette[5],
-            border: theme.sidebarSurface,
+            border: theme.palette[0],
             borderFocused: theme.palette[5],
-            statusSuccess: theme.sidebarRunningDot,
-            statusInactive: theme.sidebarStoppedDot,
-            statusWarning: theme.attentionColor,
+            statusSuccess: theme.palette[2],
+            statusInactive: theme.palette[8],
+            statusWarning: theme.palette[3],
             statusError: theme.palette[1],
             statusThinking: theme.palette[4],
-            tabBarBackground: theme.mantle,
+            tabBarBackground: theme.background,
             tabActive: theme.background,
-            unfocusedDimOpacity: 0.15
+            unfocusedDimOpacity: 0.5
         )
     }
 }

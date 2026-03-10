@@ -2,26 +2,27 @@ import Foundation
 
 @Observable
 public final class ThemeManager {
-    private static let defaultsKey = "selectedTheme"
-
-    #if DEBUG
-    private static let defaults = UserDefaults(suiteName: "com.soel.hootty-dev")!
-    #else
-    private static let defaults = UserDefaults.standard
-    #endif
+    private let configFile: ConfigFile
 
     public var selectedFlavor: CatppuccinFlavor {
         didSet {
-            Self.defaults.set(selectedFlavor.rawValue, forKey: Self.defaultsKey)
-            theme = .catppuccin(selectedFlavor)
+            configFile.set("theme", value: "catppuccin-\(selectedFlavor.rawValue)")
+            configFile.save()
         }
     }
 
     public private(set) var theme: TerminalTheme
 
-    public init() {
-        let saved = Self.defaults.string(forKey: Self.defaultsKey)
-            .flatMap(CatppuccinFlavor.init(rawValue:)) ?? .mocha
+    /// Set the resolved theme read back from ghostty config.
+    /// Called after ghostty_config_get() resolves the theme colors.
+    public func setResolvedTheme(_ theme: TerminalTheme) {
+        self.theme = theme
+    }
+
+    public init(configFile: ConfigFile) {
+        self.configFile = configFile
+        let saved = configFile.get("theme")
+            .flatMap(CatppuccinFlavor.from(themeName:)) ?? .mocha
         self.selectedFlavor = saved
         self.theme = .catppuccin(saved)
     }

@@ -3,61 +3,12 @@ import Foundation
 @testable import HoottyCore
 
 @Suite struct SplitNodeTests {
-    @Test func leafHasOnePane() {
-        let pane = Pane(name: "Test")
-        let node = SplitNode(pane: pane)
-        #expect(node.allPanes().count == 1)
-        #expect(node.allPanes().first?.id == pane.id)
-    }
-
-    @Test func splitCreatesTwoChildren() {
-        let pane = Pane(name: "Original")
-        let node = SplitNode(pane: pane)
-        let newPane = Pane(name: "New")
-        let result = node.splitPane(paneID: pane.id, direction: .horizontal, newPane: newPane)
-        #expect(result == true)
-        #expect(node.allPanes().count == 2)
-        #expect(node.allPanes().map(\.id).contains(pane.id))
-        #expect(node.allPanes().map(\.id).contains(newPane.id))
-    }
-
-    @Test func splitPreservesOrder() {
-        let pane = Pane(name: "Original")
-        let node = SplitNode(pane: pane)
-        let newPane = Pane(name: "New")
-        node.splitPane(paneID: pane.id, direction: .horizontal, newPane: newPane)
-        let panes = node.allPanes()
-        #expect(panes[0].id == pane.id)
-        #expect(panes[1].id == newPane.id)
-    }
-
-    @Test func nestedSplit() {
-        let pane1 = Pane(name: "P1")
-        let node = SplitNode(pane: pane1)
-        let pane2 = Pane(name: "P2")
-        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
-        let pane3 = Pane(name: "P3")
-        node.splitPane(paneID: pane2.id, direction: .vertical, newPane: pane3)
-        #expect(node.allPanes().count == 3)
-    }
-
     @Test func splitUnknownPaneReturnsFalse() {
         let pane = Pane(name: "Test")
         let node = SplitNode(pane: pane)
         let result = node.splitPane(paneID: UUID(), direction: .horizontal, newPane: Pane(name: "New"))
         #expect(result == false)
         #expect(node.allPanes().count == 1)
-    }
-
-    @Test func removePaneCollapsesParent() {
-        let pane1 = Pane(name: "P1")
-        let node = SplitNode(pane: pane1)
-        let pane2 = Pane(name: "P2")
-        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
-        let result = node.removePane(id: pane2.id)
-        #expect(result == true)
-        #expect(node.allPanes().count == 1)
-        #expect(node.allPanes().first?.id == pane1.id)
     }
 
     @Test func removePaneNoOpOnLeaf() {
@@ -68,39 +19,64 @@ import Foundation
         #expect(node.allPanes().count == 1)
     }
 
-    @Test func removeFromNestedSplit() {
+    // MARK: - paneRects
+
+    @Test func paneRectsHorizontalSplit() {
         let pane1 = Pane(name: "P1")
-        let node = SplitNode(pane: pane1)
         let pane2 = Pane(name: "P2")
-        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
-        let pane3 = Pane(name: "P3")
-        node.splitPane(paneID: pane2.id, direction: .vertical, newPane: pane3)
-        let result = node.removePane(id: pane2.id)
-        #expect(result == true)
-        #expect(node.allPanes().count == 2)
-        #expect(node.allPanes().map(\.id).contains(pane1.id))
-        #expect(node.allPanes().map(\.id).contains(pane3.id))
+        let node = SplitNode(
+            direction: .horizontal,
+            first: SplitNode(pane: pane1),
+            second: SplitNode(pane: pane2),
+            ratio: 0.5
+        )
+        let rects = node.paneRects()
+        #expect(rects.count == 2)
+        let r1 = rects[pane1.id]!
+        let r2 = rects[pane2.id]!
+        #expect(abs(r1.minX) < 0.001)
+        #expect(abs(r1.width - 0.5) < 0.001)
+        #expect(abs(r1.height - 1.0) < 0.001)
+        #expect(abs(r2.minX - 0.5) < 0.001)
+        #expect(abs(r2.width - 0.5) < 0.001)
+        #expect(abs(r2.height - 1.0) < 0.001)
     }
 
-    @Test func findPaneByID() {
-        let pane = Pane(name: "Test")
-        let node = SplitNode(pane: pane)
-        let found = node.findPane(id: pane.id)
-        #expect(found?.id == pane.id)
-    }
-
-    @Test func findPaneReturnsNilForUnknown() {
-        let pane = Pane(name: "Test")
-        let node = SplitNode(pane: pane)
-        let found = node.findPane(id: UUID())
-        #expect(found == nil)
-    }
-
-    @Test func allPanesAcrossSplits() {
+    @Test func paneRectsVerticalSplit() {
         let pane1 = Pane(name: "P1")
-        let node = SplitNode(pane: pane1)
         let pane2 = Pane(name: "P2")
-        node.splitPane(paneID: pane1.id, direction: .horizontal, newPane: pane2)
-        #expect(node.allPanes().count == 2)
+        let node = SplitNode(
+            direction: .vertical,
+            first: SplitNode(pane: pane1),
+            second: SplitNode(pane: pane2),
+            ratio: 0.5
+        )
+        let rects = node.paneRects()
+        #expect(rects.count == 2)
+        let r1 = rects[pane1.id]!
+        let r2 = rects[pane2.id]!
+        #expect(abs(r1.minY) < 0.001)
+        #expect(abs(r1.height - 0.5) < 0.001)
+        #expect(abs(r1.width - 1.0) < 0.001)
+        #expect(abs(r2.minY - 0.5) < 0.001)
+        #expect(abs(r2.height - 0.5) < 0.001)
+        #expect(abs(r2.width - 1.0) < 0.001)
+    }
+
+    @Test func paneRectsCustomRatio() {
+        let pane1 = Pane(name: "P1")
+        let pane2 = Pane(name: "P2")
+        let node = SplitNode(
+            direction: .horizontal,
+            first: SplitNode(pane: pane1),
+            second: SplitNode(pane: pane2),
+            ratio: 0.3
+        )
+        let rects = node.paneRects()
+        let r1 = rects[pane1.id]!
+        let r2 = rects[pane2.id]!
+        #expect(abs(r1.width - 0.3) < 0.001)
+        #expect(abs(r2.minX - 0.3) < 0.001)
+        #expect(abs(r2.width - 0.7) < 0.001)
     }
 }

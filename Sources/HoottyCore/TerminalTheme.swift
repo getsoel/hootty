@@ -11,27 +11,54 @@ public enum CatppuccinFlavor: String, CaseIterable {
     public var displayName: String {
         switch self {
         case .latte:     return "Latte"
-        case .frappe:    return "Frappé"
+        case .frappe:    return "Frapp\u{00e9}"
         case .macchiato: return "Macchiato"
         case .mocha:     return "Mocha"
         }
     }
+
+    /// Ghostty built-in theme name for this flavor.
+    public var ghosttyThemeName: String {
+        "catppuccin-\(rawValue)"
+    }
+
+    /// Parse a ghostty theme name like "catppuccin-mocha" into a flavor.
+    public static func from(themeName name: String) -> CatppuccinFlavor? {
+        guard name.hasPrefix("catppuccin-") else { return nil }
+        return CatppuccinFlavor(rawValue: String(name.dropFirst("catppuccin-".count)))
+    }
 }
 
 public struct TerminalTheme: Equatable {
-    public let palette: [NSColor]        // 16 ANSI colors (0-15)
+    public let palette: [NSColor]           // 16 ANSI colors (0-15)
     public let background: NSColor
     public let foreground: NSColor
     public let cursorColor: NSColor
     public let selectionBackground: NSColor
     public let selectionForeground: NSColor
-    public let crust: NSColor                    // deepest background layer
-    public let mantle: NSColor                   // darker-than-background chrome color
-    public let sidebarSurface: NSColor        // selected row bg / divider
-    public let sidebarTextSecondary: NSColor   // subdued text
-    public let sidebarRunningDot: NSColor      // green status dot
-    public let sidebarStoppedDot: NSColor      // gray status dot
-    public var attentionColor: NSColor { palette[3] }  // yellow (ANSI color 3)
+
+    /// Whether this is a light theme (background luminance > 0.5).
+    public var isLight: Bool {
+        let c = background.usingColorSpace(.sRGB) ?? background
+        let luminance = 0.2126 * c.redComponent + 0.7152 * c.greenComponent + 0.0722 * c.blueComponent
+        return luminance > 0.5
+    }
+
+    public init(
+        palette: [NSColor],
+        background: NSColor,
+        foreground: NSColor,
+        cursorColor: NSColor,
+        selectionBackground: NSColor,
+        selectionForeground: NSColor
+    ) {
+        self.palette = palette
+        self.background = background
+        self.foreground = foreground
+        self.cursorColor = cursorColor
+        self.selectionBackground = selectionBackground
+        self.selectionForeground = selectionForeground
+    }
 
     public static func == (lhs: TerminalTheme, rhs: TerminalTheme) -> Bool {
         lhs.palette == rhs.palette
@@ -40,14 +67,10 @@ public struct TerminalTheme: Equatable {
             && lhs.cursorColor == rhs.cursorColor
             && lhs.selectionBackground == rhs.selectionBackground
             && lhs.selectionForeground == rhs.selectionForeground
-            && lhs.crust == rhs.crust
-            && lhs.mantle == rhs.mantle
-            && lhs.sidebarSurface == rhs.sidebarSurface
-            && lhs.sidebarTextSecondary == rhs.sidebarTextSecondary
-            && lhs.sidebarRunningDot == rhs.sidebarRunningDot
-            && lhs.sidebarStoppedDot == rhs.sidebarStoppedDot
     }
 
+    /// Fallback theme from hardcoded Catppuccin palette values.
+    /// Used only when ghostty_config_get() fails to read back resolved colors.
     public static func catppuccin(_ flavor: CatppuccinFlavor) -> TerminalTheme {
         switch flavor {
         case .mocha:
@@ -62,13 +85,7 @@ public struct TerminalTheme: Equatable {
                 foreground: hex(0xcdd6f4),
                 cursorColor: hex(0xf5e0dc),
                 selectionBackground: hex(0x585b70),
-                selectionForeground: hex(0xcdd6f4),
-                crust: hex(0x11111b),                 // crust
-                mantle: hex(0x181825),                // mantle
-                sidebarSurface: hex(0x313244),       // surface0
-                sidebarTextSecondary: hex(0xa6adc8),  // subtext0
-                sidebarRunningDot: hex(0xa6e3a1),     // green
-                sidebarStoppedDot: hex(0x6c7086)      // overlay0
+                selectionForeground: hex(0xcdd6f4)
             )
         case .macchiato:
             return TerminalTheme(
@@ -82,13 +99,7 @@ public struct TerminalTheme: Equatable {
                 foreground: hex(0xcad3f5),
                 cursorColor: hex(0xf4dbd6),
                 selectionBackground: hex(0x5b6078),
-                selectionForeground: hex(0xcad3f5),
-                crust: hex(0x181926),                 // crust
-                mantle: hex(0x1e2030),                // mantle
-                sidebarSurface: hex(0x363a4f),       // surface0
-                sidebarTextSecondary: hex(0xa5adcb),  // subtext0
-                sidebarRunningDot: hex(0xa6da95),     // green
-                sidebarStoppedDot: hex(0x6e738d)      // overlay0
+                selectionForeground: hex(0xcad3f5)
             )
         case .frappe:
             return TerminalTheme(
@@ -102,13 +113,7 @@ public struct TerminalTheme: Equatable {
                 foreground: hex(0xc6d0f5),
                 cursorColor: hex(0xf2d5cf),
                 selectionBackground: hex(0x626880),
-                selectionForeground: hex(0xc6d0f5),
-                crust: hex(0x232634),                 // crust
-                mantle: hex(0x292c3c),                // mantle
-                sidebarSurface: hex(0x414559),       // surface0
-                sidebarTextSecondary: hex(0xa5adce),  // subtext0
-                sidebarRunningDot: hex(0xa6d189),     // green
-                sidebarStoppedDot: hex(0x737994)      // overlay0
+                selectionForeground: hex(0xc6d0f5)
             )
         case .latte:
             return TerminalTheme(
@@ -122,38 +127,9 @@ public struct TerminalTheme: Equatable {
                 foreground: hex(0x4c4f69),
                 cursorColor: hex(0xdc8a78),
                 selectionBackground: hex(0xacb0be),
-                selectionForeground: hex(0x4c4f69),
-                crust: hex(0xdce0e8),                 // crust
-                mantle: hex(0xe6e9ef),                // mantle
-                sidebarSurface: hex(0xccd0da),       // surface0
-                sidebarTextSecondary: hex(0x6c6f85),  // subtext0
-                sidebarRunningDot: hex(0x40a02b),     // green
-                sidebarStoppedDot: hex(0x9ca0b0)      // overlay0
+                selectionForeground: hex(0x4c4f69)
             )
         }
-    }
-
-    /// Generate a ghostty config string with all terminal color settings.
-    public func generateGhosttyConfig() -> String {
-        var lines: [String] = []
-        lines.append("background = \(Self.hexString(background))")
-        lines.append("foreground = \(Self.hexString(foreground))")
-        lines.append("cursor-color = \(Self.hexString(cursorColor))")
-        lines.append("selection-background = \(Self.hexString(selectionBackground))")
-        lines.append("selection-foreground = \(Self.hexString(selectionForeground))")
-        for (i, color) in palette.enumerated() {
-            lines.append("palette = \(i)=#\(Self.hexString(color))")
-        }
-        return lines.joined(separator: "\n") + "\n"
-    }
-
-    /// Convert an NSColor to a 6-digit hex string (e.g. "1e1e2e").
-    static func hexString(_ color: NSColor) -> String {
-        let c = color.usingColorSpace(.sRGB) ?? color
-        let r = Int(round(c.redComponent * 255))
-        let g = Int(round(c.greenComponent * 255))
-        let b = Int(round(c.blueComponent * 255))
-        return String(format: "%02x%02x%02x", r, g, b)
     }
 
     static func hex(_ value: UInt32) -> NSColor {

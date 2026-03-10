@@ -10,13 +10,20 @@ final class GhosttyApp {
     private(set) var app: ghostty_app_t?
     private(set) var config: ghostty_config_t?
 
+    /// Theme resolved during initialization, before ThemeManager is wired up.
+    /// Consumed once by HoottyApp.onAppear to push to ThemeManager.
+    private(set) var initialTheme: TerminalTheme?
+
     /// The currently focused terminal surface (set by TerminalSurfaceView focus changes).
     var focusedSurface: ghostty_surface_t?
 
     /// Called when ghostty dispatches a new_tab action (e.g. Cmd+T keybinding).
     var onNewTab: (() -> Void)?
 
-    /// Called when a surface rings the bell or sends a desktop notification.
+    /// Called when a surface rings the terminal bell (BEL character).
+    var onBellRang: ((UUID) -> Void)?
+
+    /// Called when a surface sends a desktop notification (attention events).
     var onPaneNeedsAttention: ((UUID, AttentionKind) -> Void)?
 
     /// Called when a Claude Code session ID is detected via OSC 9 (paneID, sessionID).
@@ -78,37 +85,45 @@ final class GhosttyApp {
 
     private var focusObservers: [NSObjectProtocol] = []
 
-    /// Path to Hootty-managed ghostty config file.
-    private static let configFileURL: URL = {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
+    /// Path to derived ghostty config cache file (not user-facing).
+    private static let ghosttyConfigCacheURL: URL = {
+        let dir = ConfigFile.appSupportDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("ghostty.config")
+        return dir.appendingPathComponent(".ghostty-cache.config")
     }()
 
-    /// Write theme config to disk and return the file path.
-    private static func writeThemeConfig(_ theme: TerminalTheme) -> String {
-        let content = theme.generateGhosttyConfig()
-        let path = configFileURL.path
+    /// Write ghostty-only config content to cache file and return the file path.
+    private static func writeGhosttyConfigFile(content: String) -> String {
+        let path = ghosttyConfigCacheURL.path
         try? content.write(toFile: path, atomically: true, encoding: .utf8)
-        Log.ghostty.info("Wrote ghostty config to \(path)")
+        Log.ghostty.info("Wrote ghostty config cache to \(path)")
         return path
     }
 
-    /// Build a ghostty config, loading Hootty theme defaults then user overrides.
-    private static func buildConfig(theme: TerminalTheme) -> ghostty_config_t? {
+    /// Build a ghostty config from pre-filtered content string.
+    /// Returns (config, resolvedTheme). Falls back to hardcoded palette on read failure.
+    private static func buildConfig(ghosttyContent: String) -> (ghostty_config_t, TerminalTheme)? {
         guard let cfg = ghostty_config_new() else {
             Log.ghostty.error("ghostty_config_new failed")
             return nil
         }
-        // Load Hootty-managed theme config first (provides defaults)
-        let path = writeThemeConfig(theme)
+        let path = writeGhosttyConfigFile(content: ghosttyContent)
         path.withCString { ghostty_config_load_file(cfg, $0) }
-        // Load user's own ghostty config on top (overrides if present)
-        ghostty_config_load_default_files(cfg)
-        ghostty_config_load_recursive_files(cfg)
         ghostty_config_finalize(cfg)
-        return cfg
+
+        // Read resolved colors back from ghostty
+        let theme: TerminalTheme
+        if let resolved = GhosttyConfigReader.readTheme(from: cfg) {
+            Log.ghostty.info("Read resolved theme colors from ghostty config")
+            theme = resolved
+        } else {
+            Log.ghostty.warning("Falling back to hardcoded Catppuccin palette")
+            let parsed = ConfigFile.parse(ghosttyContent)
+            let flavor = parsed["theme"]
+                .flatMap(CatppuccinFlavor.from(themeName:)) ?? .mocha
+            theme = .catppuccin(flavor)
+        }
+        return (cfg, theme)
     }
 
     private init() {
@@ -120,10 +135,13 @@ final class GhosttyApp {
             return
         }
 
-        // Create configuration with current theme
-        let theme = ThemeManager().theme
-        guard let cfg = Self.buildConfig(theme: theme) else { return }
+        // Read config file to extract ghostty-only content
+        let ghosttyContent = ConfigFile().ghosttyConfigContent()
+
+        // Create configuration — ghostty resolves the built-in theme, we read colors back
+        guard let (cfg, resolvedTheme) = Self.buildConfig(ghosttyContent: ghosttyContent) else { return }
         self.config = cfg
+        self.initialTheme = resolvedTheme
         Log.ghostty.info("Config loaded")
 
         // Create runtime config with callbacks
@@ -188,15 +206,18 @@ final class GhosttyApp {
         ghostty_app_set_focus(app, focused)
     }
 
-    /// Reload ghostty config with a new theme. Updates all existing surfaces.
-    func reloadConfig(theme: TerminalTheme) {
-        guard let app else { return }
-        guard let newConfig = Self.buildConfig(theme: theme) else { return }
+    /// Reload ghostty config with new content. Updates all existing surfaces.
+    /// Returns the resolved theme, or nil on failure.
+    @discardableResult
+    func reloadConfig(ghosttyContent: String) -> TerminalTheme? {
+        guard let app else { return nil }
+        guard let (newConfig, resolvedTheme) = Self.buildConfig(ghosttyContent: ghosttyContent) else { return nil }
         let oldConfig = self.config
         self.config = newConfig
         ghostty_app_update_config(app, newConfig)
         if let oldConfig { ghostty_config_free(oldConfig) }
-        Log.ghostty.info("Reloaded ghostty config with new theme")
+        Log.ghostty.info("Reloaded ghostty config")
+        return resolvedTheme
     }
 
     // MARK: - Focus Observers
@@ -247,7 +268,7 @@ final class GhosttyApp {
         case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
             return handleChildExited(target: target, v: action.action.child_exited)
         case GHOSTTY_ACTION_RING_BELL:
-            return signalAttention(target: target)
+            return handleBell(target: target)
         case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
             return handleDesktopNotification(target: target, v: action.action.desktop_notification)
         case GHOSTTY_ACTION_NEW_TAB:
@@ -288,6 +309,13 @@ final class GhosttyApp {
 
     private static func surfaceView(from target: ghostty_target_s) -> TerminalSurfaceView? {
         callbackContext(from: target)?.view
+    }
+
+    private static func handleBell(target: ghostty_target_s) -> Bool {
+        guard let ctx = callbackContext(from: target) else { return false }
+        let paneID = ctx.paneID
+        GhosttyApp.shared.onBellRang?(paneID)
+        return true
     }
 
     private static func signalAttention(target: ghostty_target_s, kind: AttentionKind = .input) -> Bool {

@@ -43,6 +43,30 @@ public final class SplitNode: Identifiable {
         }
     }
 
+    public func paneRects() -> [UUID: CGRect] {
+        var result: [UUID: CGRect] = [:]
+        collectRects(into: &result, rect: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return result
+    }
+
+    private func collectRects(into result: inout [UUID: CGRect], rect: CGRect) {
+        switch content {
+        case .leaf(let pane):
+            result[pane.id] = rect
+        case .split(let direction, let first, let second):
+            switch direction {
+            case .horizontal:
+                let w = rect.width * splitRatio
+                first.collectRects(into: &result, rect: CGRect(x: rect.minX, y: rect.minY, width: w, height: rect.height))
+                second.collectRects(into: &result, rect: CGRect(x: rect.minX + w, y: rect.minY, width: rect.width - w, height: rect.height))
+            case .vertical:
+                let h = rect.height * splitRatio
+                first.collectRects(into: &result, rect: CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: h))
+                second.collectRects(into: &result, rect: CGRect(x: rect.minX, y: rect.minY + h, width: rect.width, height: rect.height - h))
+            }
+        }
+    }
+
     public func firstPane() -> Pane? {
         switch content {
         case .leaf(let pane):

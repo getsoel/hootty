@@ -8,15 +8,29 @@ struct HoottyApp: App {
         CrashHandler.install()
         Log.lifecycle.info("Hootty starting...")
 
-        // Initialize the ghostty backend (singleton)
+        // Initialize the ghostty backend (singleton) and push resolved theme
         if GhosttyApp.shared.app != nil {
             Log.lifecycle.info("Ghostty backend initialized")
+            if let resolved = GhosttyApp.shared.initialTheme {
+                appModel.themeManager.setResolvedTheme(resolved)
+            }
         } else {
             Log.lifecycle.error("Ghostty backend failed to initialize")
+        }
+
+        // Wire NSSound playback into SoundManager (HoottyCore can't import AppKit)
+        appModel.soundManager.soundPlayer = { name in
+            NSSound(named: NSSound.Name(name))?.play()
         }
     }
 
     @State private var appModel = AppModel()
+
+    private func openConfigFile() {
+        let url = ConfigFile.defaultFileURL
+        appModel.configFile.ensureExists()
+        NSWorkspace.shared.open(url)
+    }
 
     private func splitFocusedPane(direction: SplitDirection, placeBefore: Bool = false) {
         guard let workspace = appModel.selectedWorkspace else { return }
@@ -50,8 +64,15 @@ struct HoottyApp: App {
                         let workspace = appModel.addWorkspace()
                         appModel.selectedWorkspaceID = workspace.id
                     }
+                    GhosttyApp.shared.onBellRang = { [appModel] paneID in
+                        appModel.handlePaneNeedsAttention(paneID, kind: .input)
+                        appModel.soundManager.play(.bell)
+                    }
                     GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID, kind in
-                        appModel.handlePaneNeedsAttention(paneID, kind: kind)
+                        let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
+                        if didSet {
+                            appModel.soundManager.play(kind == .idle ? .attentionIdle : .attentionInput)
+                        }
                     }
                     GhosttyApp.shared.onPaneThinkingChanged = { [appModel] paneID, isThinking in
                         appModel.handlePaneThinkingChanged(paneID, isThinking: isThinking)
@@ -91,7 +112,14 @@ struct HoottyApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
+
         .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Edit Configuration...") {
+                    openConfigFile()
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
             CommandMenu("View") {
                 Button(appModel.sidebarVisible ? "Hide Sidebar" : "Show Sidebar") {
                     appModel.toggleSidebar()
@@ -133,7 +161,10 @@ struct HoottyApp: App {
                 ForEach(CatppuccinFlavor.allCases, id: \.self) { flavor in
                     Button {
                         appModel.themeManager.selectedFlavor = flavor
-                        GhosttyApp.shared.reloadConfig(theme: appModel.themeManager.theme)
+                        let content = appModel.configFile.ghosttyConfigContent()
+                        if let resolved = GhosttyApp.shared.reloadConfig(ghosttyContent: content) {
+                            appModel.themeManager.setResolvedTheme(resolved)
+                        }
                     } label: {
                         if appModel.themeManager.selectedFlavor == flavor {
                             Text("\(flavor.displayName) ✓")

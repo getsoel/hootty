@@ -1,4 +1,4 @@
-.PHONY: build test run debug setup release dmg install uninstall
+.PHONY: build test run debug setup clean release dmg install uninstall
 
 APP_NAME := Hootty
 INSTALL_DIR := /Applications
@@ -25,7 +25,10 @@ debug: build
 setup:
 	./scripts/setup.sh
 
-release:
+clean:
+	rm -rf $(DERIVED_DATA)
+
+release: clean
 	$(XCODEBUILD) -configuration Release build
 	rm -rf "$(RELEASE_APP_BUNDLE)"
 	mkdir -p "$(RELEASE_APP_BUNDLE)/Contents/MacOS"
@@ -55,7 +58,9 @@ install: release
 	-killall -w $(APP_NAME) 2>/dev/null || true
 	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
 	cp -R "$(RELEASE_APP_BUNDLE)" "$(INSTALL_DIR)/$(APP_NAME).app"
+	touch "$(INSTALL_DIR)/$(APP_NAME).app"
 	/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$(INSTALL_DIR)/$(APP_NAME).app"
+	killall Dock 2>/dev/null || true
 	@echo "Installed to $(INSTALL_DIR)/$(APP_NAME).app"
 
 uninstall:

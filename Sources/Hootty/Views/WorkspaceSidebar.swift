@@ -79,11 +79,13 @@ struct WorkspaceSidebar: View {
                     if expandedWorkspaceIDs.contains(workspace.id) {
                         let panes = workspace.allPanes
                         let canClose = panes.count > 1
+                        let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
                         ForEach(panes) { pane in
                             paneRow(
                                 pane,
                                 workspace: workspace,
-                                canClose: canClose
+                                canClose: canClose,
+                                layoutRects: layoutRects
                             )
                         }
                     }
@@ -203,9 +205,9 @@ struct WorkspaceSidebar: View {
         .draggable(workspace.id.uuidString)
         .onDrop(of: [.utf8PlainText], delegate: WorkspaceRowDropDelegate(
             workspaceID: workspace.id,
-            onMove: { sourceID in
+            onMove: { sourceID, edge in
                 guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                let insertIndex = dropEdge == .top ? targetIndex : targetIndex + 1
+                let insertIndex = edge == .top ? targetIndex : targetIndex + 1
                 onMoveWorkspace(sourceID, insertIndex)
             },
             dropTargetWorkspaceID: $dropTargetWorkspaceID,
@@ -224,7 +226,7 @@ struct WorkspaceSidebar: View {
 
     // MARK: - Pane row (depth 1)
 
-    private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool) -> some View {
+    private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool, layoutRects: [UUID: CGRect]) -> some View {
         let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
         let isHovered = pane.id == hoveredPaneID
 
@@ -236,6 +238,15 @@ struct WorkspaceSidebar: View {
             )
 
             HStack(spacing: 6) {
+                if !layoutRects.isEmpty {
+                    SplitLayoutThumbnail(
+                        layoutRects: layoutRects,
+                        highlightedPaneID: pane.id,
+                        isFocused: isFocusedPane,
+                        tokens: tokens
+                    )
+                }
+
                 iconView(name: "bash", size: TypeScale.iconSize)
 
                 Text(pane.displayName)
@@ -314,7 +325,7 @@ struct WorkspaceSidebar: View {
 
 private struct WorkspaceRowDropDelegate: DropDelegate {
     let workspaceID: UUID
-    let onMove: (UUID) -> Void
+    let onMove: (UUID, VerticalEdge?) -> Void
     @Binding var dropTargetWorkspaceID: UUID?
     @Binding var dropEdge: VerticalEdge?
     let rowHeight: CGFloat
@@ -335,12 +346,15 @@ private struct WorkspaceRowDropDelegate: DropDelegate {
     func performDrop(info: DropInfo) -> Bool {
         guard let provider = info.itemProviders(for: [.utf8PlainText]).first else { return false }
         let capturedOnMove = onMove
+        let capturedEdge = dropEdge
 
-        provider.loadObject(ofClass: NSString.self) { nsString, _ in
+        provider.loadObject(ofClass: NSString.self) { [self] nsString, _ in
             guard let uuidString = nsString as? String,
                   let sourceID = UUID(uuidString: uuidString) else { return }
-            DispatchQueue.main.async {
-                capturedOnMove(sourceID)
+            DispatchQueue.main.async { [self] in
+                self.dropTargetWorkspaceID = nil
+                self.dropEdge = nil
+                capturedOnMove(sourceID, capturedEdge)
             }
         }
 
