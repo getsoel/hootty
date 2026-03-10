@@ -8,6 +8,7 @@ struct SplitNodeView: View {
     let isInSplit: Bool
     let onFocusPane: (UUID) -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
+    var onClosePane: ((UUID) -> Void)?
     let onSave: () -> Void
 
     var body: some View {
@@ -19,6 +20,7 @@ struct SplitNodeView: View {
                 tokens: tokens,
                 onFocusPane: { onFocusPane(pane.id) },
                 onSplitPane: onSplitPane,
+                onClosePane: onClosePane,
                 onSave: onSave
             )
 
@@ -45,14 +47,14 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onSave: onSave)
+                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSave: onSave)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
                     )
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onSave: onSave)
+                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSave: onSave)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize
@@ -97,60 +99,19 @@ struct SplitNodeView: View {
                                 node.splitRatio = min(max(node.splitRatio + delta / usableSize, 0.1), 0.9)
                             }
                     )
-                    .overlay(ResizeCursorView(isHorizontal: isH))
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active:
+                            DispatchQueue.main.async {
+                                (isH ? NSCursor.resizeLeftRight : NSCursor.resizeUpDown).set()
+                            }
+                        case .ended:
+                            DispatchQueue.main.async {
+                                NSCursor.arrow.set()
+                            }
+                        }
+                    }
             }
         }
-    }
-}
-
-// MARK: - Resize Cursor NSView
-
-private struct ResizeCursorView: NSViewRepresentable {
-    let isHorizontal: Bool
-
-    func makeNSView(context: Context) -> _ResizeCursorNSView {
-        _ResizeCursorNSView(isHorizontal: isHorizontal)
-    }
-
-    func updateNSView(_ nsView: _ResizeCursorNSView, context: Context) {
-        nsView.isHorizontal = isHorizontal
-        nsView.window?.invalidateCursorRects(for: nsView)
-    }
-}
-
-final class _ResizeCursorNSView: NSView {
-    var isHorizontal: Bool
-    private var trackingArea: NSTrackingArea?
-
-    init(isHorizontal: Bool) {
-        self.isHorizontal = isHorizontal
-        super.init(frame: .zero)
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let existing = trackingArea {
-            removeTrackingArea(existing)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.cursorUpdate, .activeInActiveApp, .mouseMoved],
-            owner: self,
-            userInfo: nil
-        )
-        addTrackingArea(area)
-        trackingArea = area
-    }
-
-    override func cursorUpdate(with event: NSEvent) {
-        let cursor: NSCursor = isHorizontal ? .resizeLeftRight : .resizeUpDown
-        cursor.set()
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
     }
 }

@@ -7,6 +7,7 @@ struct PaneContentView: View {
     let tokens: DesignTokens
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
+    var onClosePane: ((UUID) -> Void)?
     let onSave: () -> Void
 
     var body: some View {
@@ -17,6 +18,7 @@ struct PaneContentView: View {
                 tokens: tokens,
                 onFocusPane: onFocusPane,
                 onSplitPane: onSplitPane,
+                onClosePane: onClosePane,
                 onSave: onSave
             )
 
@@ -25,6 +27,12 @@ struct PaneContentView: View {
                     if let kind = pane.attentionKind {
                         Color.clear
                             .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 2)
+                    }
+                }
+                .overlay {
+                    if !isFocused {
+                        Color.black.opacity(tokens.unfocusedDimOpacity)
+                            .allowsHitTesting(false)
                     }
                 }
         }

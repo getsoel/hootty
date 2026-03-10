@@ -164,6 +164,11 @@ struct ContentView: View {
                         appModel.saveWorkspaces()
                     }
                 },
+                onClosePane: { paneID in
+                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                    workspace.removePane(id: paneID)
+                    appModel.saveWorkspaces()
+                },
                 onSave: { appModel.saveWorkspaces() }
             )
             .id(workspace.id)

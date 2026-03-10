@@ -72,6 +72,9 @@ public struct DesignTokens {
     /// Active/selected tab background. Same as surface (Base).
     public let tabActive: NSColor
 
+    /// Opacity of the black overlay applied to non-focused panes.
+    public let unfocusedDimOpacity: CGFloat
+
     /// Returns the appropriate status color for an attention kind.
     public func attentionColor(for kind: AttentionKind) -> NSColor {
         switch kind {
@@ -100,7 +103,8 @@ public struct DesignTokens {
             statusError: theme.palette[1],
             statusThinking: theme.palette[4],
             tabBarBackground: theme.mantle,
-            tabActive: theme.background
+            tabActive: theme.background,
+            unfocusedDimOpacity: 0.15
         )
     }
 }

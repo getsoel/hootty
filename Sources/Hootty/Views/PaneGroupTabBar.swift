@@ -8,10 +8,12 @@ struct PaneBar: View {
     let tokens: DesignTokens
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
+    var onClosePane: ((UUID) -> Void)?
     var onSave: (() -> Void)?
 
     private enum HoveredElement: Equatable {
         case split
+        case close
     }
 
     @State private var hovered: HoveredElement?
@@ -36,6 +38,10 @@ struct PaneBar: View {
 
             if onSplitPane != nil {
                 splitMenu
+            }
+
+            if onClosePane != nil {
+                closeButton
             }
         }
         .frame(height: 38)
@@ -102,6 +108,35 @@ struct PaneBar: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .accessibilityLabel("Split pane")
+        .frame(maxHeight: .infinity)
+        .overlay(alignment: .leading) {
+            Rectangle().fill(Color(tokens.border)).frame(width: 1)
+        }
+    }
+
+    private var closeButton: some View {
+        Button {
+            onClosePane?(pane.id)
+        } label: {
+            LucideIcon(Lucide.x, size: 12)
+                .foregroundStyle(Color(tokens.textMuted))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .aspectRatio(1, contentMode: .fit)
+                .background(hovered == .close ? Color(tokens.elementHover) : Color.clear)
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    switch phase {
+                    case .active:
+                        hovered = .close
+                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                    case .ended:
+                        if hovered == .close { hovered = nil }
+                    @unknown default: break
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close pane")
         .frame(maxHeight: .infinity)
         .overlay(alignment: .leading) {
             Rectangle().fill(Color(tokens.border)).frame(width: 1)

@@ -419,8 +419,17 @@ final class TerminalSurfaceView: NSView {
         ghostty_surface_mouse_button(surface, GHOSTTY_MOUSE_RELEASE, GHOSTTY_MOUSE_RIGHT, ghosttyMods(event.modifierFlags))
     }
 
+    override func mouseEntered(with event: NSEvent) {
+        DispatchQueue.main.async { [weak self] in
+            self?.currentCursor.set()
+        }
+    }
+
     override func mouseMoved(with event: NSEvent) {
         reportMousePosition(for: event)
+        DispatchQueue.main.async { [weak self] in
+            self?.currentCursor.set()
+        }
     }
 
     override func mouseDragged(with event: NSEvent) {
