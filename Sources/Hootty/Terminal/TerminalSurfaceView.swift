@@ -47,6 +47,7 @@ final class TerminalSurfaceView: NSView {
     var titleDidChange: ((String) -> Void)?
     var pwdDidChange: ((String) -> Void)?
     var processDidExit: ((Int32) -> Void)?
+    var onUserInteraction: (() -> Void)?
 
     // IME state
     private var markedText = NSMutableAttributedString()
@@ -92,26 +93,25 @@ final class TerminalSurfaceView: NSView {
         trackingAreas.forEach { removeTrackingArea($0) }
         NotificationCenter.default.removeObserver(self)
 
-        // Capture refs before nilling — prevents stale access
+        // Capture refs synchronously before nilling — prevents stale access
         let surfaceToFree = surface
-        let contextToRelease = callbackContext
+        let userdataPtr: UnsafeMutableRawPointer? = surfaceToFree.flatMap { ghostty_surface_userdata($0) }
 
         surface = nil
         callbackContext = nil
 
-        // Async free to avoid re-entrant close/deinit loops
-        if let surfaceToFree {
+        // Async free to avoid re-entrant close/deinit loops.
+        // Single Task ensures surface is freed before context is released.
+        if surfaceToFree != nil || userdataPtr != nil {
             Task { @MainActor in
-                ghostty_surface_free(surfaceToFree)
-                Log.surface.info("Surface freed (async)")
-            }
-        }
-
-        if let contextToRelease, let ptr = ghostty_surface_userdata(surfaceToFree) {
-            _ = contextToRelease // prevent unused warning — release happens via ptr
-            Task { @MainActor in
-                SurfaceCallbackContext.release(ptr)
-                Log.surface.info("Callback context released (async)")
+                if let surfaceToFree {
+                    ghostty_surface_free(surfaceToFree)
+                    Log.surface.info("Surface freed (async)")
+                }
+                if let userdataPtr {
+                    SurfaceCallbackContext.release(userdataPtr)
+                    Log.surface.info("Callback context released (async)")
+                }
             }
         }
 
@@ -126,17 +126,18 @@ final class TerminalSurfaceView: NSView {
 
         let ctx = SurfaceCallbackContext(view: self, paneID: paneID)
         self.callbackContext = ctx
+        let userdataPtr = ctx.retainedPointer()
 
         if let parentSurface {
             // Inherited config path for split surfaces
             var config = ghostty_surface_inherited_config(parentSurface, GHOSTTY_SURFACE_CONTEXT_SPLIT)
-            applyPlatformConfig(&config, userdata: ctx.retainedPointer())
+            applyPlatformConfig(&config, userdata: userdataPtr)
             let envAlloc = applyHoottyEnvVars(to: &config)
             defer { freeEnvVarAllocations(envAlloc.cStrings, envAlloc.envArray) }
             self.surface = ghostty_surface_new(app, &config)
         } else {
             var config = ghostty_surface_config_new()
-            applyPlatformConfig(&config, userdata: ctx.retainedPointer())
+            applyPlatformConfig(&config, userdata: userdataPtr)
             let envAlloc = applyHoottyEnvVars(to: &config)
             defer { freeEnvVarAllocations(envAlloc.cStrings, envAlloc.envArray) }
 
@@ -157,6 +158,8 @@ final class TerminalSurfaceView: NSView {
 
         guard surface != nil else {
             Log.surface.error("Failed to create ghostty surface")
+            SurfaceCallbackContext.release(userdataPtr)
+            callbackContext = nil
             return
         }
 
@@ -394,6 +397,7 @@ final class TerminalSurfaceView: NSView {
     // MARK: - Mouse Events
 
     override func mouseDown(with event: NSEvent) {
+        onUserInteraction?()
         window?.makeFirstResponder(self)
         guard let surface else { return }
         let pos = convert(event.locationInWindow, from: nil)
@@ -469,6 +473,7 @@ final class TerminalSurfaceView: NSView {
     // MARK: - Keyboard Events
 
     override func keyDown(with event: NSEvent) {
+        onUserInteraction?()
         guard let surface else {
             interpretKeyEvents([event])
             return

@@ -40,6 +40,11 @@ struct TerminalPaneView: NSViewRepresentable {
                 GhosttyApp.requestCloseSurface(paneID: paneID)
             }
         }
+        view.onUserInteraction = { [weak pane] in
+            if pane?.attentionKind == .bell {
+                pane?.attentionKind = nil
+            }
+        }
 
         GhosttyApp.shared.cacheSurfaceView(view, for: pane.id)
 

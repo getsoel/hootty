@@ -28,8 +28,10 @@ Sources/
     DesignTokens.swift         -- Semantic color/spacing tokens (see docs/DESIGN.md)
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
+    AppCommand.swift           -- Command enum: IDs, titles, shortcut hints (see docs/COMMANDS.md)
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
+    CommandRegistry.swift      -- Maps AppCommand → actions, generates palette entries
     HoottyBundle.swift         -- shared SPM resource bundle resolver (use for all bundled resources)
     CrashHandler.swift         -- Crash log writer (~/Library/Logs/Hootty/)
     Log.swift                  -- os.Logger wrapper (subsystem: com.soel.hootty)
@@ -56,17 +58,22 @@ Vendors/
 
 Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emulation (PTY, ANSI/VT parsing, Metal rendering, Kitty keyboard protocol).
 
-Rebuilding libghostty: see `docs/REBUILDING.md`
-
 ### Data flow
 - ghostty_app_t (singleton) → manages config and dispatches actions via callbacks
 - ghostty_surface_t (per pane) → handles PTY, parsing, and Metal rendering internally
 - TerminalSurfaceView (NSView) → hosts the surface, forwards keyboard/mouse events
 - Action callbacks (title, pwd, exit) → update Pane model → Workspace aggregates → SwiftUI reacts
 - Split panes: Workspace.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
+- Commands: AppCommand enum → CommandRegistry (maps to actions) → menus, palette, ghostty callbacks all dispatch through `commandRegistry.execute()`
 
-Debugging/logging: see `docs/DEBUGGING.md` (read when investigating crashes or runtime issues)
-Claude Code hooks: see `docs/HOOKS.md` (read when modifying the wrapper script, env var injection, or attention indicators)
+### Deep-dive docs (read on demand)
+- `docs/COMMANDS.md` — read when adding commands, modifying keyboard shortcuts, or working on the command palette
+- `docs/DESIGN.md` — read when creating or modifying UI components, working with design tokens or theme colors
+- `docs/DEBUGGING.md` — read when investigating crashes or runtime issues
+- `docs/HOOKS.md` — read when modifying the wrapper script, env var injection, or attention indicators
+- `docs/REBUILDING.md` — read when updating or rebuilding libghostty
+- `docs/CONFIG.md` — read when working on the config file system or adding new settings
+- `docs/RULES.md` — read when adding new `.claude/rules/` files or modifying progressive disclosure structure
 
 ### Naming: Tab vs Pane vs Group
 - **Tab**: UI presentation concept — items in the tab bar. Use in tab bar context: "Rename Tab", "Close Tab"

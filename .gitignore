@@ -18,6 +18,9 @@ Vendors/lib/*.a
 *.dmg
 *.profraw
 
+# Generated theme files (copied from ghostty build by make setup)
+Sources/Hootty/Resources/Themes/
+
 # Claude Code
 CLAUDE.local.md
 *.local.json

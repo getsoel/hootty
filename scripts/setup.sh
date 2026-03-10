@@ -75,6 +75,13 @@ else
         cp "$XC_DIR/libghostty-fat.a" "$SHA_CACHE/libghostty.a"
         cp -R "$XC_DIR/Headers/"* "$SHA_CACHE/headers/"
 
+        # Cache themes if available
+        THEMES_SRC="$GHOSTTY_DIR/zig-out/share/ghostty/themes"
+        if [ -d "$THEMES_SRC" ]; then
+            cp -R "$THEMES_SRC" "$SHA_CACHE/themes"
+            echo "Cached $(ls "$SHA_CACHE/themes" | wc -l | tr -d ' ') theme files"
+        fi
+
         echo "Cached build at $SHA_CACHE"
     else
         echo "Cache was populated by another process."
@@ -90,5 +97,15 @@ cp "$SHA_CACHE/libghostty.a" "$VENDORS_LIB/libghostty.a"
 # Copy headers but preserve the existing CGhostty module.modulemap
 cp "$SHA_CACHE/headers/ghostty.h" "$HEADERS_DIR/"
 cp -R "$SHA_CACHE/headers/ghostty" "$HEADERS_DIR/"
+
+# --- Copy themes to SPM resources ---
+THEMES_DEST="$REPO_ROOT/Sources/Hootty/Resources/Themes"
+rm -rf "$THEMES_DEST"
+if [ -d "$SHA_CACHE/themes" ]; then
+    cp -R "$SHA_CACHE/themes" "$THEMES_DEST"
+    echo "Installed $(ls "$THEMES_DEST" | wc -l | tr -d ' ') theme files to Resources/Themes/"
+else
+    echo "Warning: No theme files found in cache. Theme catalog will be empty."
+fi
 
 echo "Setup complete. libghostty.a installed to Vendors/lib/"

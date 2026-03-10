@@ -11,6 +11,13 @@ public final class AppModel {
     public var sidebarVisible: Bool = true
     public var sidebarWidth: CGFloat = 200
 
+    public enum ModalState {
+        case none
+        case commandPalette
+        case themePicker
+    }
+    public var modalState: ModalState = .none
+
     public static let sidebarMinWidth: CGFloat = 140
     public static let sidebarMaxWidth: CGFloat = 400
     private var workspaceCounter = 0
@@ -19,10 +26,11 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile = ConfigFile()) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile = ConfigFile(), themesDirectory: URL? = nil) {
         self.configFile = configFile
         configFile.ensureExists()
-        self.themeManager = ThemeManager(configFile: configFile)
+        let catalog = ThemeCatalog(themesDirectory: themesDirectory)
+        self.themeManager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         self.soundManager = SoundManager(configFile: configFile)
         self.workspaceStore = workspaceStore
         if let snapshot = workspaceStore.load() {
@@ -109,6 +117,22 @@ public final class AppModel {
         return false
     }
 
+    @discardableResult
+    public func handleBell(_ paneID: UUID) -> Bool {
+        for workspace in workspaces {
+            guard let pane = workspace.findPane(id: paneID) else { continue }
+            let isFocusedPane = workspace.id == selectedWorkspaceID
+                && workspace.focusedPaneID == paneID
+            if isFocusedPane {
+                pane.attentionKind = .bell
+            } else {
+                pane.attentionKind = .input
+            }
+            return true
+        }
+        return false
+    }
+
     public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
         for workspace in workspaces {
             guard let pane = workspace.findPane(id: paneID) else { continue }
@@ -132,5 +156,21 @@ public final class AppModel {
     public func toggleSidebar() {
         sidebarVisible.toggle()
         saveWorkspaces()
+    }
+
+    public func selectNextWorkspace() {
+        guard workspaces.count > 1,
+              let current = selectedWorkspaceID,
+              let idx = workspaces.firstIndex(where: { $0.id == current }) else { return }
+        let nextIdx = (idx + 1) % workspaces.count
+        selectedWorkspaceID = workspaces[nextIdx].id
+    }
+
+    public func selectPreviousWorkspace() {
+        guard workspaces.count > 1,
+              let current = selectedWorkspaceID,
+              let idx = workspaces.firstIndex(where: { $0.id == current }) else { return }
+        let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
+        selectedWorkspaceID = workspaces[prevIdx].id
     }
 }

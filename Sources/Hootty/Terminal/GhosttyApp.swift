@@ -17,6 +17,9 @@ final class GhosttyApp {
     /// The currently focused terminal surface (set by TerminalSurfaceView focus changes).
     var focusedSurface: ghostty_surface_t?
 
+    /// Command registry for routing ghostty actions to app commands.
+    weak var commandRegistry: CommandRegistry?
+
     /// Called when ghostty dispatches a new_tab action (e.g. Cmd+T keybinding).
     var onNewTab: (() -> Void)?
 
@@ -70,6 +73,15 @@ final class GhosttyApp {
 
     func removeCachedSurfaceView(for paneID: UUID) {
         surfaceViews.removeValue(forKey: paneID)
+        pendingParentSurfaces.removeValue(forKey: paneID)
+        pendingCommands.removeValue(forKey: paneID)
+    }
+
+    /// Remove all cached surface views and pending state for every pane in a workspace.
+    func cleanupWorkspace(_ workspace: Workspace) {
+        for pane in workspace.allPanes {
+            removeCachedSurfaceView(for: pane.id)
+        }
     }
 
     /// Pending commands to send to surfaces after creation (for session resume).
@@ -111,23 +123,76 @@ final class GhosttyApp {
         path.withCString { ghostty_config_load_file(cfg, $0) }
         ghostty_config_finalize(cfg)
 
+        // Log any config diagnostics (warnings/errors from ghostty)
+        let diagCount = ghostty_config_diagnostics_count(cfg)
+        for i in 0..<diagCount {
+            let diag = ghostty_config_get_diagnostic(cfg, i)
+            if let msgPtr = diag.message {
+                let msg = String(cString: msgPtr)
+                Log.ghostty.warning("Config diagnostic [\(i)]: \(msg)")
+            }
+        }
+
         // Read resolved colors back from ghostty
         let theme: TerminalTheme
         if let resolved = GhosttyConfigReader.readTheme(from: cfg) {
             Log.ghostty.info("Read resolved theme colors from ghostty config")
             theme = resolved
         } else {
-            Log.ghostty.warning("Falling back to hardcoded Catppuccin palette")
+            Log.ghostty.warning("Falling back to parsing theme file directly")
             let parsed = ConfigFile.parse(ghosttyContent)
-            let flavor = parsed["theme"]
-                .flatMap(CatppuccinFlavor.from(themeName:)) ?? .mocha
-            theme = .catppuccin(flavor)
+            let themeName = parsed["theme"] ?? ThemeCatalog.fallbackThemeName
+            let themesDir = Self.themesDirectoryURL
+            if let content = try? String(contentsOf: themesDir.appendingPathComponent(themeName), encoding: .utf8),
+               let parsed = TerminalTheme.parse(ghosttyThemeContent: content) {
+                theme = parsed
+            } else {
+                theme = TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
+            }
         }
         return (cfg, theme)
     }
 
+    /// URL to the themes directory within app support (ghostty-resources/themes).
+    /// Used by HoottyApp to pass to AppModel for ThemeCatalog discovery.
+    static var themesDirectoryURL: URL {
+        ConfigFile.appSupportDirectory
+            .appendingPathComponent("ghostty-resources")
+            .appendingPathComponent("themes")
+    }
+
+    /// Copy all bundled theme files to app support so libghostty can resolve theme names.
+    /// Sets `GHOSTTY_RESOURCES_DIR` env var before `ghostty_init()` is called.
+    private static func ensureGhosttyResources() {
+        let resourcesDir = ConfigFile.appSupportDirectory.appendingPathComponent("ghostty-resources")
+        let themesDir = resourcesDir.appendingPathComponent("themes")
+        try? FileManager.default.createDirectory(at: themesDir, withIntermediateDirectories: true)
+
+        if let bundledURL = HoottyBundle.resourceBundle?.url(forResource: "Themes", withExtension: nil),
+           let files = try? FileManager.default.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil) {
+            for file in files where !file.lastPathComponent.hasPrefix(".") {
+                let dest = themesDir.appendingPathComponent(file.lastPathComponent)
+                try? FileManager.default.removeItem(at: dest)
+                try? FileManager.default.copyItem(at: file, to: dest)
+            }
+            Log.ghostty.info("Copied \(files.count) theme files to \(themesDir.path)")
+        } else {
+            // Fallback: write hardcoded Catppuccin Mocha so the app still works
+            let file = themesDir.appendingPathComponent(ThemeCatalog.fallbackThemeName)
+            try? ThemeCatalog.fallbackThemeContent.write(to: file, atomically: true, encoding: .utf8)
+            Log.ghostty.warning("No bundled themes found, wrote fallback theme only")
+        }
+
+        let path = resourcesDir.path
+        setenv("GHOSTTY_RESOURCES_DIR", path, 1)
+        Log.ghostty.info("Set GHOSTTY_RESOURCES_DIR=\(path)")
+    }
+
     private init() {
         Log.ghostty.info("Initializing ghostty backend...")
+
+        // Bootstrap theme files so ghostty can resolve `theme = catppuccin-*`
+        Self.ensureGhosttyResources()
 
         // Initialize the ghostty backend
         guard ghostty_init(UInt(CommandLine.argc), CommandLine.unsafeArgv) == GHOSTTY_SUCCESS else {
@@ -288,6 +353,35 @@ final class GhosttyApp {
         case GHOSTTY_ACTION_CLOSE_WINDOW:
             DispatchQueue.main.async {
                 NSApp.keyWindow?.close()
+            }
+            return true
+        case GHOSTTY_ACTION_TOGGLE_COMMAND_PALETTE:
+            DispatchQueue.main.async {
+                GhosttyApp.shared.commandRegistry?.execute(.toggleCommandPalette)
+            }
+            return true
+        case GHOSTTY_ACTION_GOTO_TAB:
+            let tab = action.action.goto_tab
+            DispatchQueue.main.async {
+                if tab == GHOSTTY_GOTO_TAB_PREVIOUS {
+                    GhosttyApp.shared.commandRegistry?.execute(.previousWorkspace)
+                } else if tab == GHOSTTY_GOTO_TAB_NEXT || tab == GHOSTTY_GOTO_TAB_LAST {
+                    GhosttyApp.shared.commandRegistry?.execute(.nextWorkspace)
+                }
+            }
+            return true
+        case GHOSTTY_ACTION_GOTO_SPLIT:
+            let direction = action.action.goto_split
+            DispatchQueue.main.async {
+                switch direction {
+                case GHOSTTY_GOTO_SPLIT_NEXT:
+                    GhosttyApp.shared.commandRegistry?.execute(.focusNextPane)
+                case GHOSTTY_GOTO_SPLIT_PREVIOUS:
+                    GhosttyApp.shared.commandRegistry?.execute(.focusPreviousPane)
+                default:
+                    // Directional focus (up/down/left/right) not yet implemented
+                    Log.ghostty.info("Unhandled goto_split direction: \(direction.rawValue)")
+                }
             }
             return true
         case GHOSTTY_ACTION_QUIT,

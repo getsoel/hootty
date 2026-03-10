@@ -29,13 +29,17 @@ public final class Workspace: Identifiable {
         attentionKind != nil
     }
 
-    /// Returns the most urgent attention kind across unfocused panes (input > idle).
+    /// Returns the most urgent attention kind across unfocused panes (input > idle > bell).
     public var attentionKind: AttentionKind? {
         var result: AttentionKind?
         for pane in allPanes where pane.id != focusedPaneID {
             if let kind = pane.attentionKind {
                 if kind == .input { return .input }
-                result = kind
+                if kind == .idle {
+                    result = .idle
+                } else if result == nil {
+                    result = kind
+                }
             }
         }
         return result
@@ -97,6 +101,24 @@ public final class Workspace: Identifiable {
 
     public func findPane(id: UUID) -> Pane? {
         rootNode.findPane(id: id)
+    }
+
+    public func focusNextPane() {
+        let panes = allPanes
+        guard panes.count > 1,
+              let currentID = focusedPaneID,
+              let idx = panes.firstIndex(where: { $0.id == currentID }) else { return }
+        let nextIdx = (idx + 1) % panes.count
+        focusPane(id: panes[nextIdx].id)
+    }
+
+    public func focusPreviousPane() {
+        let panes = allPanes
+        guard panes.count > 1,
+              let currentID = focusedPaneID,
+              let idx = panes.firstIndex(where: { $0.id == currentID }) else { return }
+        let prevIdx = (idx - 1 + panes.count) % panes.count
+        focusPane(id: panes[prevIdx].id)
     }
 }
 

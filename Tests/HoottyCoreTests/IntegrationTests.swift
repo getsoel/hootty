@@ -419,6 +419,60 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(ws.attentionKind == nil)
     }
 
+    @Test func bellOnFocusedPaneSetsBellAttention() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+
+        // p1 is no longer focused after split; re-focus it
+        ws.focusPane(id: p1.id)
+
+        // Bell on focused pane should set .bell
+        let didSet = model.handleBell(p1.id)
+        #expect(didSet == true)
+        #expect(p1.attentionKind == .bell)
+    }
+
+    @Test func bellOnUnfocusedPaneSetsInputAttention() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+
+        // p2 is focused after split; bell on p1 (unfocused) should set .input
+        let didSet = model.handleBell(p1.id)
+        #expect(didSet == true)
+        #expect(p1.attentionKind == .input)
+
+        // p2 (focused) should not be affected
+        #expect(p2.attentionKind == nil)
+    }
+
+    @Test func bellAttentionClearsIndependently() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+
+        // Bell on focused pane
+        model.handleBell(p1.id)
+        #expect(p1.attentionKind == .bell)
+
+        // Simulate user interaction clearing the bell
+        p1.attentionKind = nil
+        #expect(p1.attentionKind == nil)
+        #expect(ws.hasAttention == false)
+    }
+
     @Test func attentionNotPersisted() {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
@@ -453,7 +507,7 @@ private func reloadModel(from url: URL) -> AppModel {
         // gives default theme — verifies independence
         let restored = reloadModel(from: url)
         #expect(restored.workspaces.count == 3)
-        #expect(restored.themeManager.selectedFlavor == .mocha) // default from fresh config
+        #expect(restored.themeManager.selectedThemeName == "Catppuccin Mocha") // default from fresh config
     }
 
     @Test func soundSettingsIndependentOfWorkspaceStore() {
@@ -485,13 +539,15 @@ private func reloadModel(from url: URL) -> AppModel {
             .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("config")
         let configFile = ConfigFile(fileURL: cfgURL)
-        let manager = ThemeManager(configFile: configFile)
-        manager.selectedFlavor = .macchiato
+        let catalog = ThemeCatalog(themesDirectory: nil)
+        let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
+        manager.selectedThemeName = "Catppuccin Macchiato"
 
         // Reload config and verify
         let reloadedConfig = ConfigFile(fileURL: cfgURL)
-        let reloadedManager = ThemeManager(configFile: reloadedConfig)
-        #expect(reloadedManager.selectedFlavor == .macchiato)
+        let reloadedCatalog = ThemeCatalog(themesDirectory: nil)
+        let reloadedManager = ThemeManager(configFile: reloadedConfig, themeCatalog: reloadedCatalog)
+        #expect(reloadedManager.selectedThemeName == "Catppuccin Macchiato")
     }
 
     @Test func themeAndSoundShareConfigFile() {
@@ -499,15 +555,16 @@ private func reloadModel(from url: URL) -> AppModel {
             .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("config")
         let configFile = ConfigFile(fileURL: cfgURL)
-        let themeManager = ThemeManager(configFile: configFile)
+        let themeCatalog = ThemeCatalog(themesDirectory: nil)
+        let themeManager = ThemeManager(configFile: configFile, themeCatalog: themeCatalog)
         let soundManager = SoundManager(configFile: configFile)
 
-        themeManager.selectedFlavor = .frappe
+        themeManager.selectedThemeName = "Catppuccin Frappe"
         soundManager.bellSound = "Ping"
 
         // Both persisted to same file
         let reloadedConfig = ConfigFile(fileURL: cfgURL)
-        #expect(reloadedConfig.get("theme") == "catppuccin-frappe")
+        #expect(reloadedConfig.get("theme") == "Catppuccin Frappe")
         #expect(reloadedConfig.get("hootty-bell-sound") == "Ping")
     }
 }

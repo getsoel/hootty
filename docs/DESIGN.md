@@ -36,8 +36,8 @@ Interactive element backgrounds for hover/selection feedback:
 
 | Token | Zed Equivalent | Derivation |
 |-------|---------------|------------|
-| `elementHover` | `element.hover` | `sidebarSurface` @ 40% opacity |
-| `elementSelected` | `element.selected` | `sidebarSurface` (solid) |
+| `elementHover` | `element.hover` | `selectionBackground` @ 40% opacity |
+| `elementSelected` | `element.selected` | `selectionBackground` (solid) |
 
 ### Text Hierarchy
 
@@ -75,6 +75,8 @@ Semantic status indicators for process state and alerts:
 | `tabBarBackground` | `tab_bar.background` | Same as `background` (Mantle) |
 | `tabActive` | `tab.active_background` | Same as `surface` (Base) |
 | (tab inactive) | `tab.inactive_background` | `Color.clear` (no dedicated token -- use transparency) |
+| `scrim` | -- | `NSColor.black` @ 30% opacity (modal backdrop) |
+| `unfocusedDimColor` | -- | `theme.background` @ 50% opacity (non-focused pane overlay) |
 
 ---
 

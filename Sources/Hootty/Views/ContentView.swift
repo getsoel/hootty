@@ -3,7 +3,9 @@ import HoottyCore
 
 struct ContentView: View {
     @Bindable var appModel: AppModel
+    var commandRegistry: CommandRegistry
     @GestureState private var dragOffset: CGFloat = 0
+    @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -11,10 +13,6 @@ struct ContentView: View {
 
     private var theme: TerminalTheme {
         appModel.themeManager.theme
-    }
-
-    private var flavor: CatppuccinFlavor {
-        appModel.themeManager.selectedFlavor
     }
 
     private var tokens: DesignTokens {
@@ -105,6 +103,55 @@ struct ContentView: View {
             }
         )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
+        .overlay {
+            if appModel.modalState == .commandPalette {
+                CommandPaletteView(
+                    tokens: tokens,
+                    commands: commandRegistry.paletteCommands,
+                    onDismiss: { appModel.modalState = .none }
+                )
+            }
+        }
+        .overlay {
+            if appModel.modalState == .themePicker {
+                ThemePickerView(
+                    tokens: tokens,
+                    themePreviews: appModel.themeManager.themeCatalog.themePreviews,
+                    selectedThemeName: appModel.themeManager.selectedThemeName,
+                    onSelectTheme: { name in
+                        prePickerTheme = nil
+                        appModel.themeManager.selectedThemeName = name
+                        let content = appModel.configFile.ghosttyConfigContent()
+                        if let resolved = GhosttyApp.shared.reloadConfig(ghosttyContent: content) {
+                            appModel.themeManager.setResolvedTheme(resolved)
+                        }
+                        appModel.modalState = .none
+                    },
+                    onPreview: { name in
+                        if let content = appModel.themeManager.themeCatalog.themeContent(for: name),
+                           let parsed = TerminalTheme.parse(ghosttyThemeContent: content) {
+                            appModel.themeManager.setResolvedTheme(parsed)
+                        }
+                    },
+                    onDismiss: {
+                        if let saved = prePickerTheme {
+                            appModel.themeManager.setResolvedTheme(saved.theme)
+                        }
+                        prePickerTheme = nil
+                        appModel.modalState = .none
+                    }
+                )
+            }
+        }
+        .onChange(of: appModel.modalState) { _, state in
+            if state == .themePicker {
+                appModel.themeManager.themeCatalog.loadPreviews()
+                prePickerTheme = (
+                    name: appModel.themeManager.selectedThemeName,
+                    theme: appModel.themeManager.theme
+                )
+            }
+        }
     }
 
     private var sidebar: some View {
@@ -112,12 +159,15 @@ struct ContentView: View {
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
-            flavor: flavor,
+            isLight: theme.isLight,
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
                 appModel.selectedWorkspaceID = workspace.id
             },
             onRemoveWorkspace: { id in
+                if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
+                    GhosttyApp.shared.cleanupWorkspace(workspace)
+                }
                 appModel.removeWorkspace(id: id)
                 if appModel.selectedWorkspaceID == id {
                     appModel.selectedWorkspaceID = appModel.workspaces.first?.id
@@ -174,7 +224,7 @@ struct ContentView: View {
             .id(workspace.id)
         } else {
             Text("Select or create a workspace")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color(tokens.textMuted))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }

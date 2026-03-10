@@ -3,10 +3,11 @@ import Foundation
 @Observable
 public final class ThemeManager {
     private let configFile: ConfigFile
+    public let themeCatalog: ThemeCatalog
 
-    public var selectedFlavor: CatppuccinFlavor {
+    public var selectedThemeName: String {
         didSet {
-            configFile.set("theme", value: "catppuccin-\(selectedFlavor.rawValue)")
+            configFile.set("theme", value: selectedThemeName)
             configFile.save()
         }
     }
@@ -19,11 +20,29 @@ public final class ThemeManager {
         self.theme = theme
     }
 
-    public init(configFile: ConfigFile) {
+    public init(configFile: ConfigFile, themeCatalog: ThemeCatalog) {
         self.configFile = configFile
-        let saved = configFile.get("theme")
-            .flatMap(CatppuccinFlavor.from(themeName:)) ?? .mocha
-        self.selectedFlavor = saved
-        self.theme = .catppuccin(saved)
+        self.themeCatalog = themeCatalog
+
+        // Migrate old hyphenated names to tarball filenames
+        let raw = configFile.get("theme") ?? ThemeCatalog.fallbackThemeName
+        let migrated = Self.migrateThemeName(raw)
+        self.selectedThemeName = migrated
+
+        // Parse theme content for initial display
+        let content = themeCatalog.themeContent(for: migrated) ?? ThemeCatalog.fallbackThemeContent
+        self.theme = TerminalTheme.parse(ghosttyThemeContent: content)
+            ?? TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
+    }
+
+    /// Migrate old hyphenated catppuccin theme names to the tarball filename format.
+    static func migrateThemeName(_ name: String) -> String {
+        let migrations = [
+            "catppuccin-mocha": "Catppuccin Mocha",
+            "catppuccin-latte": "Catppuccin Latte",
+            "catppuccin-frappe": "Catppuccin Frappe",
+            "catppuccin-macchiato": "Catppuccin Macchiato",
+        ]
+        return migrations[name] ?? name
     }
 }

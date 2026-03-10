@@ -22,21 +22,74 @@ struct HoottyApp: App {
         appModel.soundManager.soundPlayer = { name in
             NSSound(named: NSSound.Name(name))?.play()
         }
+
+        registerCommands()
     }
 
-    @State private var appModel = AppModel()
+    @State private var appModel = AppModel(themesDirectory: GhosttyApp.themesDirectoryURL)
+    @State private var commandRegistry = CommandRegistry()
 
-    private func openConfigFile() {
-        let url = ConfigFile.defaultFileURL
-        appModel.configFile.ensureExists()
-        NSWorkspace.shared.open(url)
+    // MARK: - Command Registration
+
+    private func registerCommands() {
+        commandRegistry.register(.newWorkspace) { [appModel] in
+            let workspace = appModel.addWorkspace()
+            appModel.selectedWorkspaceID = workspace.id
+        }
+        commandRegistry.register(.closeWorkspace) { [appModel] in
+            guard let workspace = appModel.selectedWorkspace else { return }
+            let id = workspace.id
+            GhosttyApp.shared.cleanupWorkspace(workspace)
+            appModel.removeWorkspace(id: id)
+            if appModel.selectedWorkspaceID == id {
+                appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+            }
+        }
+        commandRegistry.register(.splitRight) { [appModel] in
+            Self.splitFocusedPane(appModel: appModel, direction: .horizontal)
+        }
+        commandRegistry.register(.splitDown) { [appModel] in
+            Self.splitFocusedPane(appModel: appModel, direction: .vertical)
+        }
+        commandRegistry.register(.splitLeft) { [appModel] in
+            Self.splitFocusedPane(appModel: appModel, direction: .horizontal, placeBefore: true)
+        }
+        commandRegistry.register(.splitUp) { [appModel] in
+            Self.splitFocusedPane(appModel: appModel, direction: .vertical, placeBefore: true)
+        }
+        commandRegistry.register(.nextWorkspace) { [appModel] in
+            appModel.selectNextWorkspace()
+        }
+        commandRegistry.register(.previousWorkspace) { [appModel] in
+            appModel.selectPreviousWorkspace()
+        }
+        commandRegistry.register(.focusNextPane) { [appModel] in
+            appModel.selectedWorkspace?.focusNextPane()
+        }
+        commandRegistry.register(.focusPreviousPane) { [appModel] in
+            appModel.selectedWorkspace?.focusPreviousPane()
+        }
+        commandRegistry.register(.toggleSidebar) { [appModel] in
+            appModel.toggleSidebar()
+        }
+        commandRegistry.register(.toggleCommandPalette) { [appModel] in
+            appModel.modalState = appModel.modalState == .commandPalette ? .none : .commandPalette
+        }
+        commandRegistry.register(.changeTheme) { [appModel] in
+            appModel.modalState = .themePicker
+        }
+        commandRegistry.register(.editConfig) { [appModel] in
+            appModel.configFile.ensureExists()
+            NSWorkspace.shared.open(ConfigFile.defaultFileURL)
+        }
+
+        // Wire the registry into GhosttyApp for action callback routing
+        GhosttyApp.shared.commandRegistry = commandRegistry
     }
 
-    private func splitFocusedPane(direction: SplitDirection, placeBefore: Bool = false) {
+    private static func splitFocusedPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
         guard let workspace = appModel.selectedWorkspace else { return }
-
         let parentSurface = GhosttyApp.shared.focusedSurface
-
         if let newPane = workspace.splitFocusedPane(direction: direction, placeBefore: placeBefore) {
             if let parentSurface {
                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
@@ -47,7 +100,7 @@ struct HoottyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appModel: appModel)
+            ContentView(appModel: appModel, commandRegistry: commandRegistry)
                 .frame(minWidth: 700, minHeight: 400)
                 .onAppear {
                     if GhosttyApp.shared.onNewTab == nil {
@@ -65,8 +118,10 @@ struct HoottyApp: App {
                         appModel.selectedWorkspaceID = workspace.id
                     }
                     GhosttyApp.shared.onBellRang = { [appModel] paneID in
-                        appModel.handlePaneNeedsAttention(paneID, kind: .input)
-                        appModel.soundManager.play(.bell)
+                        let didSet = appModel.handleBell(paneID)
+                        if didSet {
+                            appModel.soundManager.play(.bell)
+                        }
                     }
                     GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID, kind in
                         let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
@@ -115,63 +170,57 @@ struct HoottyApp: App {
 
         .commands {
             CommandGroup(replacing: .appSettings) {
-                Button("Edit Configuration...") {
-                    openConfigFile()
+                Button(AppCommand.editConfig.title) {
+                    commandRegistry.execute(.editConfig)
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
             CommandMenu("View") {
+                Button(AppCommand.toggleCommandPalette.title) {
+                    commandRegistry.execute(.toggleCommandPalette)
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
+
+                Divider()
+
                 Button(appModel.sidebarVisible ? "Hide Sidebar" : "Show Sidebar") {
-                    appModel.toggleSidebar()
+                    commandRegistry.execute(.toggleSidebar)
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
             }
             CommandMenu("Shell") {
-                Button("New Workspace") {
-                    let workspace = appModel.addWorkspace()
-                    appModel.selectedWorkspaceID = workspace.id
+                Button(AppCommand.newWorkspace.title) {
+                    commandRegistry.execute(.newWorkspace)
                 }
                 .keyboardShortcut("t", modifiers: .command)
 
                 Divider()
 
-                Button("Split Right") {
-                    splitFocusedPane(direction: .horizontal)
+                Button(AppCommand.splitRight.title) {
+                    commandRegistry.execute(.splitRight)
                 }
                 .keyboardShortcut("d", modifiers: .command)
 
-                Button("Split Down") {
-                    splitFocusedPane(direction: .vertical)
+                Button(AppCommand.splitDown.title) {
+                    commandRegistry.execute(.splitDown)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .shift])
 
                 Divider()
 
-                Button("Split Left") {
-                    splitFocusedPane(direction: .horizontal, placeBefore: true)
+                Button(AppCommand.splitLeft.title) {
+                    commandRegistry.execute(.splitLeft)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .option])
 
-                Button("Split Up") {
-                    splitFocusedPane(direction: .vertical, placeBefore: true)
+                Button(AppCommand.splitUp.title) {
+                    commandRegistry.execute(.splitUp)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .option, .shift])
             }
             CommandMenu("Theme") {
-                ForEach(CatppuccinFlavor.allCases, id: \.self) { flavor in
-                    Button {
-                        appModel.themeManager.selectedFlavor = flavor
-                        let content = appModel.configFile.ghosttyConfigContent()
-                        if let resolved = GhosttyApp.shared.reloadConfig(ghosttyContent: content) {
-                            appModel.themeManager.setResolvedTheme(resolved)
-                        }
-                    } label: {
-                        if appModel.themeManager.selectedFlavor == flavor {
-                            Text("\(flavor.displayName) ✓")
-                        } else {
-                            Text(flavor.displayName)
-                        }
-                    }
+                Button(AppCommand.changeTheme.title) {
+                    commandRegistry.execute(.changeTheme)
                 }
             }
         }

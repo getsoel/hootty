@@ -7,7 +7,7 @@ struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let tokens: DesignTokens
-    let flavor: CatppuccinFlavor
+    let isLight: Bool
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onMoveWorkspace: (UUID, Int) -> Void
@@ -146,6 +146,15 @@ struct WorkspaceSidebar: View {
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
 
+            if !isExpanded && workspace.hasThinkingPane {
+                StatusDotView(
+                    attentionKind: nil,
+                    isRunning: false,
+                    isThinking: true,
+                    tokens: tokens
+                )
+            }
+
             Spacer(minLength: 0)
 
             Button {
@@ -172,7 +181,7 @@ struct WorkspaceSidebar: View {
         .overlay {
             if !isExpanded, let kind = workspace.attentionKind {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, solidBase: true)
             }
         }
         .onContinuousHover { phase in
@@ -238,6 +247,24 @@ struct WorkspaceSidebar: View {
             )
 
             HStack(spacing: 6) {
+                iconView(name: "bash", size: TypeScale.iconSize)
+
+                if pane.isThinking || pane.attentionKind != nil {
+                    StatusDotView(
+                        attentionKind: pane.attentionKind,
+                        isRunning: pane.isRunning,
+                        isThinking: pane.isThinking,
+                        tokens: tokens
+                    )
+                }
+
+                Text(pane.displayName)
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
                 if !layoutRects.isEmpty {
                     SplitLayoutThumbnail(
                         layoutRects: layoutRects,
@@ -246,15 +273,6 @@ struct WorkspaceSidebar: View {
                         tokens: tokens
                     )
                 }
-
-                iconView(name: "bash", size: TypeScale.iconSize)
-
-                Text(pane.displayName)
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
-                    .lineLimit(1)
-
-                Spacer(minLength: 0)
 
                 Button {
                     onRemovePane(workspace.id, pane.id)
@@ -282,7 +300,7 @@ struct WorkspaceSidebar: View {
         .overlay {
             if let kind = pane.attentionKind {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1)
+                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, solidBase: true)
             } else if isFocusedPane {
                 Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
             }
@@ -317,7 +335,7 @@ struct WorkspaceSidebar: View {
     // MARK: - Helpers
 
     private func iconView(name: String, size: CGFloat) -> some View {
-        CatppuccinIconView(name: name, size: size, flavor: flavor)
+        CatppuccinIconView(name: name, size: size, isLight: isLight)
     }
 }
 

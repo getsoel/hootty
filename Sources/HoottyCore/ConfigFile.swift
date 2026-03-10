@@ -88,7 +88,7 @@ public final class ConfigFile {
     public func ensureExists() {
         migrate()
         if !FileManager.default.fileExists(atPath: fileURL.path) {
-            values["theme"] = "catppuccin-mocha"
+            values["theme"] = "Catppuccin Mocha"
             save()
         } else {
             load()
@@ -106,7 +106,7 @@ public final class ConfigFile {
                 return "\(key) = \(value)"
             }
         if lines.isEmpty {
-            return "theme = catppuccin-mocha\n"
+            return "theme = Catppuccin Mocha\n"
         }
         return lines.joined(separator: "\n") + "\n"
     }
@@ -201,7 +201,7 @@ public final class ConfigFile {
     static func defaultConfigContent() -> String {
         """
         # Ghostty settings
-        theme = catppuccin-mocha
+        theme = Catppuccin Mocha
 
         # Hootty settings
         # hootty-bell-sound = Ping
@@ -238,11 +238,12 @@ public final class ConfigFile {
             let defaults = UserDefaults.standard
             #endif
             if let saved = defaults.string(forKey: "selectedTheme") {
-                migratedValues["theme"] = "catppuccin-\(saved)"
+                let migrated = ThemeManager.migrateThemeName("catppuccin-\(saved)")
+                migratedValues["theme"] = migrated
             }
         }
 
-        migratedValues["theme"] = migratedValues["theme"] ?? "catppuccin-mocha"
+        migratedValues["theme"] = migratedValues["theme"] ?? "Catppuccin Mocha"
 
         // Read old sound config (same path, old format with non-prefixed keys)
         if let content = try? String(contentsOf: fileURL, encoding: .utf8) {

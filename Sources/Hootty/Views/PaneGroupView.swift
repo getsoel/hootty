@@ -26,12 +26,12 @@ struct PaneContentView: View {
                 .overlay {
                     if let kind = pane.attentionKind {
                         Color.clear
-                            .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 2)
+                            .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 2, solidBase: true)
                     }
                 }
                 .overlay {
                     if !isFocused {
-                        Color.black.opacity(tokens.unfocusedDimOpacity)
+                        Color(tokens.unfocusedDimColor)
                             .allowsHitTesting(false)
                     }
                 }

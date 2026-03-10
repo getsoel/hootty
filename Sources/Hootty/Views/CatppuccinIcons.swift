@@ -5,10 +5,10 @@ import LucideIcons
 struct CatppuccinIconView: View {
     let name: String
     let size: CGFloat
-    let flavor: CatppuccinFlavor
+    let isLight: Bool
 
     var body: some View {
-        if let image = Self.loadImage(name: name, flavor: flavor) {
+        if let image = Self.loadImage(name: name, isLight: isLight) {
             Image(nsImage: image)
                 .frame(width: size, height: size)
         } else {
@@ -21,8 +21,9 @@ struct CatppuccinIconView: View {
 
     private static let imageCache = NSCache<NSString, NSImage>()
 
-    private static func loadImage(name: String, flavor: CatppuccinFlavor) -> NSImage? {
-        let key = "\(flavor.rawValue)/\(name)" as NSString
+    private static func loadImage(name: String, isLight: Bool) -> NSImage? {
+        let variant = isLight ? "latte" : "mocha"
+        let key = "\(variant)/\(name)" as NSString
         if let cached = imageCache.object(forKey: key) {
             return cached
         }
@@ -30,7 +31,7 @@ struct CatppuccinIconView: View {
         guard let url = bundle.url(
             forResource: name,
             withExtension: "svg",
-            subdirectory: "Icons/\(flavor.rawValue)"
+            subdirectory: "Icons/\(variant)"
         ) else { return nil }
         guard let image = NSImage(contentsOf: url) else { return nil }
         imageCache.setObject(image, forKey: key)

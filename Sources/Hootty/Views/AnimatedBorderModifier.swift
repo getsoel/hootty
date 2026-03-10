@@ -67,6 +67,7 @@ struct AnimatedBorderSegmentModifier<S: InsettableShape>: ViewModifier {
     let segmentLength: CGFloat
     let duration: Double
     let glowRadius: CGFloat?
+    let solidBase: Bool
 
     /// Number of slices per snake. More slices = smoother gradient.
     private let sliceCount = 16
@@ -80,6 +81,9 @@ struct AnimatedBorderSegmentModifier<S: InsettableShape>: ViewModifier {
                     let inset = shape.inset(by: lineWidth / 2)
 
                     ZStack {
+                        if solidBase {
+                            inset.stroke(color.opacity(0.6), lineWidth: lineWidth)
+                        }
                         if let glowRadius {
                             snakeSlices(shape: inset, phase: phase)
                                 .blur(radius: glowRadius)
@@ -170,7 +174,8 @@ extension View {
         lineWidth: CGFloat = 2,
         segmentLength: CGFloat = 0.3,
         duration: Double = 2,
-        glowRadius: CGFloat? = nil
+        glowRadius: CGFloat? = nil,
+        solidBase: Bool = false
     ) -> some View {
         modifier(AnimatedBorderSegmentModifier(
             shape: shape,
@@ -178,7 +183,8 @@ extension View {
             lineWidth: lineWidth,
             segmentLength: segmentLength,
             duration: duration,
-            glowRadius: glowRadius
+            glowRadius: glowRadius,
+            solidBase: solidBase
         ))
     }
 }

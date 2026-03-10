@@ -5,6 +5,8 @@ public enum AttentionKind: String, Codable, Sendable {
     case idle
     /// Claude needs user input (permission approval, question, etc.)
     case input
+    /// Bell rang on the focused pane (visual-only, cleared by next user interaction).
+    case bell
 }
 
 @Observable

@@ -154,7 +154,7 @@ import Foundation
         #expect(!FileManager.default.fileExists(atPath: url.path))
         config.ensureExists()
         #expect(FileManager.default.fileExists(atPath: url.path))
-        #expect(config.get("theme") == "catppuccin-mocha")
+        #expect(config.get("theme") == "Catppuccin Mocha")
     }
 
     @Test func ensureExistsDoesNotOverwriteExisting() {
@@ -189,7 +189,7 @@ import Foundation
     @Test func ghosttyConfigContentDefaultsWhenEmpty() {
         let config = ConfigFile(fileURL: tempFileURL())
         let content = config.ghosttyConfigContent()
-        #expect(content.contains("catppuccin-mocha"))
+        #expect(content.contains("Catppuccin Mocha"))
     }
 
     // MARK: - Migration

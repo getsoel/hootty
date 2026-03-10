@@ -64,6 +64,9 @@ public struct DesignTokens {
     /// Thinking/processing state (blue).
     public let statusThinking: NSColor
 
+    /// Bell attention state (pink).
+    public let statusBell: NSColor
+
     // MARK: - Component-Specific
 
     /// Tab bar background. Same as background (Mantle).
@@ -72,14 +75,18 @@ public struct DesignTokens {
     /// Active/selected tab background. Same as surface (Base).
     public let tabActive: NSColor
 
-    /// Opacity of the black overlay applied to non-focused panes.
-    public let unfocusedDimOpacity: CGFloat
+    /// Modal backdrop overlay. Always dark regardless of theme.
+    public let scrim: NSColor
+
+    /// Color overlay applied to non-focused panes. Uses theme background at 50% opacity.
+    public let unfocusedDimColor: NSColor
 
     /// Returns the appropriate status color for an attention kind.
     public func attentionColor(for kind: AttentionKind) -> NSColor {
         switch kind {
         case .idle: return statusSuccess
         case .input: return statusWarning
+        case .bell: return statusBell
         }
     }
 
@@ -92,8 +99,8 @@ public struct DesignTokens {
             surfaceLow: theme.background,
             surface: theme.background,
             surfaceHighlight: theme.palette[0],
-            elementHover: theme.palette[0].withAlphaComponent(0.4),
-            elementSelected: theme.palette[0],
+            elementHover: theme.selectionBackground.withAlphaComponent(0.4),
+            elementSelected: theme.selectionBackground,
             text: theme.foreground,
             textMuted: theme.palette[7],
             textAccent: theme.palette[5],
@@ -104,9 +111,11 @@ public struct DesignTokens {
             statusWarning: theme.palette[3],
             statusError: theme.palette[1],
             statusThinking: theme.palette[4],
+            statusBell: theme.palette[5],
             tabBarBackground: theme.background,
             tabActive: theme.background,
-            unfocusedDimOpacity: 0.5
+            scrim: NSColor.black.withAlphaComponent(0.3),
+            unfocusedDimColor: theme.background.withAlphaComponent(0.5)
         )
     }
 }
