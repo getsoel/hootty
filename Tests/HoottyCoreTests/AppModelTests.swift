@@ -44,4 +44,28 @@ import Foundation
         model.moveWorkspace(id: UUID(), toIndex: 0)
         #expect(model.workspaces.map(\.id) == [first.id, second.id])
     }
+
+    @Test func addWorkspaceFillsGapAfterDeletion() {
+        let model = makeModel()
+        // Initial workspace is "Workspace 1"
+        #expect(model.workspaces[0].name == "Workspace 1")
+        let w2 = model.addWorkspace()
+        #expect(w2.name == "Workspace 2")
+        let w3 = model.addWorkspace()
+        #expect(w3.name == "Workspace 3")
+
+        // Delete "Workspace 2" — next add should fill the gap
+        model.removeWorkspace(id: w2.id)
+        let w2Again = model.addWorkspace()
+        #expect(w2Again.name == "Workspace 2")
+    }
+
+    @Test func addWorkspaceSkipsCustomNames() {
+        let model = makeModel()
+        // Rename the initial workspace to something custom
+        model.workspaces[0].name = "My Terminal"
+        let w = model.addWorkspace()
+        // Should still be "Workspace 1" since no numbered workspaces exist
+        #expect(w.name == "Workspace 1")
+    }
 }

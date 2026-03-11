@@ -61,6 +61,7 @@ struct PaneBar: View {
             }
         }
         .contentShape(Rectangle())
+        .draggable(pane.id.uuidString)
         .onTapGesture {
             onFocusPane()
         }

@@ -322,7 +322,54 @@ private func reloadModel(from url: URL) -> AppModel {
     }
 }
 
-// MARK: - Suite D: Attention Flow
+// MARK: - Suite D: Pane Swap
+
+@Suite struct PaneSwapIntegration {
+    @Test func swapPanesPreservesStructureAndPersists() {
+        let (model, url) = makeModel()
+        let ws = model.workspaces[0]
+
+        let p1 = ws.allPanes[0]
+        p1.customName = "Editor"
+        ws.focusPane(id: p1.id)
+        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        p2.customName = "Shell"
+
+        // Verify initial order
+        #expect(ws.allPanes[0].id == p1.id)
+        #expect(ws.allPanes[1].id == p2.id)
+
+        // Swap
+        let result = ws.swapPanes(p1.id, p2.id)
+        #expect(result == true)
+        #expect(ws.allPanes[0].id == p2.id)
+        #expect(ws.allPanes[1].id == p1.id)
+
+        // Tree structure preserved (still horizontal split at root)
+        if case .split(let dir, _, _) = ws.rootNode.content {
+            #expect(dir == .horizontal)
+        } else {
+            Issue.record("Expected split node at root")
+        }
+
+        // Persist and restore
+        model.saveWorkspaces()
+        let restored = reloadModel(from: url)
+        let rws = restored.workspaces[0]
+        #expect(rws.allPanes.count == 2)
+        #expect(rws.allPanes[0].customName == "Shell")
+        #expect(rws.allPanes[1].customName == "Editor")
+
+        // Structure preserved after restore
+        if case .split(let dir, _, _) = rws.rootNode.content {
+            #expect(dir == .horizontal)
+        } else {
+            Issue.record("Expected split node at root after restore")
+        }
+    }
+}
+
+// MARK: - Suite E: Attention Flow
 
 @Suite struct AttentionFlowIntegration {
     @Test func attentionOnUnfocusedPaneFocusClearsIt() {
@@ -566,6 +613,65 @@ private func reloadModel(from url: URL) -> AppModel {
         let reloadedConfig = ConfigFile(fileURL: cfgURL)
         #expect(reloadedConfig.get("theme") == "Catppuccin Frappe")
         #expect(reloadedConfig.get("hootty-bell-sound") == "Ping")
+    }
+}
+
+// MARK: - Suite F: Split Enhancements
+
+@Suite struct SplitEnhancementsIntegration {
+    @Test func equalizePersistsAfterSaveReload() {
+        let (model, url) = makeModel()
+        let ws = model.workspaces[0]
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+
+        // Manually skew the ratio
+        ws.rootNode.splitRatio = 0.3
+        ws.equalizeSplits()
+        #expect(abs(ws.rootNode.splitRatio - 0.5) < 0.001)
+
+        model.saveWorkspaces()
+        let restored = reloadModel(from: url)
+        let rws = restored.workspaces[0]
+        #expect(abs(rws.rootNode.splitRatio - 0.5) < 0.001)
+    }
+
+    @Test func chainEqualizationPersistsAfterSaveReload() {
+        let (model, url) = makeModel()
+        let ws = model.workspaces[0]
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+
+        // Verify 3 equal panes
+        let rects = ws.rootNode.paneRects()
+        #expect(abs(rects.values.first!.width - 1.0/3.0) < 0.001)
+
+        model.saveWorkspaces()
+        let restored = reloadModel(from: url)
+        let restoredRects = restored.workspaces[0].rootNode.paneRects()
+        #expect(restoredRects.count == 3)
+        for (_, rect) in restoredRects {
+            #expect(abs(rect.width - 1.0/3.0) < 0.001)
+        }
+    }
+
+    @Test func splitRightFourTimesGivesFourEqualPanes() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+
+        let rects = ws.rootNode.paneRects()
+        #expect(rects.count == 4)
+        for (_, rect) in rects {
+            #expect(abs(rect.width - 0.25) < 0.001)
+        }
     }
 }
 

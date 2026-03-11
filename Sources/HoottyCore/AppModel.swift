@@ -20,8 +20,6 @@ public final class AppModel {
 
     public static let sidebarMinWidth: CGFloat = 140
     public static let sidebarMaxWidth: CGFloat = 400
-    private var workspaceCounter = 0
-
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
@@ -36,7 +34,6 @@ public final class AppModel {
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
-            self.workspaceCounter = snapshot.workspaces.count
             if let width = snapshot.sidebarWidth {
                 self.sidebarWidth = width
             }
@@ -73,11 +70,22 @@ public final class AppModel {
 
     @discardableResult
     public func addWorkspace() -> Workspace {
-        workspaceCounter += 1
-        let workspace = Workspace(name: "Workspace \(workspaceCounter)")
+        let workspace = Workspace(name: nextWorkspaceName())
         workspaces.append(workspace)
         saveWorkspaces()
         return workspace
+    }
+
+    private func nextWorkspaceName() -> String {
+        let existingNumbers: Set<Int> = Set(workspaces.compactMap { workspace in
+            let prefix = "Workspace "
+            guard workspace.name.hasPrefix(prefix),
+                  let num = Int(workspace.name.dropFirst(prefix.count)) else { return nil }
+            return num
+        })
+        var n = 1
+        while existingNumbers.contains(n) { n += 1 }
+        return "Workspace \(n)"
     }
 
     public func removeWorkspace(at offsets: IndexSet) {

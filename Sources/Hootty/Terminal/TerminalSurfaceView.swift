@@ -81,6 +81,7 @@ final class TerminalSurfaceView: NSView {
 
         wantsLayer = true
         layer?.masksToBounds = true
+        registerForDraggedTypes([.fileURL, .URL, .string])
         updateTrackingAreas()
     }
 
@@ -776,6 +777,48 @@ extension TerminalSurfaceView: NSTextInputClient {
 
     func characterIndex(for point: NSPoint) -> Int {
         0
+    }
+}
+
+// MARK: - Drag and Drop
+
+extension TerminalSurfaceView {
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        let pb = sender.draggingPasteboard
+        if pb.canReadObject(forClasses: [NSURL.self], options: nil) ||
+           pb.types?.contains(.string) == true {
+            return .copy
+        }
+        return []
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let pb = sender.draggingPasteboard
+
+        // Priority 1: File URLs — shell-escape each path, join with spaces
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [
+            .urlReadingFileURLsOnly: true
+        ]) as? [URL], !urls.isEmpty {
+            let escaped = urls.map { shellEscape($0.path) }.joined(separator: " ")
+            insertText(escaped, replacementRange: NSRange(location: NSNotFound, length: 0))
+            return true
+        }
+
+        // Priority 2: Non-file URLs — shell-escape the URL string
+        if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+           let url = urls.first {
+            let escaped = shellEscape(url.absoluteString)
+            insertText(escaped, replacementRange: NSRange(location: NSNotFound, length: 0))
+            return true
+        }
+
+        // Priority 3: Plain string — insert as-is (same as paste)
+        if let str = pb.string(forType: .string), !str.isEmpty {
+            insertText(str, replacementRange: NSRange(location: NSNotFound, length: 0))
+            return true
+        }
+
+        return false
     }
 }
 

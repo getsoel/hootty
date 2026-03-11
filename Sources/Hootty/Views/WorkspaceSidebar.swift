@@ -16,7 +16,6 @@ struct WorkspaceSidebar: View {
     var onSave: (() -> Void)?
     var sidebarWidth: CGFloat
 
-    @State private var expandedWorkspaceIDs: Set<UUID> = []
     @State private var hoveredWorkspaceID: UUID?
     @State private var hoveredPaneID: UUID?
     @State private var renameTargetID: UUID?
@@ -42,16 +41,6 @@ struct WorkspaceSidebar: View {
         }
         .frame(width: sidebarWidth)
         .background(Color(tokens.surfaceLow))
-        .onAppear {
-            if let id = selectedWorkspaceID {
-                expandedWorkspaceIDs.insert(id)
-            }
-        }
-        .onChange(of: selectedWorkspaceID) { _, newID in
-            if let id = newID {
-                expandedWorkspaceIDs.insert(id)
-            }
-        }
         .alert("Rename Workspace", isPresented: Binding(
             get: { renameTargetID != nil },
             set: { if !$0 { renameTargetID = nil } }
@@ -76,18 +65,16 @@ struct WorkspaceSidebar: View {
                 ForEach(workspaces) { workspace in
                     workspaceRow(workspace)
 
-                    if expandedWorkspaceIDs.contains(workspace.id) {
-                        let panes = workspace.allPanes
-                        let canClose = panes.count > 1
-                        let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
-                        ForEach(panes) { pane in
-                            paneRow(
-                                pane,
-                                workspace: workspace,
-                                canClose: canClose,
-                                layoutRects: layoutRects
-                            )
-                        }
+                    let panes = workspace.allPanes
+                    let canClose = panes.count > 1
+                    let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
+                    ForEach(panes) { pane in
+                        paneRow(
+                            pane,
+                            workspace: workspace,
+                            canClose: canClose,
+                            layoutRects: layoutRects
+                        )
                     }
                 }
             }
@@ -137,34 +124,15 @@ struct WorkspaceSidebar: View {
     private func workspaceRow(_ workspace: Workspace) -> some View {
         let isSelected = workspace.id == selectedWorkspaceID
         let isHovered = workspace.id == hoveredWorkspaceID
-        let isExpanded = expandedWorkspaceIDs.contains(workspace.id)
         return HStack(spacing: 6) {
-            iconView(name: isExpanded ? "_root_open" : "_root", size: TypeScale.iconSize)
+            iconView(name: "_root_open", size: TypeScale.iconSize)
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
+                .foregroundStyle(Color(isSelected ? tokens.elementSelectedText : tokens.textMuted))
                 .lineLimit(1)
 
-            if !isExpanded && workspace.hasThinkingPane {
-                StatusDotView(
-                    attentionKind: nil,
-                    isRunning: false,
-                    isThinking: true,
-                    tokens: tokens
-                )
-            }
-
             Spacer(minLength: 0)
-
-            Button {
-                onRemoveWorkspace(workspace.id)
-            } label: {
-                LucideIcon(Lucide.x, size: 9)
-                    .foregroundStyle(Color(tokens.textMuted))
-            }
-            .buttonStyle(.plain)
-            .opacity(isHovered ? 1 : 0)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.md)
@@ -178,12 +146,6 @@ struct WorkspaceSidebar: View {
                             : Color.clear
                 )
         )
-        .overlay {
-            if !isExpanded, let kind = workspace.attentionKind {
-                Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, solidBase: true)
-            }
-        }
         .onContinuousHover { phase in
             switch phase {
             case .active:
@@ -193,9 +155,9 @@ struct WorkspaceSidebar: View {
                 hoveredWorkspaceID = nil
             }
         }
+        .contentShape(Rectangle())
         .onTapGesture {
             selectedWorkspaceID = workspace.id
-            expandedWorkspaceIDs.insert(workspace.id)
         }
         .overlay(alignment: dropEdge == .top ? .top : .bottom) {
             if dropTargetWorkspaceID == workspace.id, let edge = dropEdge {
@@ -230,6 +192,9 @@ struct WorkspaceSidebar: View {
                 editingName = workspace.name
                 renameTargetID = workspace.id
             }
+            Button("Close Workspace") {
+                onRemoveWorkspace(workspace.id)
+            }
         }
     }
 
@@ -247,20 +212,12 @@ struct WorkspaceSidebar: View {
             )
 
             HStack(spacing: 6) {
-                iconView(name: "bash", size: TypeScale.iconSize)
-
-                if pane.isThinking || pane.attentionKind != nil {
-                    StatusDotView(
-                        attentionKind: pane.attentionKind,
-                        isRunning: pane.isRunning,
-                        isThinking: pane.isThinking,
-                        tokens: tokens
-                    )
-                }
+                LucideIcon(Lucide.squareTerminal, size: TypeScale.iconSize)
+                    .foregroundStyle(Color(paneIconColor(pane)))
 
                 Text(pane.displayName)
                     .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
+                    .foregroundStyle(Color(isFocusedPane ? tokens.elementSelectedText : tokens.textMuted))
                     .lineLimit(1)
 
                 Spacer(minLength: 0)
@@ -274,14 +231,6 @@ struct WorkspaceSidebar: View {
                     )
                 }
 
-                Button {
-                    onRemovePane(workspace.id, pane.id)
-                } label: {
-                    LucideIcon(Lucide.x, size: 8)
-                        .foregroundStyle(Color(tokens.textMuted))
-                }
-                .buttonStyle(.plain)
-                .opacity(isHovered && canClose ? 1 : 0)
             }
             .padding(.trailing, Spacing.md)
             .padding(.vertical, Spacing.md)
@@ -300,7 +249,7 @@ struct WorkspaceSidebar: View {
         .overlay {
             if let kind = pane.attentionKind {
                 Color.clear
-                    .animatedBorderSegment(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, solidBase: true)
+                    .glowBorder(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, glowRadius: 4)
             } else if isFocusedPane {
                 Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
             }
@@ -314,6 +263,7 @@ struct WorkspaceSidebar: View {
                 hoveredPaneID = nil
             }
         }
+        .contentShape(Rectangle())
         .onTapGesture {
             onSelectPane(workspace.id, pane.id)
         }
@@ -333,6 +283,16 @@ struct WorkspaceSidebar: View {
     }
 
     // MARK: - Helpers
+
+    private func paneIconColor(_ pane: Pane) -> NSColor {
+        if let kind = pane.attentionKind {
+            return tokens.attentionColor(for: kind)
+        } else if pane.isThinking {
+            return tokens.statusThinking
+        } else {
+            return tokens.textMuted
+        }
+    }
 
     private func iconView(name: String, size: CGFloat) -> some View {
         CatppuccinIconView(name: name, size: size, isLight: isLight)

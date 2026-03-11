@@ -127,12 +127,12 @@ struct CommandPaletteView: View {
         HStack {
             Text(command.title)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.text))
+                .foregroundStyle(Color(isSelected ? tokens.elementSelectedText : tokens.text))
             Spacer()
             if let shortcut = command.shortcut {
                 Text(shortcut)
                     .font(.system(size: TypeScale.captionSize))
-                    .foregroundStyle(Color(tokens.textMuted))
+                    .foregroundStyle(Color(isSelected ? tokens.elementSelectedText.withAlphaComponent(0.7) : tokens.textMuted))
             }
         }
         .padding(.horizontal, Spacing.md)

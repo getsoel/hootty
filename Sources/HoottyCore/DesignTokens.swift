@@ -28,6 +28,9 @@ public struct DesignTokens {
     /// Selected/active state for interactive elements. Solid surfaceHighlight.
     public let elementSelected: NSColor
 
+    /// Text color on selected backgrounds. Uses foreground when contrast is adequate, else selectionForeground.
+    public let elementSelectedText: NSColor
+
     // MARK: - Text
 
     /// Primary text color. Maps to theme foreground.
@@ -78,7 +81,7 @@ public struct DesignTokens {
     /// Modal backdrop overlay. Always dark regardless of theme.
     public let scrim: NSColor
 
-    /// Color overlay applied to non-focused panes. Uses theme background at 50% opacity.
+    /// Color overlay applied to non-focused panes. Black at 30% opacity to uniformly darken everything underneath.
     public let unfocusedDimColor: NSColor
 
     /// Returns the appropriate status color for an attention kind.
@@ -94,13 +97,19 @@ public struct DesignTokens {
     /// Chrome shares the terminal background (no crust/mantle depth layers).
     /// Visual separation uses palette[0] highlights and borders.
     public static func from(_ theme: TerminalTheme) -> DesignTokens {
-        DesignTokens(
+        let selectedText = contrastAwareText(
+            text: theme.foreground,
+            background: theme.selectionBackground,
+            fallback: theme.selectionForeground
+        )
+        return DesignTokens(
             background: theme.background,
             surfaceLow: theme.background,
             surface: theme.background,
             surfaceHighlight: theme.palette[0],
             elementHover: theme.selectionBackground.withAlphaComponent(0.4),
             elementSelected: theme.selectionBackground,
+            elementSelectedText: selectedText,
             text: theme.foreground,
             textMuted: theme.palette[7],
             textAccent: theme.palette[5],
@@ -115,8 +124,27 @@ public struct DesignTokens {
             tabBarBackground: theme.background,
             tabActive: theme.background,
             scrim: NSColor.black.withAlphaComponent(0.3),
-            unfocusedDimColor: theme.background.withAlphaComponent(0.5)
+            unfocusedDimColor: NSColor.black.withAlphaComponent(0.3)
         )
+    }
+
+    /// Returns `text` if it has adequate contrast (>= 3.0 WCAG ratio) against `background`, else `fallback`.
+    private static func contrastAwareText(text: NSColor, background: NSColor, fallback: NSColor) -> NSColor {
+        let textLum = relativeLuminance(text)
+        let bgLum = relativeLuminance(background)
+        let lighter = max(textLum, bgLum)
+        let darker = min(textLum, bgLum)
+        let ratio = (lighter + 0.05) / (darker + 0.05)
+        return ratio >= 3.0 ? text : fallback
+    }
+
+    /// WCAG relative luminance from an NSColor.
+    private static func relativeLuminance(_ color: NSColor) -> CGFloat {
+        let c = color.usingColorSpace(.sRGB) ?? color
+        let r = c.redComponent
+        let g = c.greenComponent
+        let b = c.blueComponent
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }
 }
 

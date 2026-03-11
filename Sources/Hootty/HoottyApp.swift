@@ -8,26 +8,34 @@ struct HoottyApp: App {
         CrashHandler.install()
         Log.lifecycle.info("Hootty starting...")
 
-        // Initialize the ghostty backend (singleton) and push resolved theme
-        if GhosttyApp.shared.app != nil {
+        // Initialize the ghostty backend FIRST — this copies bundled themes
+        // to app support directory before ThemeCatalog reads it
+        let ghosttyReady = GhosttyApp.shared.app != nil
+        if ghosttyReady {
             Log.lifecycle.info("Ghostty backend initialized")
-            if let resolved = GhosttyApp.shared.initialTheme {
-                appModel.themeManager.setResolvedTheme(resolved)
-            }
         } else {
             Log.lifecycle.error("Ghostty backend failed to initialize")
         }
 
+        // Now create AppModel — themes directory is populated
+        let model = AppModel(themesDirectory: GhosttyApp.themesDirectoryURL)
+        _appModel = State(initialValue: model)
+
+        if ghosttyReady, let resolved = GhosttyApp.shared.initialTheme {
+            model.themeManager.setResolvedTheme(resolved)
+        }
+
         // Wire NSSound playback into SoundManager (HoottyCore can't import AppKit)
-        appModel.soundManager.soundPlayer = { name in
+        model.soundManager.soundPlayer = { name in
             NSSound(named: NSSound.Name(name))?.play()
         }
 
+        _commandRegistry = State(initialValue: CommandRegistry())
         registerCommands()
     }
 
-    @State private var appModel = AppModel(themesDirectory: GhosttyApp.themesDirectoryURL)
-    @State private var commandRegistry = CommandRegistry()
+    @State private var appModel: AppModel
+    @State private var commandRegistry: CommandRegistry
 
     // MARK: - Command Registration
 
@@ -68,6 +76,21 @@ struct HoottyApp: App {
         }
         commandRegistry.register(.focusPreviousPane) { [appModel] in
             appModel.selectedWorkspace?.focusPreviousPane()
+        }
+        commandRegistry.register(.focusPaneUp) { [appModel] in
+            appModel.selectedWorkspace?.focusPaneInDirection(.up)
+        }
+        commandRegistry.register(.focusPaneDown) { [appModel] in
+            appModel.selectedWorkspace?.focusPaneInDirection(.down)
+        }
+        commandRegistry.register(.focusPaneLeft) { [appModel] in
+            appModel.selectedWorkspace?.focusPaneInDirection(.left)
+        }
+        commandRegistry.register(.focusPaneRight) { [appModel] in
+            appModel.selectedWorkspace?.focusPaneInDirection(.right)
+        }
+        commandRegistry.register(.equalizeSplits) { [appModel] in
+            appModel.selectedWorkspace?.equalizeSplits()
         }
         commandRegistry.register(.toggleSidebar) { [appModel] in
             appModel.toggleSidebar()
@@ -217,6 +240,35 @@ struct HoottyApp: App {
                     commandRegistry.execute(.splitUp)
                 }
                 .keyboardShortcut("d", modifiers: [.command, .option, .shift])
+
+                Divider()
+
+                Button(AppCommand.equalizeSplits.title) {
+                    commandRegistry.execute(.equalizeSplits)
+                }
+                .keyboardShortcut("=", modifiers: [.control, .shift])
+
+                Divider()
+
+                Button(AppCommand.focusPaneUp.title) {
+                    commandRegistry.execute(.focusPaneUp)
+                }
+                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+
+                Button(AppCommand.focusPaneDown.title) {
+                    commandRegistry.execute(.focusPaneDown)
+                }
+                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+
+                Button(AppCommand.focusPaneLeft.title) {
+                    commandRegistry.execute(.focusPaneLeft)
+                }
+                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+
+                Button(AppCommand.focusPaneRight.title) {
+                    commandRegistry.execute(.focusPaneRight)
+                }
+                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             }
             CommandMenu("Theme") {
                 Button(AppCommand.changeTheme.title) {

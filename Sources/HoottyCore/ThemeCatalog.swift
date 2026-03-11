@@ -51,7 +51,9 @@ public final class ThemeCatalog {
                 isLight: theme.isLight
             ))
         }
-        themePreviews = previews
+        let pinned = previews.filter { $0.name.hasPrefix("Catppuccin") }
+        let rest = previews.filter { !$0.name.hasPrefix("Catppuccin") }
+        themePreviews = pinned + rest
     }
 
     /// Read the raw theme file content for a given theme name.

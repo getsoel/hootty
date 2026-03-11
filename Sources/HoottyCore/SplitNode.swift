@@ -85,6 +85,26 @@ public final class SplitNode: Identifiable {
         }
     }
 
+    public func findLeafNode(paneID: UUID) -> SplitNode? {
+        switch content {
+        case .leaf(let pane):
+            return pane.id == paneID ? self : nil
+        case .split(_, let first, let second):
+            return first.findLeafNode(paneID: paneID) ?? second.findLeafNode(paneID: paneID)
+        }
+    }
+
+    @discardableResult
+    public func swapPanes(_ id1: UUID, _ id2: UUID) -> Bool {
+        guard id1 != id2 else { return false }
+        guard let node1 = findLeafNode(paneID: id1),
+              let node2 = findLeafNode(paneID: id2) else { return false }
+        let temp = node1.content
+        node1.content = node2.content
+        node2.content = temp
+        return true
+    }
+
     @discardableResult
     public func splitPane(paneID: UUID, direction: SplitDirection, newPane: Pane, placeBefore: Bool = false) -> Bool {
         switch content {
@@ -103,6 +123,60 @@ public final class SplitNode: Identifiable {
         default:
             return false
         }
+    }
+
+    // MARK: - Equalize
+
+    /// Reset all split ratios in this subtree to 0.5 (equal division at each level).
+    public func equalizeSplits() {
+        guard case .split(_, let first, let second) = content else { return }
+        splitRatio = 0.5
+        first.equalizeSplits()
+        second.equalizeSplits()
+    }
+
+    // MARK: - Same-Direction Chain (i3-style sibling splitting)
+
+    /// Count terminals (leaves or cross-direction subtrees) reachable through
+    /// same-direction splits from this node.
+    public func sameDirectionChainLeafCount(direction: SplitDirection) -> Int {
+        guard case .split(let dir, let first, let second) = content, dir == direction else {
+            return 1
+        }
+        return first.sameDirectionChainLeafCount(direction: direction)
+             + second.sameDirectionChainLeafCount(direction: direction)
+    }
+
+    /// Equalize ratios so each terminal in a same-direction chain gets equal space.
+    /// At each node in the chain: splitRatio = firstChildTerminalCount / totalCount.
+    public func equalizeSameDirectionChain(direction: SplitDirection) {
+        guard case .split(let dir, let first, let second) = content, dir == direction else { return }
+        let total = sameDirectionChainLeafCount(direction: direction)
+        let firstCount = first.sameDirectionChainLeafCount(direction: direction)
+        splitRatio = Double(firstCount) / Double(total)
+        first.equalizeSameDirectionChain(direction: direction)
+        second.equalizeSameDirectionChain(direction: direction)
+    }
+
+    /// Return the ancestor path from this node to the parent of the given paneID.
+    /// Each entry: (splitNode, paneIsInFirstChild: Bool).
+    public func ancestorChain(for paneID: UUID) -> [(node: SplitNode, childIsFirst: Bool)] {
+        switch content {
+        case .leaf(let pane):
+            return pane.id == paneID ? [] : []
+        case .split(_, let first, let second):
+            if first.containsPane(id: paneID) {
+                return [(node: self, childIsFirst: true)] + first.ancestorChain(for: paneID)
+            } else if second.containsPane(id: paneID) {
+                return [(node: self, childIsFirst: false)] + second.ancestorChain(for: paneID)
+            }
+            return []
+        }
+    }
+
+    /// Whether this subtree contains a pane with the given ID.
+    public func containsPane(id: UUID) -> Bool {
+        findPane(id: id) != nil
     }
 
     @discardableResult

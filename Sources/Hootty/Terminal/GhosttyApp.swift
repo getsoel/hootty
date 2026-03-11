@@ -378,10 +378,22 @@ final class GhosttyApp {
                     GhosttyApp.shared.commandRegistry?.execute(.focusNextPane)
                 case GHOSTTY_GOTO_SPLIT_PREVIOUS:
                     GhosttyApp.shared.commandRegistry?.execute(.focusPreviousPane)
+                case GHOSTTY_GOTO_SPLIT_UP:
+                    GhosttyApp.shared.commandRegistry?.execute(.focusPaneUp)
+                case GHOSTTY_GOTO_SPLIT_DOWN:
+                    GhosttyApp.shared.commandRegistry?.execute(.focusPaneDown)
+                case GHOSTTY_GOTO_SPLIT_LEFT:
+                    GhosttyApp.shared.commandRegistry?.execute(.focusPaneLeft)
+                case GHOSTTY_GOTO_SPLIT_RIGHT:
+                    GhosttyApp.shared.commandRegistry?.execute(.focusPaneRight)
                 default:
-                    // Directional focus (up/down/left/right) not yet implemented
                     Log.ghostty.info("Unhandled goto_split direction: \(direction.rawValue)")
                 }
+            }
+            return true
+        case GHOSTTY_ACTION_EQUALIZE_SPLITS:
+            DispatchQueue.main.async {
+                GhosttyApp.shared.commandRegistry?.execute(.equalizeSplits)
             }
             return true
         case GHOSTTY_ACTION_QUIT,

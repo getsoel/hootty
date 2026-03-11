@@ -55,8 +55,22 @@ dmg: release
 	@echo "Created $(DMG_NAME)"
 
 install: release
-	-killall -w $(APP_NAME) 2>/dev/null || true
-	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
+	@if pgrep -x "$(APP_NAME)" >/dev/null 2>&1; then \
+		echo "Quitting running $(APP_NAME)..."; \
+		killall $(APP_NAME) 2>/dev/null || true; \
+		sleep 1; \
+	fi
+	@if pgrep -x "$(APP_NAME)" >/dev/null 2>&1; then \
+		echo "Error: $(APP_NAME) is still running. Please quit it manually and retry." >&2; \
+		exit 1; \
+	fi
+	@if [ -d "$(INSTALL_DIR)/$(APP_NAME).app" ]; then \
+		rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"; \
+		if [ -d "$(INSTALL_DIR)/$(APP_NAME).app" ]; then \
+			echo "Error: Could not remove $(INSTALL_DIR)/$(APP_NAME).app. Is it in use?" >&2; \
+			exit 1; \
+		fi; \
+	fi
 	cp -R "$(RELEASE_APP_BUNDLE)" "$(INSTALL_DIR)/$(APP_NAME).app"
 	touch "$(INSTALL_DIR)/$(APP_NAME).app"
 	/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$(INSTALL_DIR)/$(APP_NAME).app"

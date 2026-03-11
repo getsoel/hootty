@@ -38,6 +38,7 @@ Interactive element backgrounds for hover/selection feedback:
 |-------|---------------|------------|
 | `elementHover` | `element.hover` | `selectionBackground` @ 40% opacity |
 | `elementSelected` | `element.selected` | `selectionBackground` (solid) |
+| `elementSelectedText` | -- | `foreground` if contrast ratio >= 3.0 vs `selectionBackground`, else `selectionForeground` |
 
 ### Text Hierarchy
 
@@ -76,7 +77,7 @@ Semantic status indicators for process state and alerts:
 | `tabActive` | `tab.active_background` | Same as `surface` (Base) |
 | (tab inactive) | `tab.inactive_background` | `Color.clear` (no dedicated token -- use transparency) |
 | `scrim` | -- | `NSColor.black` @ 30% opacity (modal backdrop) |
-| `unfocusedDimColor` | -- | `theme.background` @ 50% opacity (non-focused pane overlay) |
+| `unfocusedDimColor` | -- | `NSColor.black` @ 30% opacity (darkens entire unfocused pane) |
 
 ---
 
@@ -117,7 +118,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 - Row hover: `elementHover`
 - Row selected: `elementSelected`
 - Row selected + focused: `elementSelected` with `borderFocused` left accent
-- Text primary: `text`
+- Text primary: `text` (unselected), `elementSelectedText` (selected/focused)
 - Text secondary: `textMuted`
 - Status dot running: `statusSuccess`
 - Status dot stopped: `statusInactive`

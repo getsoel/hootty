@@ -219,6 +219,10 @@ struct ContentView: View {
                     workspace.removePane(id: paneID)
                     appModel.saveWorkspaces()
                 },
+                onSwapPanes: { sourceID, targetID in
+                    workspace.swapPanes(sourceID, targetID)
+                    appModel.saveWorkspaces()
+                },
                 onSave: { appModel.saveWorkspaces() }
             )
             .id(workspace.id)

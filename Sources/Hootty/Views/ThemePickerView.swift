@@ -103,7 +103,17 @@ struct ThemePickerView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    ForEach(Array(filteredThemes.enumerated()), id: \.element.id) { index, preview in
+                    let themes = filteredThemes
+                    let pinnedCount = themes.prefix(while: { $0.name.hasPrefix("Catppuccin") }).count
+                    let showSections = pinnedCount > 0 && pinnedCount < themes.count
+
+                    if showSections {
+                        sectionHeader("Recommended")
+                    }
+                    ForEach(Array(themes.enumerated()), id: \.element.id) { index, preview in
+                        if showSections && index == pinnedCount {
+                            sectionHeader("All Themes")
+                        }
                         themeRow(preview, isSelected: index == selectedIndex)
                             .id(preview.name)
                             .contentShape(Rectangle())
@@ -128,6 +138,16 @@ struct ThemePickerView: View {
         }
     }
 
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.system(size: TypeScale.captionSize, weight: .semibold))
+            .foregroundStyle(Color(tokens.textMuted))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.md)
+            .padding(.top, Spacing.md)
+            .padding(.bottom, Spacing.sm)
+    }
+
     private func themeRow(_ preview: ThemePreview, isSelected: Bool) -> some View {
         HStack(spacing: Spacing.md) {
             // Color swatch strip: bg + 6 representative ANSI colors
@@ -143,7 +163,7 @@ struct ThemePickerView: View {
 
             Text(preview.name)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.text))
+                .foregroundStyle(Color(isSelected ? tokens.elementSelectedText : tokens.text))
                 .lineLimit(1)
 
             Spacer()

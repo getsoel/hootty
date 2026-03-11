@@ -20,6 +20,13 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case previousWorkspace
     case focusNextPane
     case focusPreviousPane
+    case focusPaneUp
+    case focusPaneDown
+    case focusPaneLeft
+    case focusPaneRight
+
+    // Splits (actions)
+    case equalizeSplits
 
     // View
     case toggleSidebar
@@ -43,6 +50,11 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .previousWorkspace: return "Previous Workspace"
         case .focusNextPane: return "Focus Next Pane"
         case .focusPreviousPane: return "Focus Previous Pane"
+        case .focusPaneUp: return "Focus Pane Up"
+        case .focusPaneDown: return "Focus Pane Down"
+        case .focusPaneLeft: return "Focus Pane Left"
+        case .focusPaneRight: return "Focus Pane Right"
+        case .equalizeSplits: return "Equalize Splits"
         case .toggleSidebar: return "Toggle Sidebar"
         case .toggleCommandPalette: return "Command Palette"
         case .changeTheme: return "Change Theme..."
@@ -65,6 +77,11 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .editConfig: return "⌘,"
         case .nextWorkspace: return "⌃⇥"
         case .previousWorkspace: return "⌃⇧⇥"
+        case .focusPaneUp: return "⌥⌘↑"
+        case .focusPaneDown: return "⌥⌘↓"
+        case .focusPaneLeft: return "⌥⌘←"
+        case .focusPaneRight: return "⌥⌘→"
+        case .equalizeSplits: return "⌃⇧="
         default: return nil
         }
     }
