@@ -594,14 +594,29 @@ final class TerminalSurfaceView: NSView {
             return true
         }
 
-        // Claim all non-Command keys so the menu system (e.g., Edit > Delete)
-        // cannot intercept keys meant for the terminal.
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if !mods.contains(.command) {
+
+        // Claim Ctrl+Return to prevent AppKit's default context menu equivalent
+        if mods.contains(.control) && event.keyCode == 0x24 { // Return
             self.keyDown(with: event)
             return true
         }
 
+        // Claim Ctrl+/ and translate to Ctrl+_ (prevents macOS beep)
+        if mods.contains(.control) && event.keyCode == 0x2C { // slash
+            self.keyDown(with: event)
+            return true
+        }
+
+        // Synthetic events (zero timestamp, e.g. Cmd+period → synthetic escape):
+        // let AppKit handle them normally.
+        if event.timestamp == 0 {
+            return false
+        }
+
+        // All other non-command keys: return false so AppKit delivers both
+        // keyDown: and keyUp: through normal dispatch. Claiming them here
+        // suppresses keyUp (per Apple docs), which breaks arrow keys, etc.
         return false
     }
 

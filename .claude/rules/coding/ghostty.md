@@ -19,7 +19,7 @@ In ghostty runtime callbacks, copy C string data (`String(cString: ptr)`) synchr
 
 Split API types: `ghostty_action_split_direction_e` with constants `GHOSTTY_SPLIT_DIRECTION_RIGHT`, `GHOSTTY_SPLIT_DIRECTION_DOWN`, `GHOSTTY_SPLIT_DIRECTION_LEFT`, `GHOSTTY_SPLIT_DIRECTION_UP`. For inherited surface config use `ghostty_surface_inherited_config(surface, GHOSTTY_SURFACE_CONTEXT_SPLIT)` — the second arg is `ghostty_surface_context_e`, not a split direction.
 
-In `performKeyEquivalent`, claim Escape (keyCode `0x35`) by calling `keyDown(with:)` and returning `true`. Returning `false` propagates Escape up the responder chain where SwiftUI/AppKit interprets it as a cancel/close action on the window.
+In `performKeyEquivalent`, only return `true` for keys that genuinely need claiming: Escape (`0x35`, prevents window close), Ctrl+Return (`0x24`, prevents context menu), Ctrl+/ (`0x2C`, prevents beep), and consumed ghostty bindings. Never blanket-claim all non-command keys — per Apple docs, `keyUp:` events are not delivered for key equivalents, so returning `true` suppresses RELEASE events and breaks Kitty keyboard protocol (causes garbled display on arrow keys, broken backspace/delete).
 
 `close_surface_cb` receives app-level userdata (`ghostty_app_t` runtime userdata), not a `SurfaceCallbackContext`. To close a specific pane from a runtime callback, route through action callbacks (`GHOSTTY_ACTION_SHOW_CHILD_EXITED` → `processDidExit`) or static helpers that accept pane IDs.
 
