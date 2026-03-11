@@ -82,6 +82,20 @@ else
             echo "Cached $(ls "$SHA_CACHE/themes" | wc -l | tr -d ' ') theme files"
         fi
 
+        # Cache shell-integration if available
+        SHELL_INT_SRC="$GHOSTTY_DIR/zig-out/share/ghostty/shell-integration"
+        if [ -d "$SHELL_INT_SRC" ]; then
+            cp -R "$SHELL_INT_SRC" "$SHA_CACHE/shell-integration"
+            echo "Cached shell-integration scripts"
+        fi
+
+        # Cache terminfo if available
+        TERMINFO_SRC="$GHOSTTY_DIR/zig-out/share/terminfo"
+        if [ -d "$TERMINFO_SRC" ]; then
+            cp -R "$TERMINFO_SRC" "$SHA_CACHE/terminfo"
+            echo "Cached terminfo database"
+        fi
+
         echo "Cached build at $SHA_CACHE"
     else
         echo "Cache was populated by another process."
@@ -106,6 +120,26 @@ if [ -d "$SHA_CACHE/themes" ]; then
     echo "Installed $(ls "$THEMES_DEST" | wc -l | tr -d ' ') theme files to Resources/Themes/"
 else
     echo "Warning: No theme files found in cache. Theme catalog will be empty."
+fi
+
+# --- Copy shell-integration to SPM resources ---
+SHELL_INT_DEST="$REPO_ROOT/Sources/Hootty/Resources/shell-integration"
+rm -rf "$SHELL_INT_DEST"
+if [ -d "$SHA_CACHE/shell-integration" ]; then
+    cp -R "$SHA_CACHE/shell-integration" "$SHELL_INT_DEST"
+    echo "Installed shell-integration to Resources/shell-integration/"
+else
+    echo "Warning: No shell-integration found in cache."
+fi
+
+# --- Copy terminfo to SPM resources ---
+TERMINFO_DEST="$REPO_ROOT/Sources/Hootty/Resources/terminfo"
+rm -rf "$TERMINFO_DEST"
+if [ -d "$SHA_CACHE/terminfo" ]; then
+    cp -R "$SHA_CACHE/terminfo" "$TERMINFO_DEST"
+    echo "Installed terminfo to Resources/terminfo/"
+else
+    echo "Warning: No terminfo found in cache."
 fi
 
 echo "Setup complete. libghostty.a installed to Vendors/lib/"

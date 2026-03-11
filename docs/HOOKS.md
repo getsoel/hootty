@@ -87,3 +87,26 @@ The unfocused pane should show an animated yellow border and bell icon. Clicking
 ### Test with Claude Code
 
 If Claude Code is installed, run `claude` in a pane, switch to another pane, and trigger a task. The original pane should signal attention immediately when Claude's turn finishes (green indicator). Permission prompts should show a yellow indicator.
+
+## Kitty Keyboard Protocol Reset
+
+When a program enables the [Kitty keyboard protocol](https://sw.kovidgoyal.net/kitty/keyboard-protocol/) (`CSI > flags u`) and then crashes or is killed without disabling it (`CSI < u`), the terminal's VT parser retains the mode. Subsequent shell input gets encoded as CSI u sequences, making the terminal unusable.
+
+Hootty automatically resets stale keyboard modes for **bash** via the `PROMPT_COMMAND` environment variable. At each prompt, `printf '\e[<9u'` pops up to 9 entries from the keyboard mode stack (safe on an empty stack).
+
+For **zsh**, add to `~/.zshrc`:
+
+```zsh
+[[ -n "$HOOTTY_PANE_ID" ]] && precmd_functions+=(_hootty_kitty_reset)
+_hootty_kitty_reset() { printf '\e[<9u' }
+```
+
+For **fish**, add to `~/.config/fish/config.fish`:
+
+```fish
+if set -q HOOTTY_PANE_ID
+    function _hootty_kitty_reset --on-event fish_prompt
+        printf '\e[<9u'
+    end
+end
+```

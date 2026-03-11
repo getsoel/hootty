@@ -207,6 +207,17 @@ final class TerminalSurfaceView: NSView {
 
         addVar("HOOTTY_PANE_ID", paneID.uuidString)
 
+        // Reset stale Kitty keyboard protocol modes at each bash prompt.
+        // `CSI < 9 u` pops up to 9 entries from the keyboard mode stack.
+        // Safe on an empty stack (entries are already .disabled). Only bash processes PROMPT_COMMAND.
+        let kittyReset = "printf '\\e[<9u'"
+        let existingPromptCmd = ProcessInfo.processInfo.environment["PROMPT_COMMAND"] ?? ""
+        if existingPromptCmd.isEmpty {
+            addVar("PROMPT_COMMAND", kittyReset)
+        } else {
+            addVar("PROMPT_COMMAND", "\(kittyReset);\(existingPromptCmd)")
+        }
+
         if let binPath = Self.hoottyBinPath {
             let current = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
             addVar("PATH", "\(binPath):\(current)")
@@ -583,6 +594,14 @@ final class TerminalSurfaceView: NSView {
             return true
         }
 
+        // Claim all non-Command keys so the menu system (e.g., Edit > Delete)
+        // cannot intercept keys meant for the terminal.
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if !mods.contains(.command) {
+            self.keyDown(with: event)
+            return true
+        }
+
         return false
     }
 
@@ -795,30 +814,36 @@ extension TerminalSurfaceView {
     override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
 
-        // Priority 1: File URLs — shell-escape each path, join with spaces
+        // Resolve drag content (same priority as before)
+        let resolved: String?
         if let urls = pb.readObjects(forClasses: [NSURL.self], options: [
             .urlReadingFileURLsOnly: true
         ]) as? [URL], !urls.isEmpty {
-            let escaped = urls.map { shellEscape($0.path) }.joined(separator: " ")
-            insertText(escaped, replacementRange: NSRange(location: NSNotFound, length: 0))
-            return true
+            resolved = urls.map { shellEscape($0.path) }.joined(separator: " ")
+        } else if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
+                  let url = urls.first {
+            resolved = shellEscape(url.absoluteString)
+        } else if let str = pb.string(forType: .string), !str.isEmpty {
+            resolved = str
+        } else {
+            resolved = nil
         }
 
-        // Priority 2: Non-file URLs — shell-escape the URL string
-        if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-           let url = urls.first {
-            let escaped = shellEscape(url.absoluteString)
-            insertText(escaped, replacementRange: NSRange(location: NSNotFound, length: 0))
-            return true
-        }
+        guard let content = resolved, let surface else { return false }
 
-        // Priority 3: Plain string — insert as-is (same as paste)
-        if let str = pb.string(forType: .string), !str.isEmpty {
-            insertText(str, replacementRange: NSRange(location: NSNotFound, length: 0))
-            return true
+        // Route through ghostty's paste path for bracketed paste wrapping.
+        // Set override so readClipboard returns this content instead of the system pasteboard.
+        GhosttyApp.shared.pendingPasteOverride = content
+        let action = "paste_from_clipboard"
+        let ok = ghostty_surface_binding_action(surface, action, UInt(action.utf8.count))
+        if !ok {
+            // Fallback: clear override and send directly
+            GhosttyApp.shared.pendingPasteOverride = nil
+            content.withCString { ptr in
+                ghostty_surface_text(surface, ptr, UInt(content.utf8.count))
+            }
         }
-
-        return false
+        return true
     }
 }
 

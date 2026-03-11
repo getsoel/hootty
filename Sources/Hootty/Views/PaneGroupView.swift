@@ -43,6 +43,10 @@ struct PaneContentView: View {
                         lineWidth: 2,
                         glowRadius: kind == .input ? 8 : 6
                     )
+            } else if isFocused {
+                Rectangle()
+                    .stroke(Color(tokens.borderFocused), lineWidth: 2)
+                    .allowsHitTesting(false)
             }
         }
         .overlay {

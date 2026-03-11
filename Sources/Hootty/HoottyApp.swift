@@ -180,6 +180,11 @@ struct HoottyApp: App {
                     GhosttyApp.shared.onPwdChanged = { [appModel] _, _ in
                         appModel.debouncedSave()
                     }
+                    GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
+                        if exitCode > 128 {
+                            Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
+                        }
+                    }
                     GhosttyApp.shared.onCloseTab = { [appModel] in
                         guard let workspace = appModel.selectedWorkspace,
                               let focusedPaneID = workspace.focusedPaneID else { return }

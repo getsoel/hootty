@@ -251,7 +251,7 @@ struct WorkspaceSidebar: View {
                 Color.clear
                     .glowBorder(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, glowRadius: 4)
             } else if isFocusedPane {
-                Rectangle().stroke(Color(tokens.textAccent), lineWidth: 1)
+                Rectangle().stroke(Color(tokens.border), lineWidth: 1)
             }
         }
         .onContinuousHover { phase in

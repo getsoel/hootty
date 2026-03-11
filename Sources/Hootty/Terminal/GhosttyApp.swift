@@ -44,8 +44,15 @@ final class GhosttyApp {
     /// Called when ghostty dispatches a close_tab action.
     var onCloseTab: (() -> Void)?
 
+    /// Called when a command finishes in a surface (shell integration required). (paneID, exitCode)
+    var onCommandFinished: ((UUID, Int16) -> Void)?
+
     /// Called when a surface's working directory changes (paneID, newPath).
     var onPwdChanged: ((UUID, String) -> Void)?
+
+    /// Pending paste content set by drag-and-drop to route through ghostty's paste path
+    /// (which applies bracketed paste wrapping). Consumed by `readClipboard`.
+    var pendingPasteOverride: String?
 
     /// Pending parent surfaces for inherited config during split creation.
     private var pendingParentSurfaces: [UUID: ghostty_surface_t] = [:]
@@ -161,19 +168,23 @@ final class GhosttyApp {
             .appendingPathComponent("themes")
     }
 
-    /// Copy all bundled theme files to app support so libghostty can resolve theme names.
+    /// Copy all bundled theme files, terminfo, and shell-integration to app support
+    /// so libghostty can resolve theme names and terminal capabilities.
     /// Sets `GHOSTTY_RESOURCES_DIR` env var before `ghostty_init()` is called.
     private static func ensureGhosttyResources() {
-        let resourcesDir = ConfigFile.appSupportDirectory.appendingPathComponent("ghostty-resources")
+        let fm = FileManager.default
+        let appSupportDir = ConfigFile.appSupportDirectory
+        let resourcesDir = appSupportDir.appendingPathComponent("ghostty-resources")
         let themesDir = resourcesDir.appendingPathComponent("themes")
-        try? FileManager.default.createDirectory(at: themesDir, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: themesDir, withIntermediateDirectories: true)
 
+        // Themes
         if let bundledURL = HoottyBundle.resourceBundle?.url(forResource: "Themes", withExtension: nil),
-           let files = try? FileManager.default.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil) {
+           let files = try? fm.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil) {
             for file in files where !file.lastPathComponent.hasPrefix(".") {
                 let dest = themesDir.appendingPathComponent(file.lastPathComponent)
-                try? FileManager.default.removeItem(at: dest)
-                try? FileManager.default.copyItem(at: file, to: dest)
+                try? fm.removeItem(at: dest)
+                try? fm.copyItem(at: file, to: dest)
             }
             Log.ghostty.info("Copied \(files.count) theme files to \(themesDir.path)")
         } else {
@@ -181,6 +192,27 @@ final class GhosttyApp {
             let file = themesDir.appendingPathComponent(ThemeCatalog.fallbackThemeName)
             try? ThemeCatalog.fallbackThemeContent.write(to: file, atomically: true, encoding: .utf8)
             Log.ghostty.warning("No bundled themes found, wrote fallback theme only")
+        }
+
+        // Shell integration: deploy into ghostty-resources/shell-integration/
+        let shellIntegrationDest = resourcesDir.appendingPathComponent("shell-integration")
+        if let bundledURL = HoottyBundle.resourceBundle?.url(forResource: "shell-integration", withExtension: nil) {
+            try? fm.removeItem(at: shellIntegrationDest)
+            try? fm.copyItem(at: bundledURL, to: shellIntegrationDest)
+            Log.ghostty.info("Deployed shell-integration to \(shellIntegrationDest.path)")
+        } else {
+            Log.ghostty.warning("No bundled shell-integration found — shell integration will not work")
+        }
+
+        // Terminfo: deploy into parent dir (dirname(resources_dir)/terminfo)
+        // libghostty computes TERMINFO = dirname(GHOSTTY_RESOURCES_DIR) + "/terminfo"
+        let terminfoDir = appSupportDir.appendingPathComponent("terminfo")
+        if let bundledURL = HoottyBundle.resourceBundle?.url(forResource: "terminfo", withExtension: nil) {
+            try? fm.removeItem(at: terminfoDir)
+            try? fm.copyItem(at: bundledURL, to: terminfoDir)
+            Log.ghostty.info("Deployed terminfo to \(terminfoDir.path)")
+        } else {
+            Log.ghostty.warning("No bundled terminfo found — terminal capabilities may be limited")
         }
 
         let path = resourcesDir.path
@@ -332,6 +364,8 @@ final class GhosttyApp {
             return setCellSize(target: target, v: action.action.cell_size)
         case GHOSTTY_ACTION_SHOW_CHILD_EXITED:
             return handleChildExited(target: target, v: action.action.child_exited)
+        case GHOSTTY_ACTION_COMMAND_FINISHED:
+            return handleCommandFinished(target: target, v: action.action.command_finished)
         case GHOSTTY_ACTION_RING_BELL:
             return handleBell(target: target)
         case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
@@ -544,6 +578,16 @@ final class GhosttyApp {
         return true
     }
 
+    private static func handleCommandFinished(target: ghostty_target_s, v: ghostty_action_command_finished_s) -> Bool {
+        guard let ctx = callbackContext(from: target) else { return false }
+        let paneID = ctx.paneID
+        let exitCode = v.exit_code
+        DispatchQueue.main.async {
+            GhosttyApp.shared.onCommandFinished?(paneID, exitCode)
+        }
+        return true
+    }
+
     // MARK: - Clipboard
 
     private static func readClipboard(
@@ -552,9 +596,12 @@ final class GhosttyApp {
         state: UnsafeMutableRawPointer?
     ) {
         let surface = GhosttyApp.shared.focusedSurface
+        // Consume paste override synchronously (before async dispatch) to avoid races.
+        let override = GhosttyApp.shared.pendingPasteOverride
+        GhosttyApp.shared.pendingPasteOverride = nil
         DispatchQueue.main.async {
             guard let surface else { return }
-            let str = NSPasteboard.general.string(forType: .string) ?? ""
+            let str = override ?? NSPasteboard.general.string(forType: .string) ?? ""
             str.withCString { ptr in
                 ghostty_surface_complete_clipboard_request(surface, ptr, state, true)
             }

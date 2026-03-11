@@ -53,13 +53,6 @@ struct PaneBar: View {
                 Rectangle().fill(Color(tokens.border)).frame(height: 1)
             }
         )
-        .overlay(alignment: .top) {
-            if isFocused {
-                Rectangle()
-                    .fill(Color(tokens.borderFocused))
-                    .frame(height: 1)
-            }
-        }
         .contentShape(Rectangle())
         .draggable(pane.id.uuidString)
         .onTapGesture {
