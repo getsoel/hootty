@@ -21,6 +21,17 @@ hootty-attention-idle-sound = Submarine
 - **Ghostty-native keys** use plain names: `theme`, `font-size`, `cursor-style`, etc. These are passed through to ghostty as-is.
 - **Hootty-specific keys** use the `hootty-` prefix: `hootty-bell-sound`, `hootty-attention-idle-sound`, etc. These are filtered out before feeding config to ghostty.
 
+## Repeatable Keys
+
+Some ghostty keys (like `font-family`) support multiple values — each line adds a fallback. Hootty preserves these: `ghosttyConfigContent()` reads the raw file from disk (rather than reconstructing from a dictionary), and `save()` only rewrites keys that were changed via `set()`. All other lines pass through verbatim.
+
+Example font configuration:
+```
+font-family = JetBrains Mono
+font-family = Apple Symbols
+```
+The first line sets the primary font; the second adds a fallback for symbols not covered by the primary font. The default config includes `Menlo` (ghostty's macOS default) and `Apple Symbols` (covers Unicode symbols like ➜).
+
 ## Adding a New Setting
 
 1. **Choose the key name.** If ghostty owns it, use the ghostty key name. If it's Hootty-only, prefix with `hootty-`.

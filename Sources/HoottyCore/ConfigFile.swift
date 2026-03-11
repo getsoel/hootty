@@ -8,6 +8,7 @@ public final class ConfigFile {
     public let fileURL: URL
     private var values: [String: String] = [:]
     private var removedKeys: Set<String> = []
+    private var changedKeys: Set<String> = []
 
     public static var defaultFileURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -39,9 +40,11 @@ public final class ConfigFile {
         if let value {
             values[key] = value
             removedKeys.remove(key)
+            changedKeys.insert(key)
         } else {
             values.removeValue(forKey: key)
             removedKeys.insert(key)
+            changedKeys.remove(key)
         }
     }
 
@@ -49,6 +52,7 @@ public final class ConfigFile {
 
     public func load() {
         removedKeys.removeAll()
+        changedKeys.removeAll()
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             Self.logger.info("No config file at \(self.fileURL.path)")
             values = [:]
@@ -82,14 +86,17 @@ public final class ConfigFile {
             Self.logger.error("Failed to save config: \(error.localizedDescription)")
         }
         removedKeys.removeAll()
+        changedKeys.removeAll()
     }
 
     /// Creates the default config file if it doesn't exist. Runs migration from old format first.
     public func ensureExists() {
         migrate()
         if !FileManager.default.fileExists(atPath: fileURL.path) {
-            values["theme"] = "Catppuccin Mocha"
-            save()
+            let dir = fileURL.deletingLastPathComponent()
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            try? Self.defaultConfigContent().write(to: fileURL, atomically: true, encoding: .utf8)
+            load()
         } else {
             load()
         }
@@ -98,17 +105,21 @@ public final class ConfigFile {
     // MARK: - Ghostty Integration
 
     /// Returns config content with only non-hootty keys (for feeding to ghostty).
+    /// Reads the raw file from disk to preserve repeatable keys (e.g. multiple font-family lines).
     public func ghosttyConfigContent() -> String {
-        let lines = values.keys.sorted()
-            .filter { !$0.hasPrefix("hootty-") }
-            .compactMap { key -> String? in
-                guard let value = values[key] else { return nil }
-                return "\(key) = \(value)"
-            }
-        if lines.isEmpty {
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
             return "theme = Catppuccin Mocha\n"
         }
-        return lines.joined(separator: "\n") + "\n"
+        let lines = content.components(separatedBy: .newlines)
+        let filtered = lines.filter { line in
+            guard let (key, _) = Self.parseConfigLine(line) else { return true }
+            return !key.hasPrefix("hootty-")
+        }
+        let result = filtered.joined(separator: "\n")
+        if result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "theme = Catppuccin Mocha\n"
+        }
+        return result.hasSuffix("\n") ? result : result + "\n"
     }
 
     // MARK: - Parsing
@@ -116,19 +127,24 @@ public final class ConfigFile {
     public static func parse(_ content: String) -> [String: String] {
         var result: [String: String] = [:]
         for line in content.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
-            guard let eqIndex = trimmed.firstIndex(of: "=") else { continue }
-            let key = trimmed[trimmed.startIndex..<eqIndex].trimmingCharacters(in: .whitespaces)
-            let value = trimmed[trimmed.index(after: eqIndex)...].trimmingCharacters(in: .whitespaces)
-            if !key.isEmpty && !value.isEmpty {
-                result[key] = value
-            }
+            guard let (key, value) = parseConfigLine(line),
+                  !key.isEmpty, !value.isEmpty else { continue }
+            result[key] = value
         }
         return result
     }
 
     // MARK: - Private
+
+    /// Parses a config line into (key, value), returning nil for comments, blanks, or lines without `=`.
+    private static func parseConfigLine(_ line: String) -> (key: String, value: String)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("#"),
+              let eqIndex = trimmed.firstIndex(of: "=") else { return nil }
+        let key = trimmed[trimmed.startIndex..<eqIndex].trimmingCharacters(in: .whitespaces)
+        let value = String(trimmed[trimmed.index(after: eqIndex)...]).trimmingCharacters(in: .whitespaces)
+        return (key, value)
+    }
 
     private func buildUpdatedContent(from existing: String) -> String {
         let existingLines = existing.components(separatedBy: .newlines)
@@ -136,31 +152,31 @@ public final class ConfigFile {
         var outputLines: [String] = []
 
         for line in existingLines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.isEmpty || trimmed.hasPrefix("#") {
+            guard let (key, _) = Self.parseConfigLine(line) else {
                 outputLines.append(line)
                 continue
             }
-            guard let eqIndex = trimmed.firstIndex(of: "=") else {
-                outputLines.append(line)
-                continue
-            }
-            let key = trimmed[trimmed.startIndex..<eqIndex].trimmingCharacters(in: .whitespaces)
 
-            if let value = values[key] {
-                outputLines.append("\(key) = \(value)")
-                writtenKeys.insert(key)
-            } else if removedKeys.contains(key) {
+            if removedKeys.contains(key) {
                 continue
+            } else if changedKeys.contains(key) {
+                if !writtenKeys.contains(key), let value = values[key] {
+                    outputLines.append("\(key) = \(value)")
+                    writtenKeys.insert(key)
+                }
+                // Skip additional occurrences of changed keys
             } else {
+                // Pass through verbatim (preserves repeatable keys)
                 outputLines.append(line)
-                writtenKeys.insert(key)
             }
         }
 
-        let newKeys = values.keys.filter { !writtenKeys.contains($0) }.sorted()
+        // Append new keys that weren't already in the file
+        let newKeys = changedKeys.filter { !writtenKeys.contains($0) && !removedKeys.contains($0) }.sorted()
         for key in newKeys {
-            outputLines.append("\(key) = \(values[key]!)")
+            if let value = values[key] {
+                outputLines.append("\(key) = \(value)")
+            }
         }
 
         var result = outputLines.joined(separator: "\n")
@@ -202,6 +218,8 @@ public final class ConfigFile {
         """
         # Ghostty settings
         theme = Catppuccin Mocha
+        font-family = Menlo
+        font-family = Apple Symbols
 
         # Hootty settings
         # hootty-bell-sound = Ping

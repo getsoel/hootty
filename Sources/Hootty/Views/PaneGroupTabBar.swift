@@ -1,6 +1,5 @@
 import SwiftUI
 import HoottyCore
-import LucideIcons
 
 struct PaneBar: View {
     let pane: Pane
@@ -82,7 +81,8 @@ struct PaneBar: View {
             Button("Split Left") { onSplitPane?(.horizontal, true) }
             Button("Split Up") { onSplitPane?(.vertical, true) }
         } label: {
-            LucideIcon(Lucide.columns2, size: 12)
+            Image(systemName: "rectangle.split.2x1")
+                .font(.system(size: 12))
                 .foregroundStyle(Color(tokens.textMuted))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .aspectRatio(1, contentMode: .fit)
@@ -112,7 +112,8 @@ struct PaneBar: View {
         Button {
             onClosePane?(pane.id)
         } label: {
-            LucideIcon(Lucide.x, size: 12)
+            Image(systemName: "xmark")
+                .font(.system(size: 12))
                 .foregroundStyle(Color(tokens.textMuted))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .aspectRatio(1, contentMode: .fit)

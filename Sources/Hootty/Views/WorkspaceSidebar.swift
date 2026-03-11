@@ -1,13 +1,11 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import HoottyCore
-import LucideIcons
 
 struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let tokens: DesignTokens
-    let isLight: Bool
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onMoveWorkspace: (UUID, Int) -> Void
@@ -84,7 +82,8 @@ struct WorkspaceSidebar: View {
     private var addWorkspaceButton: some View {
         Button(action: onAddWorkspace) {
             HStack {
-                LucideIcon(Lucide.plus, size: TypeScale.smallSize)
+                Image(systemName: "plus")
+                    .font(.system(size: TypeScale.smallSize))
                 Text("New Workspace")
                     .font(.system(size: TypeScale.smallSize))
             }
@@ -125,7 +124,9 @@ struct WorkspaceSidebar: View {
         let isSelected = workspace.id == selectedWorkspaceID
         let isHovered = workspace.id == hoveredWorkspaceID
         return HStack(spacing: 6) {
-            iconView(name: "_root_open", size: TypeScale.iconSize)
+            Image(systemName: "folder.fill")
+                .font(.system(size: TypeScale.iconSize))
+                .foregroundStyle(Color(isSelected ? tokens.elementSelectedText : tokens.textMuted))
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
@@ -212,7 +213,8 @@ struct WorkspaceSidebar: View {
             )
 
             HStack(spacing: 6) {
-                LucideIcon(Lucide.squareTerminal, size: TypeScale.iconSize)
+                Image(systemName: "apple.terminal")
+                    .font(.system(size: TypeScale.iconSize))
                     .foregroundStyle(Color(paneIconColor(pane)))
 
                 Text(pane.displayName)
@@ -294,9 +296,6 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    private func iconView(name: String, size: CGFloat) -> some View {
-        CatppuccinIconView(name: name, size: size, isLight: isLight)
-    }
 }
 
 // MARK: - Workspace Drag-and-Drop

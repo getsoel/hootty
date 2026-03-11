@@ -159,7 +159,6 @@ struct ContentView: View {
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
-            isLight: theme.isLight,
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
                 appModel.selectedWorkspaceID = workspace.id

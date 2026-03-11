@@ -1,6 +1,5 @@
 import SwiftUI
 import HoottyCore
-import LucideIcons
 
 struct StatusDotView: View {
     let attentionKind: AttentionKind?
@@ -12,10 +11,12 @@ struct StatusDotView: View {
 
     var body: some View {
         if let kind = attentionKind {
-            LucideIcon(Lucide.bell, size: 12)
+            Image(systemName: "bell")
+                .font(.system(size: 12))
                 .foregroundStyle(Color(tokens.attentionColor(for: kind)))
         } else if isThinking {
-            LucideIcon(Lucide.loaderCircle, size: 12)
+            Image(systemName: "arrow.2.circlepath")
+                .font(.system(size: 12))
                 .foregroundStyle(Color(tokens.statusThinking))
                 .rotationEffect(.degrees(rotation))
                 .onAppear {
@@ -24,7 +25,8 @@ struct StatusDotView: View {
                     }
                 }
         } else if isRunning {
-            LucideIcon(Lucide.play, size: 12)
+            Image(systemName: "play.fill")
+                .font(.system(size: 12))
                 .foregroundStyle(Color(tokens.statusSuccess))
         } else {
             Color.clear

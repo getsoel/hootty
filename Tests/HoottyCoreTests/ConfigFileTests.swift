@@ -174,12 +174,19 @@ import Foundation
     // MARK: - Ghostty Integration
 
     @Test func ghosttyConfigContentFiltersHoottyKeys() {
-        let config = ConfigFile(fileURL: tempFileURL())
-        config.set("theme", value: "catppuccin-mocha")
-        config.set("font-size", value: "14")
-        config.set("hootty-bell-sound", value: "Ping")
-        config.set("hootty-attention-idle-sound", value: "Glass")
+        let url = tempFileURL()
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
+        let raw = """
+        theme = catppuccin-mocha
+        font-size = 14
+        hootty-bell-sound = Ping
+        hootty-attention-idle-sound = Glass
+        """
+        try? raw.write(to: url, atomically: true, encoding: .utf8)
+
+        let config = ConfigFile(fileURL: url)
         let content = config.ghosttyConfigContent()
         #expect(content.contains("theme = catppuccin-mocha"))
         #expect(content.contains("font-size = 14"))
@@ -190,6 +197,59 @@ import Foundation
         let config = ConfigFile(fileURL: tempFileURL())
         let content = config.ghosttyConfigContent()
         #expect(content.contains("Catppuccin Mocha"))
+    }
+
+    @Test func ghosttyConfigContentPreservesRepeatableKeys() {
+        let url = tempFileURL()
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let raw = """
+        theme = catppuccin-mocha
+        font-family = JetBrains Mono
+        font-family = Apple Symbols
+        """
+        try? raw.write(to: url, atomically: true, encoding: .utf8)
+
+        let config = ConfigFile(fileURL: url)
+        let content = config.ghosttyConfigContent()
+        #expect(content.contains("font-family = JetBrains Mono"))
+        #expect(content.contains("font-family = Apple Symbols"))
+    }
+
+    @Test func savePreservesRepeatableKeysNotChanged() {
+        let url = tempFileURL()
+        let dir = url.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let raw = """
+        theme = catppuccin-mocha
+        font-family = JetBrains Mono
+        font-family = Apple Symbols
+        hootty-bell-sound = Ping
+        """
+        try? raw.write(to: url, atomically: true, encoding: .utf8)
+
+        let config = ConfigFile(fileURL: url)
+        config.set("theme", value: "catppuccin-frappe")
+        config.save()
+
+        let saved = try! String(contentsOf: url, encoding: .utf8)
+        #expect(saved.contains("theme = catppuccin-frappe"))
+        #expect(saved.contains("font-family = JetBrains Mono"))
+        #expect(saved.contains("font-family = Apple Symbols"))
+        #expect(saved.contains("hootty-bell-sound = Ping"))
+    }
+
+    @Test func ensureExistsWritesDefaultContentWithFontFamily() {
+        let url = tempFileURL()
+        let config = ConfigFile(fileURL: url)
+        config.ensureExists()
+
+        let raw = try! String(contentsOf: url, encoding: .utf8)
+        #expect(raw.contains("font-family = Menlo"))
+        #expect(raw.contains("font-family = Apple Symbols"))
+        #expect(raw.contains("theme = Catppuccin Mocha"))
     }
 
     // MARK: - Migration
