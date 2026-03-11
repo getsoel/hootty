@@ -4,6 +4,7 @@ import HoottyCore
 struct TerminalPaneView: NSViewRepresentable {
     let pane: Pane
     let isFocused: Bool
+    let onFocusPane: () -> Void
 
     func makeNSView(context: Context) -> TerminalSurfaceView {
         // Reuse cached view if available (survives SwiftUI structural identity changes)
@@ -45,6 +46,7 @@ struct TerminalPaneView: NSViewRepresentable {
                 pane?.attentionKind = nil
             }
         }
+        view.onFocusRequest = onFocusPane
 
         GhosttyApp.shared.cacheSurfaceView(view, for: pane.id)
 
@@ -60,6 +62,7 @@ struct TerminalPaneView: NSViewRepresentable {
     }
 
     func updateNSView(_ view: TerminalSurfaceView, context: Context) {
+        view.onFocusRequest = onFocusPane
         if isFocused {
             DispatchQueue.main.async {
                 if view.window?.firstResponder !== view {

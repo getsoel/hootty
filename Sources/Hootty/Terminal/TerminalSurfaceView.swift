@@ -48,6 +48,7 @@ final class TerminalSurfaceView: NSView {
     var pwdDidChange: ((String) -> Void)?
     var processDidExit: ((Int32) -> Void)?
     var onUserInteraction: (() -> Void)?
+    var onFocusRequest: (() -> Void)?
 
     // IME state
     private var markedText = NSMutableAttributedString()
@@ -410,6 +411,7 @@ final class TerminalSurfaceView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         onUserInteraction?()
+        onFocusRequest?()
         window?.makeFirstResponder(self)
         guard let surface else { return }
         let pos = convert(event.locationInWindow, from: nil)
@@ -845,6 +847,9 @@ extension TerminalSurfaceView {
         }
 
         guard let content = resolved, let surface else { return false }
+
+        onFocusRequest?()
+        window?.makeFirstResponder(self)
 
         // Route through ghostty's paste path for bracketed paste wrapping.
         // Set override so readClipboard returns this content instead of the system pasteboard.

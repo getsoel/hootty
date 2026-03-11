@@ -26,7 +26,7 @@ struct PaneContentView: View {
                 onSave: onSave
             )
 
-            TerminalPaneView(pane: pane, isFocused: isFocused)
+            TerminalPaneView(pane: pane, isFocused: isFocused, onFocusPane: onFocusPane)
         }
         .overlay {
             if !isFocused {
