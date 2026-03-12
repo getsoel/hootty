@@ -50,6 +50,7 @@ struct CommandPaletteView: View {
             .padding(.top, 60)
         }
         .onAppear {
+            NSApp.keyWindow?.makeFirstResponder(nil)
             isSearchFieldFocused = true
         }
         .onChange(of: query) {

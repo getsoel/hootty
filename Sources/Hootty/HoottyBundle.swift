@@ -10,12 +10,12 @@ enum HoottyBundle {
         ]
         for candidate in candidates {
             if let bundle = Bundle(url: candidate ?? URL(fileURLWithPath: "/")),
-               bundle.url(forResource: "Icons", withExtension: nil) != nil {
+               bundle.url(forResource: "Themes", withExtension: nil) != nil {
                 return bundle
             }
             let nested = candidate?.appendingPathComponent("\(bundleName).bundle")
             if let nested, let bundle = Bundle(url: nested),
-               bundle.url(forResource: "Icons", withExtension: nil) != nil {
+               bundle.url(forResource: "Themes", withExtension: nil) != nil {
                 return bundle
             }
         }
