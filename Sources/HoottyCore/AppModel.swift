@@ -15,7 +15,6 @@ public final class AppModel {
         case none
         case commandPalette
         case themePicker
-        case branchPicker
     }
     public var modalState: ModalState = .none
     public var sidebarHasFocus: Bool = false

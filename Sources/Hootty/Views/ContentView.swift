@@ -6,7 +6,6 @@ struct ContentView: View {
     var commandRegistry: CommandRegistry
     @GestureState private var dragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
-    @State private var pickerBranches: [BranchRef] = []
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -114,11 +113,6 @@ struct ContentView: View {
             }
         }
         .overlay {
-            if appModel.modalState == .branchPicker {
-                branchPickerOverlay
-            }
-        }
-        .overlay {
             if appModel.modalState == .themePicker {
                 ThemePickerView(
                     tokens: tokens,
@@ -194,47 +188,10 @@ struct ContentView: View {
                     appModel.saveWorkspaces()
                 }
             },
-            onNewWorktree: { workspaceID in
-                appModel.selectedWorkspaceID = workspaceID
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }),
-                   workspace.repoPath != nil {
-                    pickerBranches = workspace.listBranches()
-                    appModel.modalState = .branchPicker
-                }
-            },
             onSave: { appModel.saveWorkspaces() },
             sidebarHasFocus: $appModel.sidebarHasFocus,
             sidebarWidth: effectiveSidebarWidth
         )
-    }
-
-    @ViewBuilder
-    private var branchPickerOverlay: some View {
-        if let workspace = selectedWorkspace {
-            BranchPickerView(
-                tokens: tokens,
-                branches: pickerBranches,
-                onSelectBranch: { branchName in
-                    guard let repoPath = workspace.repoPath else { return }
-                    guard let worktreePath = GitWorktreeManager.resolveWorktreePath(
-                        repoPath: repoPath,
-                        branch: branchName
-                    ) else { return }
-
-                    let parentSurface = GhosttyApp.shared.focusedSurface
-                    if let newPane = workspace.splitFocusedPane(
-                        direction: .horizontal,
-                        workingDirectory: worktreePath
-                    ) {
-                        if let parentSurface {
-                            GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
-                        }
-                        appModel.saveWorkspaces()
-                    }
-                },
-                onDismiss: { appModel.modalState = .none }
-            )
-        }
     }
 
     @ViewBuilder
@@ -266,11 +223,6 @@ struct ContentView: View {
                 onSwapPanes: { sourceID, targetID in
                     workspace.swapPanes(sourceID, targetID)
                     appModel.saveWorkspaces()
-                },
-                onNewWorktree: {
-                    guard workspace.repoPath != nil else { return }
-                    pickerBranches = workspace.listBranches()
-                    appModel.modalState = .branchPicker
                 },
                 onSave: { appModel.saveWorkspaces() }
             )

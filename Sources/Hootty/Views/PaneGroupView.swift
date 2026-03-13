@@ -10,7 +10,6 @@ struct PaneContentView: View {
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
-    var onNewWorktree: (() -> Void)?
     let onSave: () -> Void
 
     @State private var isDropTarget = false
@@ -24,7 +23,6 @@ struct PaneContentView: View {
                 onFocusPane: onFocusPane,
                 onSplitPane: onSplitPane,
                 onClosePane: onClosePane,
-                onNewWorktree: onNewWorktree,
                 onSave: onSave
             )
 
@@ -79,8 +77,11 @@ private struct PaneSwapDropDelegate: DropDelegate {
         info.hasItemsConforming(to: [.utf8PlainText])
     }
 
+    func dropEntered(info: DropInfo) {
+        isDropTarget = true
+    }
+
     func dropUpdated(info: DropInfo) -> DropProposal? {
-        if !isDropTarget { isDropTarget = true }
         return DropProposal(operation: .move)
     }
 

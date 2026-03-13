@@ -8,11 +8,9 @@ struct PaneBar: View {
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
-    var onNewWorktree: (() -> Void)?
     var onSave: (() -> Void)?
 
     private enum HoveredElement: Equatable {
-        case worktree
         case split
         case close
     }
@@ -38,26 +36,18 @@ struct PaneBar: View {
 
             if pane.branch != nil {
                 branchLabel
-                worktreeButton
             }
 
-            if onSplitPane != nil {
-                splitMenu
-            }
-
-            if onClosePane != nil {
-                closeButton
+            if onSplitPane != nil || onClosePane != nil {
+                actionGroup
             }
         }
         .frame(height: 38)
         .frame(maxWidth: .infinity)
-        .padding(.bottom, -1)
-        .background(
-            VStack(spacing: 0) {
-                Color(tokens.tabBarBackground)
-                Rectangle().fill(Color(tokens.border)).frame(height: 1)
-            }
-        )
+        .background(Color(tokens.tabBarBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color(tokens.border)).frame(height: 1)
+        }
         .contentShape(Rectangle())
         .draggable(pane.id.uuidString)
         .onTapGesture {
@@ -79,65 +69,66 @@ struct PaneBar: View {
         }
     }
 
-    private var splitMenu: some View {
-        Menu {
-            Button("Split Right") { onSplitPane?(.horizontal, false) }
-            Button("Split Down") { onSplitPane?(.vertical, false) }
-            Divider()
-            Button("Split Left") { onSplitPane?(.horizontal, true) }
-            Button("Split Up") { onSplitPane?(.vertical, true) }
-        } label: {
-            Image(systemName: "rectangle.split.2x1")
-                .font(.system(size: TypeScale.iconSize))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-                .background(hovered == .split ? Color(tokens.elementHover) : Color.clear)
-                .contentShape(Rectangle())
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        hovered = .split
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        if hovered == .split { hovered = nil }
-                    @unknown default: break
-                    }
+    private var actionGroup: some View {
+        HStack(spacing: Spacing.xs) {
+            if onSplitPane != nil {
+                Menu {
+                    Button("Split Right") { onSplitPane?(.horizontal, false) }
+                    Button("Split Down") { onSplitPane?(.vertical, false) }
+                    Divider()
+                    Button("Split Left") { onSplitPane?(.horizontal, true) }
+                    Button("Split Up") { onSplitPane?(.vertical, true) }
+                } label: {
+                    Image(systemName: "rectangle.split.2x1")
+                        .font(.system(size: TypeScale.smallSize))
+                        .foregroundStyle(Color(tokens.textMuted))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aspectRatio(1, contentMode: .fit)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(hovered == .split ? Color(tokens.elementHover) : Color.clear))
+                        .contentShape(RoundedRectangle(cornerRadius: 4))
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                hovered = .split
+                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                            case .ended:
+                                if hovered == .split { hovered = nil }
+                            @unknown default: break
+                            }
+                        }
                 }
-        }
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .accessibilityLabel("Split pane")
-        .frame(maxHeight: .infinity)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(Color(tokens.border)).frame(width: 1)
-        }
-    }
+                .buttonStyle(.plain)
+                .menuIndicator(.hidden)
+                .accessibilityLabel("Split pane")
+            }
 
-    private var closeButton: some View {
-        Button {
-            onClosePane?(pane.id)
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: TypeScale.iconSize))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-                .background(hovered == .close ? Color(tokens.elementHover) : Color.clear)
-                .contentShape(Rectangle())
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        hovered = .close
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        if hovered == .close { hovered = nil }
-                    @unknown default: break
-                    }
+            if onClosePane != nil {
+                Button {
+                    onClosePane?(pane.id)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: TypeScale.smallSize))
+                        .foregroundStyle(Color(tokens.textMuted))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aspectRatio(1, contentMode: .fit)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(hovered == .close ? Color(tokens.elementHover) : Color.clear))
+                        .contentShape(RoundedRectangle(cornerRadius: 4))
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                hovered = .close
+                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                            case .ended:
+                                if hovered == .close { hovered = nil }
+                            @unknown default: break
+                            }
+                        }
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close pane")
+            }
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Close pane")
+        .padding(Spacing.smd)
         .frame(maxHeight: .infinity)
         .overlay(alignment: .leading) {
             Rectangle().fill(Color(tokens.border)).frame(width: 1)
@@ -151,7 +142,7 @@ struct PaneBar: View {
                 .font(.system(size: TypeScale.bodySize))
                 .lineLimit(1)
                 .truncationMode(.head)
-                .padding(.trailing, Spacing.sm)
+                .padding(.trailing, Spacing.md)
         }
     }
 
@@ -161,36 +152,6 @@ struct PaneBar: View {
         let repoPart = Text(repo).foregroundStyle(Color(tokens.textRepo))
         let sep = Text("⎇").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
         return repoPart + sep + branchPart
-    }
-
-    private var worktreeButton: some View {
-        Button {
-            onNewWorktree?()
-        } label: {
-            Image(systemName: "cube")
-                .font(.system(size: TypeScale.iconSize))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .aspectRatio(1, contentMode: .fit)
-                .background(hovered == .worktree ? Color(tokens.elementHover) : Color.clear)
-                .contentShape(Rectangle())
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        hovered = .worktree
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        if hovered == .worktree { hovered = nil }
-                    @unknown default: break
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("New worktree")
-        .frame(maxHeight: .infinity)
-        .overlay(alignment: .leading) {
-            Rectangle().fill(Color(tokens.border)).frame(width: 1)
-        }
     }
 
     private func commitRename() {

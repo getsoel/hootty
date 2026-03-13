@@ -11,7 +11,6 @@ struct WorkspaceSidebar: View {
     var onMoveWorkspace: (UUID, Int) -> Void
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
-    var onNewWorktree: ((UUID) -> Void)?
     var onSave: (() -> Void)?
     @Binding var sidebarHasFocus: Bool
     var sidebarWidth: CGFloat
@@ -373,11 +372,6 @@ struct WorkspaceSidebar: View {
             Button("Rename Pane") {
                 editingPaneName = pane.displayName
                 renamePaneTargetID = pane.id
-            }
-            if pane.branch != nil {
-                Button("New Worktree") {
-                    onNewWorktree?(workspace.id)
-                }
             }
             if canClose {
                 Button("Close Pane") {
