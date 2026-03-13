@@ -25,6 +25,7 @@ struct PaneBar: View {
         HStack(spacing: 0) {
             StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
                 .frame(maxHeight: .infinity)
+                .padding(.leading, Spacing.md)
 
             Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
@@ -146,21 +147,20 @@ struct PaneBar: View {
     @ViewBuilder
     private var branchLabel: some View {
         if let branch = pane.branch {
-            HStack(spacing: 0) {
-                if let repoName = pane.repoName {
-                    Text(repoName)
-                        .foregroundStyle(Color(tokens.textRepo))
-                }
-                Text(" ⎇ ")
-                    .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-                Text(branch)
-                    .foregroundStyle(Color(tokens.textAccent))
-            }
-            .font(.system(size: TypeScale.captionSize))
-            .lineLimit(1)
-            .truncationMode(.head)
-            .padding(.trailing, Spacing.sm)
+            branchText(repo: pane.repoName, branch: branch)
+                .font(.system(size: TypeScale.bodySize))
+                .lineLimit(1)
+                .truncationMode(.head)
+                .padding(.trailing, Spacing.sm)
         }
+    }
+
+    private func branchText(repo: String?, branch: String) -> Text {
+        let branchPart = Text(branch).foregroundStyle(Color(tokens.textBranch))
+        guard let repo else { return branchPart }
+        let repoPart = Text(repo).foregroundStyle(Color(tokens.textRepo))
+        let sep = Text("⎇").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+        return repoPart + sep + branchPart
     }
 
     private var worktreeButton: some View {

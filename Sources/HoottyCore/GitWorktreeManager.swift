@@ -179,11 +179,9 @@ public enum GitWorktreeManager {
             return existing.path
         }
 
-        // Create new worktree
-        let repoName = URL(fileURLWithPath: repoPath).lastPathComponent
-        let parent = URL(fileURLWithPath: repoPath).deletingLastPathComponent()
-        let worktreeDir = parent.appendingPathComponent(".\(repoName)-worktrees").path
-        let worktreePath = "\(worktreeDir)/\(branch)"
+        // Create new worktree — matches Claude Code convention (.claude/worktrees/)
+        let worktreeDir = (repoPath as NSString).appendingPathComponent(".claude/worktrees")
+        let worktreePath = (worktreeDir as NSString).appendingPathComponent(branch)
 
         // Ensure parent directory exists
         try? FileManager.default.createDirectory(
