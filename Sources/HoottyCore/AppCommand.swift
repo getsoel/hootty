@@ -30,6 +30,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
 
     // View
     case toggleSidebar
+    case focusSidebar
     case toggleCommandPalette
     case changeTheme
     case refreshTerminal
@@ -61,6 +62,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .focusPaneRight: return "Focus Pane Right"
         case .equalizeSplits: return "Equalize Splits"
         case .toggleSidebar: return "Toggle Sidebar"
+        case .focusSidebar: return "Focus Sidebar"
         case .toggleCommandPalette: return "Command Palette"
         case .changeTheme: return "Change Theme..."
         case .refreshTerminal: return "Refresh Terminal"
@@ -81,6 +83,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .splitLeft: return "⌥⌘D"
         case .splitUp: return "⌥⇧⌘D"
         case .toggleSidebar: return "⇧⌘S"
+        case .focusSidebar: return "⌘0"
         case .toggleCommandPalette: return "⇧⌘P"
         case .editConfig: return "⌘,"
         case .nextWorkspace: return "⌃⇥"

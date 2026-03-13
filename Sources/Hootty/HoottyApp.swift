@@ -95,6 +95,10 @@ struct HoottyApp: App {
         commandRegistry.register(.toggleSidebar) { [appModel] in
             appModel.toggleSidebar()
         }
+        commandRegistry.register(.focusSidebar) { [appModel] in
+            appModel.sidebarVisible = true
+            appModel.sidebarHasFocus = true
+        }
         commandRegistry.register(.toggleCommandPalette) { [appModel] in
             appModel.modalState = appModel.modalState == .commandPalette ? .none : .commandPalette
         }
@@ -224,6 +228,11 @@ struct HoottyApp: App {
                     commandRegistry.execute(.toggleSidebar)
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])
+
+                Button(AppCommand.focusSidebar.title) {
+                    commandRegistry.execute(.focusSidebar)
+                }
+                .keyboardShortcut("0", modifiers: .command)
             }
             CommandMenu("Shell") {
                 Button(AppCommand.newWorkspace.title) {

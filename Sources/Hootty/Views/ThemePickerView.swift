@@ -48,7 +48,9 @@ struct ThemePickerView: View {
         .onAppear {
             // Resign the terminal NSView's first responder so SwiftUI can claim focus
             NSApp.keyWindow?.makeFirstResponder(nil)
-            isSearchFieldFocused = true
+            DispatchQueue.main.async {
+                isSearchFieldFocused = true
+            }
             // Scroll to currently selected theme
             if let idx = filteredThemes.firstIndex(where: { $0.name == selectedThemeName }) {
                 selectedIndex = idx
@@ -88,7 +90,7 @@ struct ThemePickerView: View {
         TextField("Search themes...", text: $query)
             .textFieldStyle(.plain)
             .font(.system(size: TypeScale.bodySize))
-            .foregroundStyle(Color(tokens.text))
+            .foregroundColor(Color(tokens.text))
             .padding(Spacing.md)
             .focused($isSearchFieldFocused)
     }

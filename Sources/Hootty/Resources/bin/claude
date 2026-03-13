@@ -3,13 +3,13 @@
 # Claude Code sessions for title-based state detection.
 # Outside Hootty, passes through to the real claude unchanged.
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+
 # Find the real claude binary, skipping our own directory
 find_real_claude() {
-    local self_dir
-    self_dir="$(cd "$(dirname "$0")" && pwd -P)"
     local IFS=:
     for d in $PATH; do
-        [[ "$d" == "$self_dir" ]] && continue
+        [[ "$d" == "$SCRIPT_DIR" ]] && continue
         [[ -x "$d/claude" ]] && printf '%s' "$d/claude" && return 0
     done
     return 1
@@ -29,6 +29,6 @@ esac
 
 # Inject SessionStart hook to report session ID back to Hootty for resume support.
 # Thinking/attention detection is handled by title watching (ClaudeTitleParser).
-HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:session:${CLAUDE_SESSION_ID}\\a'"'"'"}]}]}}'
+HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"

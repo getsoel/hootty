@@ -11,17 +11,22 @@ struct WorkspaceSidebar: View {
     var onMoveWorkspace: (UUID, Int) -> Void
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
+    var onCreateWorktree: ((UUID, String, String) -> Void)?
     var onSave: (() -> Void)?
     @Binding var sidebarHasFocus: Bool
+    @Binding var sidebarCursorPaneID: UUID?
     var sidebarWidth: CGFloat
 
     @FocusState private var isFocused: Bool
     @State private var hoveredWorkspaceID: UUID?
     @State private var hoveredPaneID: UUID?
+    @State private var hoveredWorktreeAction: String?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
     @State private var renamePaneTargetID: UUID?
     @State private var editingPaneName: String = ""
+    @State private var worktreeTarget: WorktreeCreationTarget?
+    @State private var worktreeBranchName: String = ""
     @State private var dropTargetWorkspaceID: UUID?
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
@@ -44,11 +49,18 @@ struct WorkspaceSidebar: View {
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled()
-        .onKeyPress(.upArrow) { navigatePrevious(); return .handled }
-        .onKeyPress(.downArrow) { navigateNext(); return .handled }
-        .onKeyPress(.return) { sidebarHasFocus = false; return .handled }
+        .onKeyPress(.upArrow) { moveCursor(direction: -1); return .handled }
+        .onKeyPress(.downArrow) { moveCursor(direction: 1); return .handled }
+        .onKeyPress(.return) { confirmCursor(); return .handled }
         .onKeyPress(.escape) { sidebarHasFocus = false; return .handled }
-        .onChange(of: sidebarHasFocus) { _, hasFocus in isFocused = hasFocus }
+        .onChange(of: sidebarHasFocus) { _, hasFocus in
+            isFocused = hasFocus
+            if hasFocus {
+                sidebarCursorPaneID = selectedWorkspace?.focusedPaneID
+            } else {
+                sidebarCursorPaneID = nil
+            }
+        }
         .onChange(of: isFocused) { _, focused in
             if !focused && sidebarHasFocus { sidebarHasFocus = false }
         }
@@ -67,6 +79,14 @@ struct WorkspaceSidebar: View {
             TextField("Pane name", text: $editingPaneName)
             Button("OK") { commitPaneRename() }
             Button("Cancel", role: .cancel) { renamePaneTargetID = nil }
+        }
+        .alert("New Worktree", isPresented: Binding(
+            get: { worktreeTarget != nil },
+            set: { if !$0 { worktreeTarget = nil } }
+        )) {
+            TextField("Branch name", text: $worktreeBranchName)
+            Button("Create") { commitWorktreeCreation() }
+            Button("Cancel", role: .cancel) { worktreeTarget = nil }
         }
     }
 
@@ -88,7 +108,9 @@ struct WorkspaceSidebar: View {
         let hasBranches = workspace.hasBranchSections
         let depth = hasBranches ? 2 : 1
 
-        ForEach(workspace.sidebarSections) { section in
+        let sections = workspace.sidebarSections
+        let headBranchRepos = Set(sections.filter(\.isHead).compactMap(\.repoRoot))
+        ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
             if hasBranches {
                 branchSectionHeader(section)
             }
@@ -101,6 +123,18 @@ struct WorkspaceSidebar: View {
                     layoutRects: layoutRects,
                     depth: depth
                 )
+            }
+
+            // Show "+ New worktree" at the end of each repo's group
+            // (right before the next HEAD section or at the end of the list)
+            if let repoRoot = section.repoRoot,
+               headBranchRepos.contains(repoRoot) {
+                let isLastForRepo = index + 1 >= sections.count
+                    || sections[index + 1].isHead
+                    || sections[index + 1].repoRoot != repoRoot
+                if isLastForRepo {
+                    createWorktreeRow(workspace: workspace, repoRoot: repoRoot, depth: depth - 1)
+                }
             }
         }
     }
@@ -144,28 +178,48 @@ struct WorkspaceSidebar: View {
         renamePaneTargetID = nil
     }
 
+    private func commitWorktreeCreation() {
+        let trimmed = worktreeBranchName.trimmingCharacters(in: .whitespaces)
+        if let target = worktreeTarget, !trimmed.isEmpty {
+            onCreateWorktree?(target.workspaceID, target.repoRoot, trimmed)
+        }
+        worktreeTarget = nil
+        worktreeBranchName = ""
+    }
+
     // MARK: - Keyboard Navigation
 
     private var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    private func navigateNext() {
-        guard let ws = selectedWorkspace else { return }
-        let panes = ws.allPanes
-        guard let id = ws.focusedPaneID,
-              let idx = panes.firstIndex(where: { $0.id == id }),
-              idx + 1 < panes.count else { return }
-        onSelectPane(ws.id, panes[idx + 1].id)
+    /// Flat list of all navigable (workspace, pane) pairs across all workspaces.
+    private var allNavigableItems: [(workspaceID: UUID, paneID: UUID)] {
+        workspaces.flatMap { ws in
+            ws.allPanes.map { (ws.id, $0.id) }
+        }
     }
 
-    private func navigatePrevious() {
-        guard let ws = selectedWorkspace else { return }
-        let panes = ws.allPanes
-        guard let id = ws.focusedPaneID,
-              let idx = panes.firstIndex(where: { $0.id == id }),
-              idx > 0 else { return }
-        onSelectPane(ws.id, panes[idx - 1].id)
+    private func moveCursor(direction: Int) {
+        let items = allNavigableItems
+        guard !items.isEmpty else { return }
+        let currentID = sidebarCursorPaneID ?? selectedWorkspace?.focusedPaneID
+        guard let currentID,
+              let idx = items.firstIndex(where: { $0.paneID == currentID }) else {
+            if let first = items.first { sidebarCursorPaneID = first.paneID }
+            return
+        }
+        let newIdx = idx + direction
+        guard newIdx >= 0, newIdx < items.count else { return }
+        sidebarCursorPaneID = items[newIdx].paneID
+    }
+
+    private func confirmCursor() {
+        if let cursorID = sidebarCursorPaneID,
+           let item = allNavigableItems.first(where: { $0.paneID == cursorID }) {
+            onSelectPane(item.workspaceID, item.paneID)
+        }
+        sidebarHasFocus = false
     }
 
     // MARK: - Workspace row (depth 0, no tree lines)
@@ -276,6 +330,16 @@ struct WorkspaceSidebar: View {
         .padding(.trailing, Spacing.md)
         .padding(.leading, Spacing.md + TreeLayout.columnWidth)
         .background(TreeLinesBackground(depth: 1, tokens: tokens))
+        .contextMenu {
+            if !section.isHead, let branch = section.branch,
+               let worktreePath = section.panes.compactMap({ $0.worktreePath }).first {
+                Button("Copy merge prompt") {
+                    let prompt = "Merge branch '\(branch)' into the main branch. The worktree is at \(worktreePath). Remove the worktree when done."
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(prompt, forType: .string)
+                }
+            }
+        }
     }
 
     private func worktreeIcon(for section: SidebarSection) -> String {
@@ -308,6 +372,7 @@ struct WorkspaceSidebar: View {
 
     private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool, layoutRects: [UUID: CGRect], depth: Int = 1) -> some View {
         let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
+        let isCursorTarget = sidebarHasFocus && sidebarCursorPaneID == pane.id
         let isHovered = pane.id == hoveredPaneID
 
         return HStack(spacing: 6) {
@@ -316,7 +381,7 @@ struct WorkspaceSidebar: View {
 
             Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted))
+                .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
 
             Spacer(minLength: 0)
@@ -344,6 +409,12 @@ struct WorkspaceSidebar: View {
                                 : Color.clear
                 )
         )
+        .overlay {
+            if isCursorTarget {
+                Rectangle()
+                    .strokeBorder(Color(tokens.borderFocused), lineWidth: 1)
+            }
+        }
         .background(TreeLinesBackground(depth: depth, tokens: tokens))
         .onContinuousHover { phase in
             switch phase {
@@ -379,6 +450,54 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    // MARK: - Worktree Action Row
+
+    private func createWorktreeRow(workspace: Workspace, repoRoot: String, depth: Int) -> some View {
+        let hoverKey = "\(workspace.id)|\(repoRoot)"
+        let isHovered = hoveredWorktreeAction == hoverKey
+        return HStack(spacing: 6) {
+            Image(systemName: "plus")
+                .font(.system(size: TypeScale.smallSize))
+                .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+                .frame(width: TreeLayout.columnWidth)
+
+            Text("New worktree")
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+                .lineLimit(1)
+
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, Spacing.smd)
+        .padding(.trailing, Spacing.md)
+        .padding(.leading, Spacing.md + CGFloat(depth) * TreeLayout.columnWidth)
+        .background(
+            Rectangle()
+                .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
+        )
+        .background(TreeLinesBackground(depth: depth, tokens: tokens))
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                hoveredWorktreeAction = hoverKey
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+            case .ended:
+                hoveredWorktreeAction = nil
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            worktreeBranchName = ""
+            worktreeTarget = WorktreeCreationTarget(workspaceID: workspace.id, repoRoot: repoRoot)
+        }
+    }
+}
+
+// MARK: - Worktree Creation Target
+
+private struct WorktreeCreationTarget {
+    let workspaceID: UUID
+    let repoRoot: String
 }
 
 // MARK: - Workspace Drag-and-Drop

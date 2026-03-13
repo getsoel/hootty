@@ -596,6 +596,13 @@ final class TerminalSurfaceView: NSView {
         guard window?.firstResponder === self else { return false }
         guard let surface else { return false }
 
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+
+        // Cmd+0: let the SwiftUI menu handle "Focus Sidebar" instead of ghostty's reset_font_size
+        if mods == .command && event.keyCode == 0x1D { // 0 key
+            return false
+        }
+
         let keyEvent = buildGhosttyKeyEvent(GHOSTTY_ACTION_PRESS, event: event)
         var flags = ghostty_binding_flags_e(0)
         if ghostty_surface_key_is_binding(surface, keyEvent, &flags) {
@@ -611,8 +618,6 @@ final class TerminalSurfaceView: NSView {
             self.keyDown(with: event)
             return true
         }
-
-        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         // Claim Ctrl+Return to prevent AppKit's default context menu equivalent
         if mods.contains(.control) && event.keyCode == 0x24 { // Return

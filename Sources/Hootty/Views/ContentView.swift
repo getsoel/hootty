@@ -6,6 +6,7 @@ struct ContentView: View {
     var commandRegistry: CommandRegistry
     @GestureState private var dragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
+    @State private var sidebarCursorPaneID: UUID?
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -121,21 +122,15 @@ struct ContentView: View {
                     onSelectTheme: { name in
                         prePickerTheme = nil
                         appModel.themeManager.selectedThemeName = name
-                        let content = appModel.configFile.ghosttyConfigContent()
-                        if let resolved = GhosttyApp.shared.reloadConfig(ghosttyContent: content) {
-                            appModel.themeManager.setResolvedTheme(resolved)
-                        }
+                        applyTheme(name: name)
                         appModel.modalState = .none
                     },
                     onPreview: { name in
-                        if let content = appModel.themeManager.themeCatalog.themeContent(for: name),
-                           let parsed = TerminalTheme.parse(ghosttyThemeContent: content) {
-                            appModel.themeManager.setResolvedTheme(parsed)
-                        }
+                        applyTheme(name: name)
                     },
                     onDismiss: {
                         if let saved = prePickerTheme {
-                            appModel.themeManager.setResolvedTheme(saved.theme)
+                            applyTheme(name: saved.name, fallback: saved.theme)
                         }
                         prePickerTheme = nil
                         appModel.modalState = .none
@@ -188,8 +183,20 @@ struct ContentView: View {
                     appModel.saveWorkspaces()
                 }
             },
+            onCreateWorktree: { workspaceID, repoRoot, branch in
+                guard let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }),
+                      let worktreePath = GitWorktreeManager.resolveWorktreePath(repoPath: repoRoot, branch: branch) else { return }
+                let parentSurface = GhosttyApp.shared.focusedSurface
+                if let newPane = workspace.splitFocusedPane(direction: .horizontal, workingDirectory: worktreePath) {
+                    if let parentSurface {
+                        GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                    }
+                    appModel.saveWorkspaces()
+                }
+            },
             onSave: { appModel.saveWorkspaces() },
             sidebarHasFocus: $appModel.sidebarHasFocus,
+            sidebarCursorPaneID: $sidebarCursorPaneID,
             sidebarWidth: effectiveSidebarWidth
         )
     }
@@ -227,11 +234,22 @@ struct ContentView: View {
                 onSave: { appModel.saveWorkspaces() }
             )
             .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
+            .environment(\.sidebarCursorPaneID, sidebarCursorPaneID)
+            .environment(\.modalIsOpen, appModel.modalState != .none)
             .id(workspace.id)
         } else {
             Text("Select or create a workspace")
                 .foregroundStyle(Color(tokens.textMuted))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
+
+    private func applyTheme(name: String, fallback: TerminalTheme? = nil) {
+        let configContent = appModel.configFile.ghosttyConfigContent(themeOverride: name)
+        if let resolved = GhosttyApp.shared.reloadConfig(ghosttyContent: configContent) {
+            appModel.themeManager.setResolvedTheme(resolved)
+        } else if let fallback {
+            appModel.themeManager.setResolvedTheme(fallback)
         }
     }
 }

@@ -5,10 +5,28 @@ private struct SidebarHasFocusKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct SidebarCursorPaneIDKey: EnvironmentKey {
+    static let defaultValue: UUID? = nil
+}
+
+private struct ModalIsOpenKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var sidebarHasFocus: Bool {
         get { self[SidebarHasFocusKey.self] }
         set { self[SidebarHasFocusKey.self] = newValue }
+    }
+
+    var sidebarCursorPaneID: UUID? {
+        get { self[SidebarCursorPaneIDKey.self] }
+        set { self[SidebarCursorPaneIDKey.self] = newValue }
+    }
+
+    var modalIsOpen: Bool {
+        get { self[ModalIsOpenKey.self] }
+        set { self[ModalIsOpenKey.self] = newValue }
     }
 }
 
@@ -17,6 +35,7 @@ struct TerminalPaneView: NSViewRepresentable {
     let isFocused: Bool
     let onFocusPane: () -> Void
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
+    @Environment(\.modalIsOpen) private var modalIsOpen
 
     func makeNSView(context: Context) -> TerminalSurfaceView {
         // Reuse cached view if available (survives SwiftUI structural identity changes)
@@ -74,8 +93,10 @@ struct TerminalPaneView: NSViewRepresentable {
             view.queueText(command)
         }
 
-        DispatchQueue.main.async {
-            view.window?.makeFirstResponder(view)
+        if !sidebarHasFocus && !modalIsOpen {
+            DispatchQueue.main.async {
+                view.window?.makeFirstResponder(view)
+            }
         }
 
         return view
@@ -83,7 +104,7 @@ struct TerminalPaneView: NSViewRepresentable {
 
     func updateNSView(_ view: TerminalSurfaceView, context: Context) {
         view.onFocusRequest = onFocusPane
-        if isFocused && !sidebarHasFocus {
+        if isFocused && !sidebarHasFocus && !modalIsOpen {
             DispatchQueue.main.async {
                 if view.window?.firstResponder !== view {
                     view.window?.makeFirstResponder(view)

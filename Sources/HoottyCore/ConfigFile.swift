@@ -106,18 +106,25 @@ public final class ConfigFile {
 
     /// Returns config content with only non-hootty keys (for feeding to ghostty).
     /// Reads the raw file from disk to preserve repeatable keys (e.g. multiple font-family lines).
-    public func ghosttyConfigContent() -> String {
+    /// If `themeOverride` is provided, replaces the theme value without modifying the file on disk.
+    public func ghosttyConfigContent(themeOverride: String? = nil) -> String {
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
-            return "theme = Catppuccin Mocha\n"
+            let themeName = themeOverride ?? "Catppuccin Mocha"
+            return "theme = \(themeName)\n"
         }
         let lines = content.components(separatedBy: .newlines)
-        let filtered = lines.filter { line in
+        var filtered = lines.filter { line in
             guard let (key, _) = Self.parseConfigLine(line) else { return true }
+            if themeOverride != nil && key == "theme" { return false }
             return !key.hasPrefix("hootty-")
+        }
+        if let override = themeOverride {
+            filtered.insert("theme = \(override)", at: 0)
         }
         let result = filtered.joined(separator: "\n")
         if result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "theme = Catppuccin Mocha\n"
+            let themeName = themeOverride ?? "Catppuccin Mocha"
+            return "theme = \(themeName)\n"
         }
         return result.hasSuffix("\n") ? result : result + "\n"
     }

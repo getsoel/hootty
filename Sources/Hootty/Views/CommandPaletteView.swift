@@ -51,7 +51,9 @@ struct CommandPaletteView: View {
         }
         .onAppear {
             NSApp.keyWindow?.makeFirstResponder(nil)
-            isSearchFieldFocused = true
+            DispatchQueue.main.async {
+                isSearchFieldFocused = true
+            }
         }
         .onChange(of: query) {
             selectedIndex = 0
@@ -84,7 +86,7 @@ struct CommandPaletteView: View {
         TextField("Search commands...", text: $query)
             .textFieldStyle(.plain)
             .font(.system(size: TypeScale.bodySize))
-            .foregroundStyle(Color(tokens.text))
+            .foregroundColor(Color(tokens.text))
             .padding(Spacing.md)
             .focused($isSearchFieldFocused)
     }

@@ -1,0 +1,5 @@
+#!/bin/bash
+# Hootty SessionStart hook — reads Claude Code hook JSON from stdin,
+# extracts session_id, and emits OSC 9 for session tracking.
+SID=$(sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p' | head -1)
+[ -n "$SID" ] && printf '\e]9;hootty:session:%s\a' "$SID"

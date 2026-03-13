@@ -4,53 +4,50 @@ import AppKit
 
 @Suite("DesignTokens")
 struct DesignTokensTests {
-    // MARK: - elementSelectedText contrast awareness
+    // MARK: - elementSelectedText always uses foreground (accent-tinted backgrounds)
 
-    @Test("dark theme with dark selection keeps foreground text")
-    func darkSelectionKeepsForeground() {
-        // Catppuccin Mocha-like: light foreground on dark selection background
-        let theme = TerminalTheme(
+    @Test("elementSelectedText is always foreground regardless of theme")
+    func selectedTextAlwaysForeground() {
+        // Dark theme
+        let dark = TerminalTheme(
             palette: (0..<16).map { _ in NSColor.gray },
-            background: TerminalTheme.hex(0x1e1e2e),      // dark
-            foreground: TerminalTheme.hex(0xcdd6f4),       // light
+            background: TerminalTheme.hex(0x1e1e2e),
+            foreground: TerminalTheme.hex(0xcdd6f4),
             cursorColor: NSColor.white,
-            selectionBackground: TerminalTheme.hex(0x45475a), // dark
-            selectionForeground: TerminalTheme.hex(0xcdd6f4)  // light
+            selectionBackground: TerminalTheme.hex(0x45475a),
+            selectionForeground: TerminalTheme.hex(0xcdd6f4)
         )
-        let tokens = DesignTokens.from(theme)
-        // Light text on dark selection = high contrast → keep foreground
-        #expect(tokens.elementSelectedText == theme.foreground)
-    }
+        #expect(DesignTokens.from(dark).elementSelectedText == dark.foreground)
 
-    @Test("dark theme with light selection falls back to selectionForeground")
-    func lightSelectionFallsBack() {
-        // Aardvark Blue-like: light foreground but light selection background
-        let theme = TerminalTheme(
+        // Light theme
+        let light = TerminalTheme(
             palette: (0..<16).map { _ in NSColor.gray },
-            background: TerminalTheme.hex(0x1a1a2e),      // dark
-            foreground: TerminalTheme.hex(0xc0c0c0),       // light
-            cursorColor: NSColor.white,
-            selectionBackground: TerminalTheme.hex(0xd0d0d0), // light
-            selectionForeground: TerminalTheme.hex(0x000000)  // black
-        )
-        let tokens = DesignTokens.from(theme)
-        // Light text on light selection = low contrast → use selectionForeground
-        #expect(tokens.elementSelectedText == theme.selectionForeground)
-    }
-
-    @Test("light theme with light selection keeps foreground text")
-    func lightThemeLightSelection() {
-        // Light theme: dark foreground on light selection = already high contrast
-        let theme = TerminalTheme(
-            palette: (0..<16).map { _ in NSColor.gray },
-            background: TerminalTheme.hex(0xeff1f5),       // light
-            foreground: TerminalTheme.hex(0x4c4f69),       // dark
+            background: TerminalTheme.hex(0xeff1f5),
+            foreground: TerminalTheme.hex(0x4c4f69),
             cursorColor: NSColor.black,
-            selectionBackground: TerminalTheme.hex(0xbcc0cc), // light
-            selectionForeground: TerminalTheme.hex(0x4c4f69)  // dark
+            selectionBackground: TerminalTheme.hex(0xbcc0cc),
+            selectionForeground: TerminalTheme.hex(0x4c4f69)
+        )
+        #expect(DesignTokens.from(light).elementSelectedText == light.foreground)
+    }
+
+    @Test("elementSelected uses accent tint from palette[4]")
+    func selectedUsesAccentTint() {
+        let theme = TerminalTheme(
+            palette: (0..<16).map { i in i == 4 ? TerminalTheme.hex(0x1e66f5) : NSColor.gray },
+            background: TerminalTheme.hex(0xeff1f5),
+            foreground: TerminalTheme.hex(0x4c4f69),
+            cursorColor: NSColor.black,
+            selectionBackground: TerminalTheme.hex(0xacb0be),
+            selectionForeground: TerminalTheme.hex(0x4c4f69)
         )
         let tokens = DesignTokens.from(theme)
-        // Dark text on light selection = high contrast → keep foreground
-        #expect(tokens.elementSelectedText == theme.foreground)
+        // elementSelected should be palette[4] at 15% opacity, not selectionBackground
+        let selected = tokens.elementSelected.usingColorSpace(.sRGB)!
+        let accent = theme.palette[4].usingColorSpace(.sRGB)!
+        #expect(abs(selected.redComponent - accent.redComponent) < 0.01)
+        #expect(abs(selected.greenComponent - accent.greenComponent) < 0.01)
+        #expect(abs(selected.blueComponent - accent.blueComponent) < 0.01)
+        #expect(abs(selected.alphaComponent - 0.15) < 0.01)
     }
 }
