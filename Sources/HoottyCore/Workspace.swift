@@ -82,16 +82,23 @@ public final class Workspace: Identifiable {
 
         let panes = allPanes
         var grouped: [GroupKey: [Pane]] = [:]
+        var keyOrder: [GroupKey] = []
         for pane in panes {
             let key = GroupKey(repoRoot: pane.repoRoot, branch: pane.branch)
+            if grouped[key] == nil {
+                keyOrder.append(key)
+            }
             grouped[key, default: []].append(pane)
         }
 
         var headSections: [SidebarSection] = []
+        var worktreeSectionsByRepo: [String: [SidebarSection]] = [:]
         var otherSections: [SidebarSection] = []
         var ungroupedPanes: [Pane] = []
 
-        for (key, groupPanes) in grouped {
+        for key in keyOrder {
+            let groupPanes = grouped[key]!
+
             guard let branch = key.branch else {
                 ungroupedPanes.append(contentsOf: groupPanes)
                 continue
@@ -114,18 +121,27 @@ public final class Workspace: Identifiable {
                 panes: groupPanes
             )
 
+            let isWorktree = groupPanes.contains { $0.worktreePath != nil }
+
             if isHead {
                 headSections.append(section)
+            } else if isWorktree, let root = repoRoot {
+                worktreeSectionsByRepo[root, default: []].append(section)
             } else {
                 otherSections.append(section)
             }
         }
 
-        // Sort: HEAD sections by repo name, others alphabetically by displayLabel
-        headSections.sort { ($0.repoDisplayName ?? "").localizedCaseInsensitiveCompare($1.repoDisplayName ?? "") == .orderedAscending }
-        otherSections.sort { ($0.displayLabel ?? "").localizedCaseInsensitiveCompare($1.displayLabel ?? "") == .orderedAscending }
-
-        var result = headSections + otherSections
+        // Build result: each HEAD section followed by its worktree sections
+        var result: [SidebarSection] = []
+        for headSection in headSections {
+            result.append(headSection)
+            if let root = headSection.repoRoot,
+               let worktrees = worktreeSectionsByRepo[root] {
+                result.append(contentsOf: worktrees)
+            }
+        }
+        result.append(contentsOf: otherSections)
         if !ungroupedPanes.isEmpty {
             result.append(SidebarSection(repoRoot: nil, repoDisplayName: nil, branch: nil, isHead: false, panes: ungroupedPanes))
         }

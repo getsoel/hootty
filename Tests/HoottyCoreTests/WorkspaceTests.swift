@@ -395,9 +395,9 @@ import Foundation
         #expect(sections.count == 3)
         #expect(sections[0].branch == "main")
         #expect(sections[0].isHead == true)
-        // Remaining are alpha sorted by displayLabel (repoName/branch)
-        #expect(sections[1].branch == "feature-a")
-        #expect(sections[2].branch == "feature-z")
+        // Remaining in tree traversal order (insertion order)
+        #expect(sections[1].branch == "feature-z")
+        #expect(sections[2].branch == "feature-a")
     }
 
     @Test func sidebarSectionsUngroupedLast() {
@@ -440,7 +440,7 @@ import Foundation
 
         let sections = ws.sidebarSections
         #expect(sections.count == 2)
-        // Both are HEAD sections, sorted by repo name
+        // Both are HEAD sections, in tree traversal order
         #expect(sections[0].repoDisplayName == "alpha")
         #expect(sections[1].repoDisplayName == "beta")
         #expect(sections[0].branch == "main")

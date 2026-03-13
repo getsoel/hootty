@@ -798,11 +798,11 @@ private func reloadModel(from url: URL) -> AppModel {
         // Two HEAD sections (frontend/main, backend/main) + one non-head (frontend/feature)
         #expect(sections.count == 3)
 
-        // HEAD sections first, sorted by repo name
+        // HEAD sections first, in tree traversal order
         #expect(sections[0].isHead == true)
         #expect(sections[1].isHead == true)
-        #expect(sections[0].repoDisplayName == "backend")
-        #expect(sections[1].repoDisplayName == "frontend")
+        #expect(sections[0].repoDisplayName == "frontend")
+        #expect(sections[1].repoDisplayName == "backend")
 
         // Non-head last
         #expect(sections[2].isHead == false)

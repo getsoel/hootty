@@ -77,9 +77,11 @@ public enum GitWorktreeManager {
             return false
         }
         // In a worktree, --git-dir points to .git/worktrees/<name>, while --git-common-dir points to .git
-        // Resolve to absolute paths for comparison
-        let resolvedGit = (gitDir as NSString).standardizingPath
-        let resolvedCommon = (commonDir as NSString).standardizingPath
+        // Resolve to absolute paths for comparison — relative paths from subfolders won't match
+        // with standardizingPath alone (it doesn't resolve ".." in relative paths)
+        let base = URL(fileURLWithPath: path)
+        let resolvedGit = URL(fileURLWithPath: (gitDir as NSString).standardizingPath, relativeTo: base).standardizedFileURL.path
+        let resolvedCommon = URL(fileURLWithPath: (commonDir as NSString).standardizingPath, relativeTo: base).standardizedFileURL.path
         return resolvedGit != resolvedCommon
     }
 

@@ -280,8 +280,7 @@ struct WorkspaceSidebar: View {
 
     private func worktreeIcon(for section: SidebarSection) -> String {
         if section.branch == nil { return "cube.transparent" }
-        let isWorktree = section.panes.contains { $0.worktreePath != nil }
-        return isWorktree ? "cube" : "cube.fill"
+        return section.isHead ? "cube.fill" : "cube"
     }
 
     @ViewBuilder
@@ -340,7 +339,9 @@ struct WorkspaceSidebar: View {
                         ? Color(tokens.elementSelected)
                         : isHovered
                             ? Color(tokens.elementHover)
-                            : Color.clear
+                            : pane.attentionKind != nil
+                                ? Color(tokens.statusBell).opacity(0.12)
+                                : Color.clear
                 )
         )
         .background(TreeLinesBackground(depth: depth, tokens: tokens))
