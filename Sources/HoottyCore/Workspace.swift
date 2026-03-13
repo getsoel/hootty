@@ -75,22 +75,35 @@ public final class Workspace: Identifiable {
     }
 
     public var sidebarSections: [SidebarSection] {
-        struct GroupKey: Hashable {
-            let repoRoot: String?
-            let branch: String?
-        }
+        let (grouped, keyOrder) = groupPanesByBranch()
+        let (headSections, worktreeSectionsByRepo, otherSections, ungroupedPanes) = classifySections(grouped: grouped, keyOrder: keyOrder)
+        return assembleSections(headSections: headSections, worktreeSectionsByRepo: worktreeSectionsByRepo, otherSections: otherSections, ungroupedPanes: ungroupedPanes)
+    }
 
+    private struct BranchGroupKey: Hashable {
+        let repoRoot: String?
+        let branch: String?
+    }
+
+    /// Group panes by (repoRoot, branch), preserving insertion order.
+    private func groupPanesByBranch() -> (grouped: [BranchGroupKey: [Pane]], keyOrder: [BranchGroupKey]) {
         let panes = allPanes
-        var grouped: [GroupKey: [Pane]] = [:]
-        var keyOrder: [GroupKey] = []
+        var grouped: [BranchGroupKey: [Pane]] = [:]
+        var keyOrder: [BranchGroupKey] = []
         for pane in panes {
-            let key = GroupKey(repoRoot: pane.repoRoot, branch: pane.branch)
+            let key = BranchGroupKey(repoRoot: pane.repoRoot, branch: pane.branch)
             if grouped[key] == nil {
                 keyOrder.append(key)
             }
             grouped[key, default: []].append(pane)
         }
+        return (grouped, keyOrder)
+    }
 
+    /// Classify groups into HEAD sections, worktree sections (keyed by repo), other sections, and ungrouped panes.
+    private func classifySections(
+        grouped: [BranchGroupKey: [Pane]], keyOrder: [BranchGroupKey]
+    ) -> (head: [SidebarSection], worktreesByRepo: [String: [SidebarSection]], other: [SidebarSection], ungrouped: [Pane]) {
         var headSections: [SidebarSection] = []
         var worktreeSectionsByRepo: [String: [SidebarSection]] = [:]
         var otherSections: [SidebarSection] = []
@@ -106,12 +119,7 @@ public final class Workspace: Identifiable {
 
             let repoRoot = key.repoRoot
             let repoDisplayName = repoRoot.map { URL(fileURLWithPath: $0).lastPathComponent }
-            let isHead: Bool
-            if let root = repoRoot {
-                isHead = headBranches[root] == branch
-            } else {
-                isHead = false
-            }
+            let isHead = repoRoot.map { headBranches[$0] == branch } ?? false
 
             let section = SidebarSection(
                 repoRoot: repoRoot,
@@ -132,7 +140,16 @@ public final class Workspace: Identifiable {
             }
         }
 
-        // Build result: each HEAD section followed by its worktree sections
+        return (headSections, worktreeSectionsByRepo, otherSections, ungroupedPanes)
+    }
+
+    /// Assemble final section list: HEAD sections with nested worktrees, then other, then ungrouped.
+    private func assembleSections(
+        headSections: [SidebarSection],
+        worktreeSectionsByRepo: [String: [SidebarSection]],
+        otherSections: [SidebarSection],
+        ungroupedPanes: [Pane]
+    ) -> [SidebarSection] {
         var result: [SidebarSection] = []
         for headSection in headSections {
             result.append(headSection)

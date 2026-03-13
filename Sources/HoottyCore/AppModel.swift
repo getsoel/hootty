@@ -113,8 +113,7 @@ public final class AppModel {
 
     @discardableResult
     public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
-        for workspace in workspaces {
-            guard let pane = workspace.findPane(id: paneID) else { continue }
+        withPane(id: paneID) { workspace, pane in
             let isFocusedPane = workspace.id == selectedWorkspaceID
                 && workspace.focusedPaneID == paneID
             if !isFocusedPane {
@@ -122,82 +121,79 @@ public final class AppModel {
                 return true
             }
             return false
-        }
-        return false
+        } ?? false
     }
 
     @discardableResult
     public func handleBell(_ paneID: UUID) -> Bool {
-        for workspace in workspaces {
-            guard let pane = workspace.findPane(id: paneID) else { continue }
+        withPane(id: paneID) { _, pane in
             pane.attentionKind = .bell
             return true
-        }
-        return false
+        } ?? false
     }
 
     public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
-        for workspace in workspaces {
-            guard let pane = workspace.findPane(id: paneID) else { continue }
+        withPane(id: paneID) { _, pane in
             pane.isThinking = isThinking
             if isThinking {
                 pane.attentionKind = nil
             }
-            break
         }
     }
 
     public func handleTitleChange(_ paneID: UUID, title: String) {
-        guard let (_, pane) = findPane(id: paneID),
-              pane.claudeSessionID != nil else { return }
-        guard let state = ClaudeTitleParser.parse(title) else { return }
+        withPane(id: paneID) { _, pane in
+            guard pane.claudeSessionID != nil else { return }
+            guard let state = ClaudeTitleParser.parse(title) else { return }
 
-        switch state {
-        case .thinking:
-            if !pane.isThinking {
-                pane.isThinking = true
-                pane.attentionKind = nil
+            switch state {
+            case .thinking:
+                if !pane.isThinking {
+                    pane.isThinking = true
+                    pane.attentionKind = nil
+                }
+            case .idle:
+                if pane.isThinking { pane.isThinking = false }
             }
-        case .idle:
-            if pane.isThinking { pane.isThinking = false }
         }
     }
 
     public func handlePwdChanged(_ paneID: UUID, pwd: String) {
-        guard let (workspace, pane) = findPane(id: paneID) else { return }
-        let newBranch = GitWorktreeManager.currentBranch(for: pwd)
+        withPane(id: paneID) { workspace, pane in
+            let newBranch = GitWorktreeManager.currentBranch(for: pwd)
 
-        // Short-circuit: non-git directory and pane already has no branch — skip extra subprocess calls
-        if newBranch == nil && pane.branch == nil {
-            return
-        }
+            // Short-circuit: non-git directory and pane already has no branch — skip extra subprocess calls
+            if newBranch == nil && pane.branch == nil {
+                return
+            }
 
-        let canonicalRoot = GitWorktreeManager.canonicalRepoRoot(for: pwd)
-        let showToplevel = GitWorktreeManager.repoRoot(for: pwd)
-        let newWorktreePath = GitWorktreeManager.isWorktree(for: pwd) ? showToplevel : nil
-        var changed = false
-        if pane.branch != newBranch {
-            pane.branch = newBranch
-            changed = true
+            let canonicalRoot = GitWorktreeManager.canonicalRepoRoot(for: pwd)
+            let showToplevel = GitWorktreeManager.repoRoot(for: pwd)
+            let newWorktreePath = GitWorktreeManager.isWorktree(for: pwd) ? showToplevel : nil
+            var changed = false
+            if pane.branch != newBranch {
+                pane.branch = newBranch
+                changed = true
+            }
+            if pane.repoRoot != canonicalRoot {
+                pane.repoRoot = canonicalRoot
+                changed = true
+            }
+            if pane.worktreePath != newWorktreePath {
+                pane.worktreePath = newWorktreePath
+                changed = true
+            }
+            if newWorktreePath == nil, let root = canonicalRoot, let branch = newBranch,
+               workspace.headBranches[root] != branch {
+                workspace.headBranches[root] = branch
+                changed = true
+            }
+            if workspace.repoPath == nil, let root = canonicalRoot {
+                workspace.repoPath = root
+                changed = true
+            }
+            if changed { debouncedSave() }
         }
-        if pane.repoRoot != canonicalRoot {
-            pane.repoRoot = canonicalRoot
-            changed = true
-        }
-        if pane.worktreePath != newWorktreePath {
-            pane.worktreePath = newWorktreePath
-            changed = true
-        }
-        if newWorktreePath == nil, let root = canonicalRoot, let branch = newBranch,
-           workspace.headBranches[root] != branch {
-            workspace.headBranches[root] = branch
-            changed = true
-        }
-        if workspace.repoPath == nil, let root = canonicalRoot {
-            workspace.repoPath = root
-            changed = true
-        }
-        if changed { debouncedSave() }
     }
 
     public func findPane(id: UUID) -> (Workspace, Pane)? {
@@ -207,6 +203,13 @@ public final class AppModel {
             }
         }
         return nil
+    }
+
+    /// Convenience: look up a pane by ID and execute a closure if found.
+    @discardableResult
+    public func withPane<T>(id: UUID, _ body: (Workspace, Pane) -> T) -> T? {
+        guard let (workspace, pane) = findPane(id: id) else { return nil }
+        return body(workspace, pane)
     }
 
     public func resetWorkspaces() {

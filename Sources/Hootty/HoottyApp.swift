@@ -8,6 +8,15 @@ struct HoottyApp: App {
         CrashHandler.install()
         Log.lifecycle.info("Hootty starting...")
 
+        // Wire git debug logging through os.Logger
+        GitWorktreeManager.logHandler = { level, message in
+            if level == "warning" {
+                Log.lifecycle.warning("\(message)")
+            } else {
+                Log.lifecycle.debug("\(message)")
+            }
+        }
+
         // Initialize the ghostty backend FIRST — this copies bundled themes
         // to app support directory before ThemeCatalog reads it
         let ghosttyReady = GhosttyApp.shared.app != nil

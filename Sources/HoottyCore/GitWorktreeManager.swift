@@ -46,43 +46,89 @@ public struct GitWorktreeInfo: Sendable {
 }
 
 /// Thin wrapper around `git worktree` CLI commands.
+/// Caches frequently-queried results (branch, repoRoot, isWorktree) per directory
+/// with a short TTL to avoid repeated subprocess calls on rapid pwd changes.
 public enum GitWorktreeManager {
+
+    // MARK: - Cache
+
+    private struct CacheEntry<T> {
+        let value: T
+        let timestamp: TimeInterval
+    }
+
+    private static let cacheTTL: TimeInterval = 5.0
+
+    /// Logging hook — set by the app layer to route through os.Logger.
+    /// Signature: (level: "debug"|"warning", message: String) → Void
+    public static var logHandler: ((String, String) -> Void)?
+
+    private static var branchCache: [String: CacheEntry<String?>] = [:]
+    private static var repoRootCache: [String: CacheEntry<String?>] = [:]
+    private static var canonicalRootCache: [String: CacheEntry<String?>] = [:]
+    private static var isWorktreeCache: [String: CacheEntry<Bool>] = [:]
+
+    private static func cached<T>(_ cache: inout [String: CacheEntry<T>], key: String, compute: () -> T) -> T {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let entry = cache[key], now - entry.timestamp < cacheTTL {
+            return entry.value
+        }
+        let value = compute()
+        cache[key] = CacheEntry(value: value, timestamp: now)
+        return value
+    }
+
+    /// Clear all caches. Useful after git operations that change state (e.g., worktree creation).
+    public static func invalidateCache() {
+        branchCache.removeAll()
+        repoRootCache.removeAll()
+        canonicalRootCache.removeAll()
+        isWorktreeCache.removeAll()
+    }
+
+    // MARK: - Cached Queries
+
     /// Detect repo root from a directory path.
     public static func repoRoot(for path: String) -> String? {
-        run(["git", "-C", path, "rev-parse", "--show-toplevel"])
+        cached(&repoRootCache, key: path) {
+            run(["git", "-C", path, "rev-parse", "--show-toplevel"])
+        }
     }
 
     /// Canonical repo root that resolves to the same path for both main checkouts and worktrees.
     /// Uses `--git-common-dir` → parent directory, unlike `--show-toplevel` which returns the worktree root.
     public static func canonicalRepoRoot(for path: String) -> String? {
-        guard let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
-            return nil
+        cached(&canonicalRootCache, key: path) {
+            guard let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
+                return nil
+            }
+            // --git-common-dir returns the .git directory (absolute or relative).
+            // The repo root is its parent.
+            let resolved = (commonDir as NSString).standardizingPath
+            let gitURL = URL(fileURLWithPath: resolved, relativeTo: URL(fileURLWithPath: path))
+            return gitURL.standardizedFileURL.deletingLastPathComponent().path
         }
-        // --git-common-dir returns the .git directory (absolute or relative).
-        // The repo root is its parent.
-        let resolved = (commonDir as NSString).standardizingPath
-        let gitURL = URL(fileURLWithPath: resolved, relativeTo: URL(fileURLWithPath: path))
-        return gitURL.standardizedFileURL.deletingLastPathComponent().path
     }
 
     /// Current branch name for a path.
     public static func currentBranch(for path: String) -> String? {
-        run(["git", "-C", path, "branch", "--show-current"])
+        cached(&branchCache, key: path) {
+            run(["git", "-C", path, "branch", "--show-current"])
+        }
     }
 
     /// Returns true if the path is inside a git worktree (not the main working tree).
     public static func isWorktree(for path: String) -> Bool {
-        guard let gitDir = run(["git", "-C", path, "rev-parse", "--git-dir"]),
-              let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
-            return false
+        cached(&isWorktreeCache, key: path) {
+            guard let gitDir = run(["git", "-C", path, "rev-parse", "--git-dir"]),
+                  let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
+                return false
+            }
+            let base = URL(fileURLWithPath: path)
+            let resolvedGit = URL(fileURLWithPath: (gitDir as NSString).standardizingPath, relativeTo: base).standardizedFileURL.path
+            let resolvedCommon = URL(fileURLWithPath: (commonDir as NSString).standardizingPath, relativeTo: base).standardizedFileURL.path
+            return resolvedGit != resolvedCommon
         }
-        // In a worktree, --git-dir points to .git/worktrees/<name>, while --git-common-dir points to .git
-        // Resolve to absolute paths for comparison — relative paths from subfolders won't match
-        // with standardizingPath alone (it doesn't resolve ".." in relative paths)
-        let base = URL(fileURLWithPath: path)
-        let resolvedGit = URL(fileURLWithPath: (gitDir as NSString).standardizingPath, relativeTo: base).standardizedFileURL.path
-        let resolvedCommon = URL(fileURLWithPath: (commonDir as NSString).standardizingPath, relativeTo: base).standardizedFileURL.path
-        return resolvedGit != resolvedCommon
     }
 
     /// List existing worktrees for a repo.
@@ -96,19 +142,25 @@ public enum GitWorktreeManager {
     /// Create a new worktree with a new branch.
     @discardableResult
     public static func createWorktree(repoPath: String, branch: String, path: String) -> Bool {
-        run(["git", "-C", repoPath, "worktree", "add", path, "-b", branch]) != nil
+        let result = run(["git", "-C", repoPath, "worktree", "add", path, "-b", branch]) != nil
+        if result { invalidateCache() }
+        return result
     }
 
     /// Create a worktree from an existing branch.
     @discardableResult
     public static func createWorktreeFromBranch(repoPath: String, branch: String, path: String) -> Bool {
-        run(["git", "-C", repoPath, "worktree", "add", path, branch]) != nil
+        let result = run(["git", "-C", repoPath, "worktree", "add", path, branch]) != nil
+        if result { invalidateCache() }
+        return result
     }
 
     /// Remove a worktree.
     @discardableResult
     public static func removeWorktree(repoPath: String, path: String) -> Bool {
-        run(["git", "-C", repoPath, "worktree", "remove", path]) != nil
+        let result = run(["git", "-C", repoPath, "worktree", "remove", path]) != nil
+        if result { invalidateCache() }
+        return result
     }
 
     /// List all branches (local + remote) for a repo.
@@ -210,15 +262,24 @@ public enum GitWorktreeManager {
         process.arguments = args
         let pipe = Pipe()
         process.standardOutput = pipe
-        process.standardError = Pipe()
+        let stderrPipe = Pipe()
+        process.standardError = stderrPipe
 
         do {
             try process.run()
             process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
+            guard process.terminationStatus == 0 else {
+                let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                let stderr = String(data: stderrData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                let cmd = args.joined(separator: " ")
+                logHandler?("debug", "git command failed (exit \(process.terminationStatus)): \(cmd)\(stderr.isEmpty ? "" : " — \(stderr)")")
+                return nil
+            }
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
         } catch {
+            let cmd = args.joined(separator: " ")
+            logHandler?("warning", "git command threw: \(cmd) — \(error.localizedDescription)")
             return nil
         }
     }

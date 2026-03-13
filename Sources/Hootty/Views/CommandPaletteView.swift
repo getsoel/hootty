@@ -16,6 +16,7 @@ struct CommandPaletteView: View {
     @State private var query = ""
     @State private var selectedIndex = 0
     @State private var scrollToSelection = false
+    @State private var suppressHover = false
     @FocusState private var isSearchFieldFocused: Bool
 
     private var filteredCommands: [PaletteCommand] {
@@ -60,6 +61,7 @@ struct CommandPaletteView: View {
         }
         .onKeyPress(.upArrow) {
             if selectedIndex > 0 {
+                suppressHover = true
                 scrollToSelection = true
                 selectedIndex -= 1
             }
@@ -67,6 +69,7 @@ struct CommandPaletteView: View {
         }
         .onKeyPress(.downArrow) {
             if selectedIndex < filteredCommands.count - 1 {
+                suppressHover = true
                 scrollToSelection = true
                 selectedIndex += 1
             }
@@ -110,8 +113,13 @@ struct CommandPaletteView: View {
                                 executeSelected()
                             }
                             .onContinuousHover { phase in
-                                if case .active = phase {
-                                    selectedIndex = index
+                                switch phase {
+                                case .active:
+                                    if !suppressHover {
+                                        selectedIndex = index
+                                    }
+                                case .ended:
+                                    suppressHover = false
                                 }
                             }
                     }
