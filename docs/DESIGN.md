@@ -49,6 +49,7 @@ Three levels of text prominence:
 | `text` | `text` | `foreground` | Text |
 | `textMuted` | `text.muted` | `sidebarTextSecondary` | Subtext0 |
 | `textAccent` | `text.accent` | `palette[5]` | Pink |
+| `textRepo` | -- | `palette[6]` | Teal |
 
 ### Borders
 
@@ -90,6 +91,7 @@ Three type sizes covering all non-terminal UI text. Terminal text size is contro
 | `body` | 13pt | Regular | Sidebar labels, workspace names |
 | `caption` | 11pt | Regular | Tab labels, badge counts |
 | `small` | 12pt | Regular | Buttons, secondary actions |
+| `icon` | 16pt | Regular | SF Symbol icons (use `.font(.system(size: TypeScale.iconSize))`) |
 
 Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale` provides the raw size constants since `HoottyCore` cannot import SwiftUI.
 

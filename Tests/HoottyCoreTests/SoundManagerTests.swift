@@ -19,22 +19,16 @@ import Foundation
     @Test func defaultSoundsAreNilWhenNoFile() {
         let (manager, _) = makeManager()
         #expect(manager.bellSound == nil)
-        #expect(manager.attentionIdleSound == nil)
-        #expect(manager.attentionInputSound == nil)
     }
 
     @Test func settingSoundPersistsToConfigFile() {
         let url = tempFileURL()
         let (manager, _) = makeManager(fileURL: url)
         manager.bellSound = "Ping"
-        manager.attentionIdleSound = "Glass"
-        manager.attentionInputSound = "Basso"
 
         // Reload from same file
         let (manager2, _) = makeManager(fileURL: url)
         #expect(manager2.bellSound == "Ping")
-        #expect(manager2.attentionIdleSound == "Glass")
-        #expect(manager2.attentionInputSound == "Basso")
     }
 
     @Test func settingNilRemovesSound() {
@@ -64,11 +58,7 @@ import Foundation
     @Test func soundForTriggerReturnsCorrectValue() {
         let (manager, _) = makeManager()
         manager.bellSound = "Ping"
-        manager.attentionIdleSound = "Glass"
-        manager.attentionInputSound = "Basso"
         #expect(manager.sound(for: .bell) == "Ping")
-        #expect(manager.sound(for: .attentionIdle) == "Glass")
-        #expect(manager.sound(for: .attentionInput) == "Basso")
     }
 
     @Test func playCallsSoundPlayer() {

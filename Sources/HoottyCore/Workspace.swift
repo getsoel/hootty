@@ -8,17 +8,18 @@ public enum FocusDirection: String, CaseIterable, Sendable {
 public final class Workspace: Identifiable {
     public let id: UUID
     public var name: String
+    public var repoPath: String?
     public var rootNode: SplitNode
     public var focusedPaneID: UUID?
     private var paneCounter = 0
 
-    public var allPanes: [Pane] {
-        rootNode.allPanes()
-    }
-
     public var focusedPane: Pane? {
         guard let focusedPaneID else { return rootNode.firstPane() }
         return rootNode.findPane(id: focusedPaneID) ?? rootNode.firstPane()
+    }
+
+    public var allPanes: [Pane] {
+        rootNode.allPanes()
     }
 
     public var isRunning: Bool {
@@ -33,21 +34,17 @@ public final class Workspace: Identifiable {
         attentionKind != nil
     }
 
-    /// Returns the most urgent attention kind across unfocused panes (input > idle > bell).
+    /// Returns the attention kind if any unfocused pane has attention.
     public var attentionKind: AttentionKind? {
-        var result: AttentionKind?
         for pane in allPanes where pane.id != focusedPaneID {
             if let kind = pane.attentionKind {
-                if kind == .input { return .input }
-                if kind == .idle {
-                    result = .idle
-                } else if result == nil {
-                    result = kind
-                }
+                return kind
             }
         }
-        return result
+        return nil
     }
+
+    // MARK: - Initializers
 
     public init(name: String) {
         self.id = UUID()
@@ -58,23 +55,56 @@ public final class Workspace: Identifiable {
         self.focusedPaneID = pane.id
     }
 
-    /// Restoration initializer for decoding persisted state.
-    public init(id: UUID, name: String, rootNode: SplitNode, focusedPaneID: UUID?) {
+    /// Restoration initializer.
+    public init(id: UUID, name: String, repoPath: String? = nil,
+                rootNode: SplitNode, focusedPaneID: UUID?) {
         self.id = id
         self.name = name
+        self.repoPath = repoPath
         self.rootNode = rootNode
         self.focusedPaneID = focusedPaneID
         self.paneCounter = rootNode.allPanes().count
     }
 
+    // MARK: - Branches
+
+    /// Returns local branches (enriched with pane cross-references) plus
+    /// remote-only branches appended. Returns empty for non-git workspaces.
+    public func listBranches() -> [BranchRef] {
+        guard let repoPath else { return [] }
+        let (locals, remotes, _) = GitWorktreeManager.listBranches(repoPath: repoPath)
+
+        var panesByBranchName: [String: [UUID]] = [:]
+        for pane in allPanes {
+            if let branch = pane.branch {
+                panesByBranchName[branch, default: []].append(pane.id)
+            }
+        }
+
+        var result = locals.map { ref -> BranchRef in
+            var branch = ref
+            if let paneIDs = panesByBranchName[ref.name] {
+                branch.hasPanes = true
+                branch.paneIDs = paneIDs
+            }
+            return branch
+        }
+
+        let localNames = Set(locals.map(\.name))
+        result += remotes.filter { !localNames.contains($0.name) }
+        return result
+    }
+
+    // MARK: - Splitting
+
     @discardableResult
-    public func splitFocusedPane(direction: SplitDirection, placeBefore: Bool = false) -> Pane? {
+    public func splitFocusedPane(direction: SplitDirection, placeBefore: Bool = false, workingDirectory: String? = nil) -> Pane? {
         guard let focused = focusedPane else { return nil }
         paneCounter += 1
         let newPane = Pane(
             name: "Pane \(paneCounter)",
             shell: focused.shell,
-            workingDirectory: focused.workingDirectory
+            workingDirectory: workingDirectory ?? focused.workingDirectory
         )
         if rootNode.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) {
             focusedPaneID = newPane.id
@@ -156,7 +186,6 @@ public final class Workspace: Identifiable {
 
     private func equalizeChainContaining(paneID: UUID, direction: SplitDirection) {
         let chain = rootNode.ancestorChain(for: paneID)
-        // Walk from the pane's parent upward to find the highest contiguous same-direction ancestor
         var highestSameDir: SplitNode?
         for entry in chain.reversed() {
             if case .split(let dir, _, _) = entry.node.content, dir == direction {
@@ -168,9 +197,10 @@ public final class Workspace: Identifiable {
         highestSameDir?.equalizeSameDirectionChain(direction: direction)
     }
 
+    // MARK: - Pane Management
+
     public func removePane(id: UUID) {
         if !rootNode.removePane(id: id) {
-            // Last pane (removePane returns false on leaf) — replace with fresh one
             paneCounter += 1
             let newPane = Pane(name: "Pane \(paneCounter)")
             rootNode.content = .leaf(newPane)
@@ -218,7 +248,7 @@ public final class Workspace: Identifiable {
 
 extension Workspace: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, rootNode, focusedPaneID
+        case id, name, repoPath, rootNode, focusedPaneID
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -226,6 +256,7 @@ extension Workspace: Codable {
         self.init(
             id: try container.decode(UUID.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
+            repoPath: try container.decodeIfPresent(String.self, forKey: .repoPath),
             rootNode: try container.decode(SplitNode.self, forKey: .rootNode),
             focusedPaneID: try container.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
         )
@@ -235,7 +266,8 @@ extension Workspace: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(repoPath, forKey: .repoPath)
         try container.encode(rootNode, forKey: .rootNode)
-        try container.encode(focusedPaneID, forKey: .focusedPaneID)
+        try container.encodeIfPresent(focusedPaneID, forKey: .focusedPaneID)
     }
 }

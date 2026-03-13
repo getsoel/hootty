@@ -32,8 +32,13 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case toggleSidebar
     case toggleCommandPalette
     case changeTheme
+    case refreshTerminal
+
+    // Branches
+    case refreshBranches
 
     // App
+    case resetWorkspaces
     case editConfig
 
     public var id: String { rawValue }
@@ -58,6 +63,9 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .toggleSidebar: return "Toggle Sidebar"
         case .toggleCommandPalette: return "Command Palette"
         case .changeTheme: return "Change Theme..."
+        case .refreshTerminal: return "Refresh Terminal"
+        case .refreshBranches: return "Refresh Branches"
+        case .resetWorkspaces: return "Reset Workspaces"
         case .editConfig: return "Edit Configuration..."
         }
     }

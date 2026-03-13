@@ -291,6 +291,12 @@ final class TerminalSurfaceView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
 
+        if window != nil {
+            Log.surface.info("Surface attached to window (pane: \(self.paneID.uuidString.prefix(8)), created: \(self.surfaceCreated))")
+        } else {
+            Log.surface.info("Surface detached from window (pane: \(self.paneID.uuidString.prefix(8)))")
+        }
+
         // Deferred creation: create surface on first window attachment
         if !surfaceCreated {
             createSurfaceIfNeeded()
@@ -318,6 +324,10 @@ final class TerminalSurfaceView: NSView {
         if let screen = window.screen {
             ghostty_surface_set_display_id(surface, screen.displayID ?? 0)
         }
+
+        // Force redraw when reattached to a window (e.g., SwiftUI .id() change
+        // reparenting the NSView). Without this the Metal surface stays blank.
+        ghostty_surface_refresh(surface)
     }
 
     @objc private func windowOcclusionDidChange(_ notification: Notification) {
@@ -354,7 +364,13 @@ final class TerminalSurfaceView: NSView {
     private func updateSurfaceSize(_ size: NSSize) {
         guard let surface else { return }
         let scaledSize = convertToBacking(size)
+        guard scaledSize.width > 0, scaledSize.height > 0 else { return }
         ghostty_surface_set_size(surface, UInt32(scaledSize.width), UInt32(scaledSize.height))
+    }
+
+    func refreshSurface() {
+        guard let surface else { return }
+        ghostty_surface_refresh(surface)
     }
 
     func setCursorShape(_ cursor: NSCursor) {

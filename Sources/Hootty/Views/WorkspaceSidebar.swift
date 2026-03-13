@@ -11,9 +11,12 @@ struct WorkspaceSidebar: View {
     var onMoveWorkspace: (UUID, Int) -> Void
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
+    var onNewWorktree: ((UUID) -> Void)?
     var onSave: (() -> Void)?
+    @Binding var sidebarHasFocus: Bool
     var sidebarWidth: CGFloat
 
+    @FocusState private var isFocused: Bool
     @State private var hoveredWorkspaceID: UUID?
     @State private var hoveredPaneID: UUID?
     @State private var renameTargetID: UUID?
@@ -39,6 +42,17 @@ struct WorkspaceSidebar: View {
         }
         .frame(width: sidebarWidth)
         .background(Color(tokens.surfaceLow))
+        .focusable()
+        .focused($isFocused)
+        .focusEffectDisabled()
+        .onKeyPress(.upArrow) { navigatePrevious(); return .handled }
+        .onKeyPress(.downArrow) { navigateNext(); return .handled }
+        .onKeyPress(.return) { sidebarHasFocus = false; return .handled }
+        .onKeyPress(.escape) { sidebarHasFocus = false; return .handled }
+        .onChange(of: sidebarHasFocus) { _, hasFocus in isFocused = hasFocus }
+        .onChange(of: isFocused) { _, focused in
+            if !focused && sidebarHasFocus { sidebarHasFocus = false }
+        }
         .alert("Rename Workspace", isPresented: Binding(
             get: { renameTargetID != nil },
             set: { if !$0 { renameTargetID = nil } }
@@ -61,12 +75,12 @@ struct WorkspaceSidebar: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(workspaces) { workspace in
+                    let canClose = workspace.allPanes.count > 1
+                    let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
+
                     workspaceRow(workspace)
 
-                    let panes = workspace.allPanes
-                    let canClose = panes.count > 1
-                    let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
-                    ForEach(panes) { pane in
+                    ForEach(workspace.allPanes) { pane in
                         paneRow(
                             pane,
                             workspace: workspace,
@@ -118,19 +132,43 @@ struct WorkspaceSidebar: View {
         renamePaneTargetID = nil
     }
 
+    // MARK: - Keyboard Navigation
+
+    private var selectedWorkspace: Workspace? {
+        workspaces.first { $0.id == selectedWorkspaceID }
+    }
+
+    private func navigateNext() {
+        guard let ws = selectedWorkspace else { return }
+        let panes = ws.allPanes
+        guard let id = ws.focusedPaneID,
+              let idx = panes.firstIndex(where: { $0.id == id }),
+              idx + 1 < panes.count else { return }
+        onSelectPane(ws.id, panes[idx + 1].id)
+    }
+
+    private func navigatePrevious() {
+        guard let ws = selectedWorkspace else { return }
+        let panes = ws.allPanes
+        guard let id = ws.focusedPaneID,
+              let idx = panes.firstIndex(where: { $0.id == id }),
+              idx > 0 else { return }
+        onSelectPane(ws.id, panes[idx - 1].id)
+    }
+
     // MARK: - Workspace row (depth 0, no tree lines)
 
     private func workspaceRow(_ workspace: Workspace) -> some View {
-        let isSelected = workspace.id == selectedWorkspaceID
         let isHovered = workspace.id == hoveredWorkspaceID
         return HStack(spacing: 6) {
             Image(systemName: "folder.fill")
                 .font(.system(size: TypeScale.iconSize))
-                .foregroundStyle(Color(isSelected ? tokens.elementSelectedText : tokens.textMuted))
+                .foregroundStyle(Color(tokens.textMuted))
+                .frame(width: 16)
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(isSelected ? tokens.elementSelectedText : tokens.textMuted))
+                .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
 
             Spacer(minLength: 0)
@@ -139,13 +177,7 @@ struct WorkspaceSidebar: View {
         .padding(.vertical, Spacing.md)
         .background(
             Rectangle()
-                .fill(
-                    isSelected
-                        ? Color(tokens.elementSelected)
-                        : isHovered
-                            ? Color(tokens.elementHover)
-                            : Color.clear
-                )
+                .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
         )
         .onContinuousHover { phase in
             switch phase {
@@ -199,43 +231,61 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    // MARK: - Pane row (depth 1)
+    // MARK: - Pane row
 
     private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool, layoutRects: [UUID: CGRect]) -> some View {
         let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
         let isHovered = pane.id == hoveredPaneID
+        let isConnected = pane.branch != nil
 
         return HStack(spacing: 0) {
-            TreeConnectorView(
-                depth: 1,
-                continuingLevels: [],
-                tokens: tokens
-            )
+            TreeConnectorView(depth: 1, tokens: tokens)
 
-            HStack(spacing: 6) {
-                Image(systemName: "apple.terminal")
-                    .font(.system(size: TypeScale.iconSize))
-                    .foregroundStyle(Color(paneIconColor(pane)))
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 6) {
+                    StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
+                        .fixedSize()
+                        .frame(width: 16)
 
-                Text(pane.displayName)
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedPane ? tokens.elementSelectedText : tokens.textMuted))
-                    .lineLimit(1)
+                    Text(pane.displayName)
+                        .font(.system(size: TypeScale.bodySize))
+                        .foregroundStyle(Color(tokens.textMuted))
+                        .lineLimit(1)
 
-                Spacer(minLength: 0)
+                    Spacer(minLength: 0)
 
-                if !layoutRects.isEmpty {
-                    SplitLayoutThumbnail(
-                        layoutRects: layoutRects,
-                        highlightedPaneID: pane.id,
-                        isFocused: isFocusedPane,
-                        tokens: tokens
-                    )
+                    if !layoutRects.isEmpty {
+                        SplitLayoutThumbnail(
+                            layoutRects: layoutRects,
+                            highlightedPaneID: pane.id,
+                            tokens: tokens
+                        )
+                    }
                 }
+                .padding(.vertical, Spacing.md)
 
+                if isConnected {
+                    HStack(spacing: 6) {
+                        Canvas { context, size in
+                            let lineColor = Color(tokens.textMuted)
+                                .opacity(0.3)
+                            let midX = size.width / 2
+                            let midY = size.height / 2
+                            var path = Path()
+                            path.move(to: CGPoint(x: midX, y: 0))
+                            path.addLine(to: CGPoint(x: midX, y: midY))
+                            path.addLine(to: CGPoint(x: size.width, y: midY))
+                            context.stroke(path, with: .color(lineColor), lineWidth: 1)
+                        }
+                        .frame(width: 16)
+                        .frame(maxHeight: .infinity)
+
+                        connectedDetailLine(pane: pane)
+                    }
+                    .padding(.bottom, Spacing.md)
+                }
             }
             .padding(.trailing, Spacing.md)
-            .padding(.vertical, Spacing.md)
         }
         .padding(.leading, Spacing.md)
         .background(
@@ -248,14 +298,6 @@ struct WorkspaceSidebar: View {
                             : Color.clear
                 )
         )
-        .overlay {
-            if let kind = pane.attentionKind {
-                Color.clear
-                    .glowBorder(shape: Rectangle(), color: Color(tokens.attentionColor(for: kind)), lineWidth: 1, glowRadius: 4)
-            } else if isFocusedPane {
-                Rectangle().stroke(Color(tokens.borderFocused), lineWidth: 2)
-            }
-        }
         .onContinuousHover { phase in
             switch phase {
             case .active:
@@ -267,6 +309,7 @@ struct WorkspaceSidebar: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
+            sidebarHasFocus = true
             onSelectPane(workspace.id, pane.id)
         }
         .accessibilityAddTraits(.isButton)
@@ -276,6 +319,11 @@ struct WorkspaceSidebar: View {
                 editingPaneName = pane.displayName
                 renamePaneTargetID = pane.id
             }
+            if isConnected {
+                Button("New Worktree") {
+                    onNewWorktree?(workspace.id)
+                }
+            }
             if canClose {
                 Button("Close Pane") {
                     onRemovePane(workspace.id, pane.id)
@@ -284,16 +332,22 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Connected Detail Line
 
-    private func paneIconColor(_ pane: Pane) -> NSColor {
-        if let kind = pane.attentionKind {
-            return tokens.attentionColor(for: kind)
-        } else if pane.isThinking {
-            return tokens.statusThinking
-        } else {
-            return tokens.textMuted
+    private func connectedDetailLine(pane: Pane) -> some View {
+        let branchColor = Color(tokens.textAccent)
+        let mutedColor = Color(tokens.textMuted)
+
+        var combined = Text(pane.branch ?? "")
+            .foregroundColor(branchColor)
+
+        if pane.worktreePath != nil {
+            combined = combined + Text(" (worktree)").foregroundColor(mutedColor)
         }
+
+        return combined
+            .font(.system(size: TypeScale.bodySize))
+            .lineLimit(1)
     }
 
 }
@@ -352,7 +406,6 @@ private struct WorkspaceRowDropDelegate: DropDelegate {
 
 private struct TreeConnectorView: View {
     let depth: Int
-    let continuingLevels: Set<Int>
     let tokens: DesignTokens
 
     private let gutterWidth: CGFloat = 16
@@ -360,25 +413,13 @@ private struct TreeConnectorView: View {
     var body: some View {
         Canvas { context, size in
             let lineColor = Color(tokens.textMuted).opacity(0.3)
-
-            // Draw continuing vertical lines for ancestor levels
-            for level in continuingLevels {
-                let x = CGFloat(level) * gutterWidth + gutterWidth / 2
-                var path = Path()
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: size.height))
-                context.stroke(path, with: .color(lineColor), lineWidth: 1)
-            }
-
-            // Draw vertical line at current depth — always full height
-            if depth > 0 {
-                let x = size.width - gutterWidth / 2
-                var verticalPath = Path()
-                verticalPath.move(to: CGPoint(x: x, y: 0))
-                verticalPath.addLine(to: CGPoint(x: x, y: size.height))
-                context.stroke(verticalPath, with: .color(lineColor), lineWidth: 1)
-            }
+            let x = size.width - gutterWidth / 2
+            var path = Path()
+            path.move(to: CGPoint(x: x, y: 0))
+            path.addLine(to: CGPoint(x: x, y: size.height))
+            context.stroke(path, with: .color(lineColor), lineWidth: 1)
         }
         .frame(width: CGFloat(depth) * gutterWidth)
     }
 }
+

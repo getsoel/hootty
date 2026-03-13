@@ -382,8 +382,8 @@ private func reloadModel(from url: URL) -> AppModel {
         _ = ws.splitFocusedPane(direction: .horizontal)!
 
         // p2 is now focused; set attention on p1
-        model.handlePaneNeedsAttention(p1.id, kind: .input)
-        #expect(p1.attentionKind == .input)
+        model.handlePaneNeedsAttention(p1.id, kind: .bell)
+        #expect(p1.attentionKind == .bell)
         #expect(ws.hasAttention == true)
 
         // Focus p1 to clear attention
@@ -404,7 +404,7 @@ private func reloadModel(from url: URL) -> AppModel {
         _ = ws2.splitFocusedPane(direction: .horizontal)!
         // ws2p2 is now focused in ws2; flag attention on ws2p1
         // But model.selectedWorkspaceID is ws1, so ws2p1 is unfocused from model perspective
-        model.handlePaneNeedsAttention(ws2p1.id, kind: .idle)
+        model.handlePaneNeedsAttention(ws2p1.id, kind: .bell)
         #expect(ws2.hasAttention == true)
 
         // Switch to ws2 and focus the attention pane
@@ -424,8 +424,8 @@ private func reloadModel(from url: URL) -> AppModel {
         _ = ws.splitFocusedPane(direction: .horizontal)!
 
         // Set attention on p1 (unfocused after split)
-        model.handlePaneNeedsAttention(p1.id, kind: .idle)
-        #expect(p1.attentionKind == .idle)
+        model.handlePaneNeedsAttention(p1.id, kind: .bell)
+        #expect(p1.attentionKind == .bell)
 
         // Thinking start clears attention
         model.handlePaneThinkingChanged(p1.id, isThinking: true)
@@ -436,34 +436,6 @@ private func reloadModel(from url: URL) -> AppModel {
         model.handlePaneThinkingChanged(p1.id, isThinking: false)
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == nil)
-    }
-
-    @Test func attentionPriorityInputOverIdle() {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        model.selectedWorkspaceID = ws.id
-
-        let p1 = ws.allPanes[0]
-        ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
-        let p3 = ws.splitFocusedPane(direction: .vertical)!
-
-        // Focus p3 so p1 and p2 are unfocused
-        ws.focusPane(id: p3.id)
-
-        // Set idle on p1, input on p2
-        model.handlePaneNeedsAttention(p1.id, kind: .idle)
-        model.handlePaneNeedsAttention(p2.id, kind: .input)
-
-        #expect(ws.attentionKind == .input)
-
-        // Clear p2's attention — should fall back to idle
-        p2.attentionKind = nil
-        #expect(ws.attentionKind == .idle)
-
-        // Clear p1 too
-        p1.attentionKind = nil
-        #expect(ws.attentionKind == nil)
     }
 
     @Test func bellOnFocusedPaneSetsBellAttention() {
@@ -484,7 +456,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(p1.attentionKind == .bell)
     }
 
-    @Test func bellOnUnfocusedPaneSetsInputAttention() {
+    @Test func bellOnUnfocusedPaneSetsBellAttention() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -493,10 +465,10 @@ private func reloadModel(from url: URL) -> AppModel {
         ws.focusPane(id: p1.id)
         let p2 = ws.splitFocusedPane(direction: .horizontal)!
 
-        // p2 is focused after split; bell on p1 (unfocused) should set .input
+        // p2 is focused after split; bell on p1 (unfocused) should set .bell
         let didSet = model.handleBell(p1.id)
         #expect(didSet == true)
-        #expect(p1.attentionKind == .input)
+        #expect(p1.attentionKind == .bell)
 
         // p2 (focused) should not be affected
         #expect(p2.attentionKind == nil)
@@ -530,7 +502,7 @@ private func reloadModel(from url: URL) -> AppModel {
         _ = ws.splitFocusedPane(direction: .horizontal)!
 
         // Set transient state
-        model.handlePaneNeedsAttention(p1.id, kind: .input)
+        model.handlePaneNeedsAttention(p1.id, kind: .bell)
         model.handlePaneThinkingChanged(p1.id, isThinking: true)
         model.saveWorkspaces()
 
@@ -564,7 +536,6 @@ private func reloadModel(from url: URL) -> AppModel {
         let configFile = ConfigFile(fileURL: cfgURL)
         let soundManager = SoundManager(configFile: configFile)
         soundManager.bellSound = "Ping"
-        soundManager.attentionInputSound = "Basso"
 
         // Modify workspaces independently
         let (model, url) = makeModel()
@@ -578,7 +549,6 @@ private func reloadModel(from url: URL) -> AppModel {
         let reloadedConfig = ConfigFile(fileURL: cfgURL)
         let reloadedSound = SoundManager(configFile: reloadedConfig)
         #expect(reloadedSound.bellSound == "Ping")
-        #expect(reloadedSound.attentionInputSound == "Basso")
     }
 
     @Test func themePersistsToConfigFile() {
@@ -672,6 +642,100 @@ private func reloadModel(from url: URL) -> AppModel {
         for (_, rect) in rects {
             #expect(abs(rect.width - 0.25) < 0.001)
         }
+    }
+}
+
+// MARK: - Suite G: Title-Based Claude Detection
+
+@Suite struct TitleBasedClaudeDetection {
+    @Test func titleThinkingIgnoredWithoutClaudeSession() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+        // No claudeSessionID set
+        #expect(pane.claudeSessionID == nil)
+
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
+        #expect(pane.isThinking == false)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func titleThinkingDetectedWithClaudeSession() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+        pane.claudeSessionID = "test-session-id"
+
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
+        #expect(pane.isThinking == true)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func titleIdleStopsThinkingWithoutAttention() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        p1.claudeSessionID = "test-session"
+        ws.focusPane(id: p1.id)
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+        // p1 is now unfocused
+
+        // Simulate thinking start
+        model.handleTitleChange(p1.id, title: "\u{280B} Thinking . project")
+        #expect(p1.isThinking == true)
+
+        // Simulate idle (Claude finished) — no attention set
+        model.handleTitleChange(p1.id, title: "\u{2733} project")
+        #expect(p1.isThinking == false)
+        #expect(p1.attentionKind == nil)
+    }
+
+    @Test func rapidTitleUpdatesAreIdempotent() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+        pane.claudeSessionID = "test-session"
+
+        // Multiple spinner frames should all result in thinking=true
+        let spinnerChars = ["\u{280B}", "\u{2819}", "\u{2839}", "\u{2838}", "\u{283C}"]
+        for char in spinnerChars {
+            model.handleTitleChange(pane.id, title: "\(char) Thinking . project")
+        }
+        #expect(pane.isThinking == true)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func hookAndTitleDetectionCoexist() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        p1.claudeSessionID = "test-session"
+        ws.focusPane(id: p1.id)
+        _ = ws.splitFocusedPane(direction: .horizontal)!
+        // p1 is now unfocused
+
+        // Title-based thinking detection fires first
+        model.handleTitleChange(p1.id, title: "\u{280B} Thinking . project")
+        #expect(p1.isThinking == true)
+
+        // Hook-based thinking fires later — should be a no-op (already thinking)
+        model.handlePaneThinkingChanged(p1.id, isThinking: true)
+        #expect(p1.isThinking == true)
+        #expect(p1.attentionKind == nil)
+
+        // Title-based idle fires — no attention set
+        model.handleTitleChange(p1.id, title: "* project")
+        #expect(p1.isThinking == false)
+        #expect(p1.attentionKind == nil)
+
+        // Hook-based idle fires later — still no attention
+        model.handlePaneThinkingChanged(p1.id, isThinking: false)
+        #expect(p1.isThinking == false)
+        #expect(p1.attentionKind == nil)
     }
 }
 

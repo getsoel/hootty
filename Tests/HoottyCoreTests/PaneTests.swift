@@ -3,9 +3,10 @@ import Foundation
 @testable import HoottyCore
 
 @Suite struct PaneTests {
-    @Test func displayNameReturnsNameWhenNoCustomName() {
-        let pane = Pane(name: "zsh")
-        #expect(pane.displayName == "zsh")
+    @Test func displayNameReturnsAbbreviatedPathWhenNoCustomName() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let pane = Pane(name: "zsh", workingDirectory: home + "/Projects/myapp")
+        #expect(pane.displayName == "~/Projects/myapp")
     }
 
     @Test func displayNameReturnsCustomNameWhenSet() {
@@ -15,9 +16,10 @@ import Foundation
     }
 
     @Test func displayNameRevertsWhenCustomNameCleared() {
-        let pane = Pane(name: "zsh")
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let pane = Pane(name: "zsh", workingDirectory: home + "/Projects/myapp")
         pane.customName = "My Server"
         pane.customName = nil
-        #expect(pane.displayName == "zsh")
+        #expect(pane.displayName == "~/Projects/myapp")
     }
 }

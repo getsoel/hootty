@@ -10,6 +10,7 @@ struct PaneContentView: View {
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
+    var onNewWorktree: (() -> Void)?
     let onSave: () -> Void
 
     @State private var isDropTarget = false
@@ -23,6 +24,7 @@ struct PaneContentView: View {
                 onFocusPane: onFocusPane,
                 onSplitPane: onSplitPane,
                 onClosePane: onClosePane,
+                onNewWorktree: onNewWorktree,
                 onSave: onSave
             )
 
@@ -41,7 +43,7 @@ struct PaneContentView: View {
                         shape: Rectangle(),
                         color: Color(tokens.attentionColor(for: kind)),
                         lineWidth: 2,
-                        glowRadius: kind == .input ? 8 : 6
+                        glowRadius: 6
                     )
             } else if isFocused {
                 Rectangle()

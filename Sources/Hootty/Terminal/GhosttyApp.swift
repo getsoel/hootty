@@ -32,9 +32,6 @@ final class GhosttyApp {
     /// Called when a Claude Code session ID is detected via OSC 9 (paneID, sessionID).
     var onClaudeSessionDetected: ((UUID, String) -> Void)?
 
-    /// Called when a pane's thinking state changes (paneID, isThinking).
-    var onPaneThinkingChanged: ((UUID, Bool) -> Void)?
-
     /// Called when ghostty dispatches a new_split action (e.g. keybinding).
     var onNewSplit: ((UUID, SplitDirection, ghostty_surface_t?) -> Void)?
 
@@ -49,6 +46,9 @@ final class GhosttyApp {
 
     /// Called when a surface's working directory changes (paneID, newPath).
     var onPwdChanged: ((UUID, String) -> Void)?
+
+    /// Called when a surface's title changes (paneID, title).
+    var onTitleChanged: ((UUID, String) -> Void)?
 
     /// Pending paste content set by drag-and-drop to route through ghostty's paste path
     /// (which applies bracketed paste wrapping). Consumed by `readClipboard`.
@@ -76,6 +76,12 @@ final class GhosttyApp {
 
     func cachedSurfaceView(for paneID: UUID) -> TerminalSurfaceView? {
         surfaceViews[paneID]
+    }
+
+    func refreshAllSurfaces() {
+        for (_, view) in surfaceViews {
+            view.refreshSurface()
+        }
     }
 
     func removeCachedSurfaceView(for paneID: UUID) {
@@ -458,16 +464,7 @@ final class GhosttyApp {
         return true
     }
 
-    private static func signalAttention(target: ghostty_target_s, kind: AttentionKind = .input) -> Bool {
-        guard let ctx = callbackContext(from: target) else { return false }
-        let paneID = ctx.paneID
-        GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
-        return true
-    }
-
     private static let hoottySessionPrefix = "hootty:session:"
-    private static let hoottyThinkingPrefix = "hootty:thinking:"
-    private static let hoottyAttentionPrefix = "hootty:attention:"
 
     private static func handleDesktopNotification(target: ghostty_target_s, v: ghostty_action_desktop_notification_s) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
@@ -485,32 +482,21 @@ final class GhosttyApp {
             DispatchQueue.main.async {
                 GhosttyApp.shared.onClaudeSessionDetected?(paneID, sessionID)
             }
-        } else if let body, body.hasPrefix(hoottyThinkingPrefix) {
-            let value = String(body.dropFirst(hoottyThinkingPrefix.count))
-            guard value == "start" || value == "stop" else {
-                Log.ghostty.warning("Invalid thinking state: \(value)")
-                return true
-            }
-            let isThinking = value == "start"
-            DispatchQueue.main.async {
-                GhosttyApp.shared.onPaneThinkingChanged?(paneID, isThinking)
-            }
-        } else if let body, body.hasPrefix(hoottyAttentionPrefix) {
-            let kindStr = String(body.dropFirst(hoottyAttentionPrefix.count))
-            let kind = AttentionKind(rawValue: kindStr) ?? .input
-            GhosttyApp.shared.onPaneNeedsAttention?(paneID, kind)
         } else {
-            GhosttyApp.shared.onPaneNeedsAttention?(paneID, .input)
+            // Generic OSC 9 notification — treat as bell attention
+            GhosttyApp.shared.onPaneNeedsAttention?(paneID, .bell)
         }
         return true
     }
 
     private static func setTitle(target: ghostty_target_s, v: ghostty_action_set_title_s) -> Bool {
-        guard let view = surfaceView(from: target) else { return false }
+        guard let ctx = callbackContext(from: target) else { return false }
         guard let title = v.title else { return false }
         let titleStr = String(cString: title)
+        let paneID = ctx.paneID
         DispatchQueue.main.async {
-            view.titleDidChange?(titleStr)
+            ctx.view?.titleDidChange?(titleStr)
+            GhosttyApp.shared.onTitleChanged?(paneID, titleStr)
         }
         return true
     }

@@ -1,6 +1,6 @@
 #!/bin/bash
-# Hootty claude wrapper — injects hooks so Claude Code notifications
-# trigger Hootty's attention indicators automatically.
+# Hootty claude wrapper — reports session ID so Hootty can track
+# Claude Code sessions for title-based state detection.
 # Outside Hootty, passes through to the real claude unchanged.
 
 # Find the real claude binary, skipping our own directory
@@ -27,10 +27,8 @@ case "${1:-}" in
     mcp|config|api-key) exec "$REAL_CLAUDE" "$@" ;;
 esac
 
-# Inject hooks that emit OSC 9 sequences (triggers ghostty's attention system)
-# - Stop: idle indicator (fires immediately when Claude's turn ends)
-# - Notification: input indicator for permission/elicitation prompts
-# - SessionStart: reports session ID back to Hootty for resume support
-HOOKS_JSON='{"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:thinking:start\\a'"'"'"}]}],"Stop":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:thinking:stop\\a'"'"' && printf '"'"'\\e]9;hootty:attention:idle\\a'"'"'"}]}],"Notification":[{"matcher":"permission_prompt|elicitation_dialog","hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:attention:input\\a'"'"'"}]}],"SessionStart":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:session:${CLAUDE_SESSION_ID}\\a'"'"'"}]}]}}'
+# Inject SessionStart hook to report session ID back to Hootty for resume support.
+# Thinking/attention detection is handled by title watching (ClaudeTitleParser).
+HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:session:${CLAUDE_SESSION_ID}\\a'"'"'"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"

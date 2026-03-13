@@ -101,6 +101,15 @@ struct HoottyApp: App {
         commandRegistry.register(.changeTheme) { [appModel] in
             appModel.modalState = .themePicker
         }
+        commandRegistry.register(.refreshTerminal) {
+            GhosttyApp.shared.refreshAllSurfaces()
+        }
+        commandRegistry.register(.refreshBranches) {
+            // Branch list is now computed on-demand when the picker opens
+        }
+        commandRegistry.register(.resetWorkspaces) { [appModel] in
+            appModel.resetWorkspaces()
+        }
         commandRegistry.register(.editConfig) { [appModel] in
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
@@ -149,11 +158,8 @@ struct HoottyApp: App {
                     GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID, kind in
                         let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
                         if didSet {
-                            appModel.soundManager.play(kind == .idle ? .attentionIdle : .attentionInput)
+                            appModel.soundManager.play(.bell)
                         }
-                    }
-                    GhosttyApp.shared.onPaneThinkingChanged = { [appModel] paneID, isThinking in
-                        appModel.handlePaneThinkingChanged(paneID, isThinking: isThinking)
                     }
                     GhosttyApp.shared.onClaudeSessionDetected = { [appModel] paneID, sessionID in
                         if let (_, pane) = appModel.findPane(id: paneID) {
@@ -177,8 +183,11 @@ struct HoottyApp: App {
                         workspace.removePane(id: paneID)
                         appModel.saveWorkspaces()
                     }
-                    GhosttyApp.shared.onPwdChanged = { [appModel] _, _ in
-                        appModel.debouncedSave()
+                    GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
+                        appModel.handleTitleChange(paneID, title: title)
+                    }
+                    GhosttyApp.shared.onPwdChanged = { [appModel] paneID, pwd in
+                        appModel.handlePwdChanged(paneID, pwd: pwd)
                     }
                     GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
                         if exitCode > 128 {
@@ -274,6 +283,7 @@ struct HoottyApp: App {
                     commandRegistry.execute(.focusPaneRight)
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+
             }
             CommandMenu("Theme") {
                 Button(AppCommand.changeTheme.title) {

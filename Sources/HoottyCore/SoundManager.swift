@@ -3,8 +3,6 @@ import os
 
 public enum SoundTrigger: String, CaseIterable, Sendable {
     case bell
-    case attentionIdle
-    case attentionInput
 }
 
 @Observable
@@ -16,16 +14,6 @@ public final class SoundManager {
         set { configFile.set("hootty-bell-sound", value: newValue); configFile.save() }
     }
 
-    public var attentionIdleSound: String? {
-        get { configFile.get("hootty-attention-idle-sound") }
-        set { configFile.set("hootty-attention-idle-sound", value: newValue); configFile.save() }
-    }
-
-    public var attentionInputSound: String? {
-        get { configFile.get("hootty-attention-input-sound") }
-        set { configFile.set("hootty-attention-input-sound", value: newValue); configFile.save() }
-    }
-
     public init(configFile: ConfigFile) {
         self.configFile = configFile
     }
@@ -35,8 +23,6 @@ public final class SoundManager {
     public func sound(for trigger: SoundTrigger) -> String? {
         switch trigger {
         case .bell: return bellSound
-        case .attentionIdle: return attentionIdleSound
-        case .attentionInput: return attentionInputSound
         }
     }
 

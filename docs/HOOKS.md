@@ -1,6 +1,6 @@
 # Claude Code Hook Integration
 
-Hootty automatically injects Claude Code hooks so that turn completion and permission prompts trigger attention indicators (animated borders, bell icons) — zero user configuration required.
+Hootty uses a lightweight wrapper script to detect Claude Code sessions. Thinking and attention states are detected via title watching (ClaudeTitleParser) — no hooks needed for those.
 
 ## How It Works
 
@@ -8,13 +8,17 @@ Hootty automatically injects Claude Code hooks so that turn completion and permi
 User types `claude` in a Hootty pane
   → Shell's PATH resolves to Hootty's bundled wrapper script (prepended at surface creation)
   → Wrapper detects HOOTTY_PANE_ID env var → confirms it's running inside Hootty
-  → Injects --settings with hook JSON that emits OSC 9 on Stop / permission_prompt
-  → Claude Code runs normally with the extra hooks merged into settings
-  → Hook fires: printf '\e]9;Claude Code needs attention\a'
+  → Injects --settings with SessionStart hook that emits OSC 9 with session ID
+  → Claude Code runs normally with the extra hook merged into settings
+  → Hook fires: printf '\e]9;hootty:session:<UUID>\a'
   → ghostty parses OSC 9 → GHOSTTY_ACTION_DESKTOP_NOTIFICATION callback
-  → GhosttyApp.signalAttention() → onPaneNeedsAttention(paneID)
-  → Pane.needsAttention = true → animated border + bell icon in tab bar / sidebar
+  → GhosttyApp routes hootty:session: prefix → onClaudeSessionDetected(paneID, sessionID)
+  → Pane.claudeSessionID is set → enables title-based thinking/idle detection
 ```
+
+Once the session ID is set, ClaudeTitleParser watches terminal title changes:
+- Braille spinner chars → thinking state (animated indicator)
+- `✳` or `*` prefix → idle state (thinking stops)
 
 Outside Hootty (no `HOOTTY_PANE_ID`), the wrapper passes through to the real `claude` binary unchanged.
 
@@ -27,7 +31,7 @@ Bundled as an SPM resource via `Package.swift`. A bash script that:
 - Searches `PATH` (excluding its own directory) to find the real `claude` binary
 - If `HOOTTY_PANE_ID` is unset, passes through with `exec` — no overhead
 - Passes through subcommands that don't support `--settings` (`mcp`, `config`, `api-key`)
-- Injects `--settings` with inline JSON containing Stop, Notification, and SessionStart hooks
+- Injects `--settings` with inline JSON containing a `SessionStart` hook
 
 The `--settings` flag merges additively with the user's `~/.claude/settings.json`, so existing user hooks are preserved.
 
@@ -42,20 +46,28 @@ When creating a ghostty surface, `applyHoottyEnvVars()` sets two env vars via `g
 
 The bundle path is resolved once via `HoottyBundle.resourceBundle` (shared with icon loading).
 
-### 3. Attention Signal Path (`GhosttyApp.swift`)
+### 3. Session Detection Path (`GhosttyApp.swift`)
 
-ghostty handles OSC 9 (`\e]9;...\a`) internally and fires `GHOSTTY_ACTION_DESKTOP_NOTIFICATION`. Hootty's action callback routes this to `signalAttention()`:
+ghostty handles OSC 9 (`\e]9;...\a`) internally and fires `GHOSTTY_ACTION_DESKTOP_NOTIFICATION`. Hootty's action callback routes `hootty:session:` prefixed messages:
 
 ```
 GHOSTTY_ACTION_DESKTOP_NOTIFICATION
-  → GhosttyApp.signalAttention(target:)
-  → extracts paneID from SurfaceCallbackContext
-  → onPaneNeedsAttention?(paneID)
-  → AppModel.handlePaneNeedsAttention(_:)
-  → Pane.needsAttention = true
+  → GhosttyApp.handleDesktopNotification(target:v:)
+  → if body starts with "hootty:session:" → extract UUID
+  → onClaudeSessionDetected?(paneID, sessionID)
+  → Pane.claudeSessionID = sessionID
 ```
 
-SwiftUI observes `needsAttention` and renders the animated border on the pane view, plus a bell icon in the tab bar and sidebar. Focusing the pane clears the flag.
+Any other OSC 9 notification (non-hootty prefix) is treated as a generic bell attention signal.
+
+### 4. Title-Based State Detection (`ClaudeTitleParser` + `AppModel.handleTitleChange`)
+
+Once `Pane.claudeSessionID` is set, title changes are parsed for Claude Code state:
+
+| Title pattern | Detected state | Effect |
+|--------------|---------------|--------|
+| Braille spinner char (`⠋⠙⠹...`) | `.thinking` | `pane.isThinking = true`, clears attention |
+| `✳` (U+2733) or `*` prefix | `.idle` | `pane.isThinking = false` |
 
 ## Testing
 
@@ -82,11 +94,11 @@ Open two panes. Focus one, then run this in the **unfocused** pane:
 printf '\e]9;test notification\a'
 ```
 
-The unfocused pane should show an animated yellow border and bell icon. Clicking its tab clears the indicator.
+The unfocused pane should show a bell icon and glow border. Clicking its tab clears the indicator.
 
 ### Test with Claude Code
 
-If Claude Code is installed, run `claude` in a pane, switch to another pane, and trigger a task. The original pane should signal attention immediately when Claude's turn finishes (green indicator). Permission prompts should show a yellow indicator.
+If Claude Code is installed, run `claude` in a pane, switch to another pane, and trigger a task. The spinner in the terminal title should trigger the thinking indicator (animated arrow). When Claude finishes, the thinking indicator stops.
 
 ## Kitty Keyboard Protocol Reset
 

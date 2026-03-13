@@ -23,7 +23,7 @@ import Foundation
         let pane = workspace.allPanes[0]
         model.selectedWorkspaceID = workspace.id
         // pane is the only one and focused
-        model.handlePaneNeedsAttention(pane.id, kind: .input)
+        model.handlePaneNeedsAttention(pane.id, kind: .bell)
         #expect(pane.attentionKind == nil)
     }
 

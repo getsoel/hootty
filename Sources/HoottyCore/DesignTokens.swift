@@ -42,6 +42,9 @@ public struct DesignTokens {
     /// Accent text for links, highlights. Maps to palette[5] (Catppuccin Pink).
     public let textAccent: NSColor
 
+    /// Repository name text. Maps to palette[6] (Catppuccin Teal).
+    public let textRepo: NSColor
+
     // MARK: - Borders
 
     /// Default border color for dividers and separators.
@@ -87,8 +90,6 @@ public struct DesignTokens {
     /// Returns the appropriate status color for an attention kind.
     public func attentionColor(for kind: AttentionKind) -> NSColor {
         switch kind {
-        case .idle: return statusSuccess
-        case .input: return statusWarning
         case .bell: return statusBell
         }
     }
@@ -113,6 +114,7 @@ public struct DesignTokens {
             text: theme.foreground,
             textMuted: theme.palette[7],
             textAccent: theme.palette[5],
+            textRepo: theme.palette[6],
             border: theme.palette[0],
             borderFocused: theme.foreground,
             statusSuccess: theme.palette[2],

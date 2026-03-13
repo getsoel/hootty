@@ -60,6 +60,11 @@ public final class WorkspaceStore {
         }
     }
 
+    public func deleteStorage() {
+        try? FileManager.default.removeItem(at: fileURL)
+        Self.logger.info("Deleted workspace storage")
+    }
+
     public func save(_ snapshot: WorkspaceSnapshot) {
         do {
             let encoder = JSONEncoder()

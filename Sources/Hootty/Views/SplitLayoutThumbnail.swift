@@ -4,7 +4,6 @@ import HoottyCore
 struct SplitLayoutThumbnail: View {
     let layoutRects: [UUID: CGRect]
     let highlightedPaneID: UUID
-    let isFocused: Bool
     let tokens: DesignTokens
 
     var body: some View {
@@ -19,13 +18,10 @@ struct SplitLayoutThumbnail: View {
                 ).insetBy(dx: 0.5, dy: 0.5)
 
                 if isHighlighted {
-                    let fillColor = isFocused
-                        ? Color(tokens.textAccent).opacity(0.3)
-                        : Color(tokens.textMuted).opacity(0.2)
-                    context.fill(Path(drawRect), with: .color(fillColor))
+                    context.fill(Path(drawRect), with: .color(Color(tokens.textMuted).opacity(0.2)))
                     context.stroke(
                         Path(drawRect),
-                        with: .color(Color(isFocused ? tokens.textAccent : tokens.textMuted)),
+                        with: .color(Color(tokens.textMuted)),
                         lineWidth: 1
                     )
                 } else {

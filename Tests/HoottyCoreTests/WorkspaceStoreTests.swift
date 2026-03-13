@@ -55,7 +55,7 @@ import Foundation
         store.save(snapshot)
 
         let model = AppModel(workspaceStore: store)
-        #expect(model.sidebarWidth == 200)
+        #expect(model.sidebarWidth == 260)
         #expect(model.sidebarVisible == true)
     }
 

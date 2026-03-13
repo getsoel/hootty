@@ -3,18 +3,42 @@ import Foundation
 @testable import HoottyCore
 
 @Suite struct WorkspaceTests {
+    @Test func singlePaneByDefault() {
+        let ws = Workspace(name: "Test")
+        #expect(ws.allPanes.count == 1)
+        #expect(ws.focusedPane != nil)
+        #expect(ws.focusedPaneID == ws.allPanes[0].id)
+    }
+
     @Test func isRunningReflectsPaneState() {
-        let workspace = Workspace(name: "Test")
-        #expect(workspace.isRunning == true)
-        workspace.allPanes.first!.isRunning = false
-        #expect(workspace.isRunning == false)
+        let ws = Workspace(name: "Test")
+        #expect(ws.isRunning == true)
+        ws.allPanes.first!.isRunning = false
+        #expect(ws.isRunning == false)
     }
 
     @Test func focusPaneIgnoresUnknownID() {
-        let workspace = Workspace(name: "Test")
-        let currentID = workspace.focusedPaneID
-        workspace.focusPane(id: UUID())
-        #expect(workspace.focusedPaneID == currentID)
+        let ws = Workspace(name: "Test")
+        let currentID = ws.focusedPaneID
+        ws.focusPane(id: UUID())
+        #expect(ws.focusedPaneID == currentID)
+    }
+
+    @Test func findPaneFindsExistingPane() {
+        let ws = Workspace(name: "Test")
+        let p1 = ws.allPanes[0]
+        #expect(ws.findPane(id: p1.id) != nil)
+        #expect(ws.findPane(id: UUID()) == nil)
+    }
+
+    @Test func attentionOnUnfocusedPane() {
+        let ws = Workspace(name: "Test")
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        // p2 is now focused; set attention on p1
+        p1.attentionKind = .bell
+        #expect(ws.attentionKind == .bell)
     }
 
     // MARK: - Directional Focus
@@ -24,18 +48,14 @@ import Foundation
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
         let p2 = ws.splitFocusedPane(direction: .horizontal)!
-        // After split right: P1 | P2, focus on P2
         ws.focusPane(id: p1.id)
 
-        // Focus right from P1 → P2
         ws.focusPaneInDirection(.right)
         #expect(ws.focusedPaneID == p2.id)
 
-        // Focus left from P2 → P1
         ws.focusPaneInDirection(.left)
         #expect(ws.focusedPaneID == p1.id)
 
-        // Up/down are no-ops
         ws.focusPaneInDirection(.up)
         #expect(ws.focusedPaneID == p1.id)
         ws.focusPaneInDirection(.down)
@@ -49,15 +69,12 @@ import Foundation
         let p2 = ws.splitFocusedPane(direction: .vertical)!
         ws.focusPane(id: p1.id)
 
-        // Focus down from P1 → P2
         ws.focusPaneInDirection(.down)
         #expect(ws.focusedPaneID == p2.id)
 
-        // Focus up from P2 → P1
         ws.focusPaneInDirection(.up)
         #expect(ws.focusedPaneID == p1.id)
 
-        // Left/right are no-ops
         ws.focusPaneInDirection(.left)
         #expect(ws.focusedPaneID == p1.id)
         ws.focusPaneInDirection(.right)
@@ -75,21 +92,11 @@ import Foundation
     }
 
     @Test func directionalFocus2x2Grid() {
-        // Build V(H(A,B), H(C,D))
-        let ws = Workspace(name: "Test")
-        let a = ws.allPanes[0]
-        ws.focusPane(id: a.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)! // A | B
-        ws.focusPane(id: a.id)
-        _ = ws.splitFocusedPane(direction: .vertical)!   // A/C on left side
-        // Now: V(H(A, B), C) — but we need V(H(A,B), H(C,D))
-        // Actually the split happens on the focused leaf, so let me build it differently.
-        // Start fresh: build manually using SplitNode
         let pA = Pane(name: "A")
         let pB = Pane(name: "B")
         let pC = Pane(name: "C")
         let pD = Pane(name: "D")
-        let ws2 = Workspace(
+        let ws = Workspace(
             id: UUID(),
             name: "Grid",
             rootNode: SplitNode(
@@ -108,26 +115,23 @@ import Foundation
             focusedPaneID: pA.id
         )
 
-        // From A: right → B, down → C
-        ws2.focusPaneInDirection(.right)
-        #expect(ws2.focusedPaneID == pB.id)
+        ws.focusPaneInDirection(.right)
+        #expect(ws.focusedPaneID == pB.id)
 
-        ws2.focusPane(id: pA.id)
-        ws2.focusPaneInDirection(.down)
-        #expect(ws2.focusedPaneID == pC.id)
+        ws.focusPane(id: pA.id)
+        ws.focusPaneInDirection(.down)
+        #expect(ws.focusedPaneID == pC.id)
 
-        // From D: left → C, up → B
-        ws2.focusPane(id: pD.id)
-        ws2.focusPaneInDirection(.left)
-        #expect(ws2.focusedPaneID == pC.id)
+        ws.focusPane(id: pD.id)
+        ws.focusPaneInDirection(.left)
+        #expect(ws.focusedPaneID == pC.id)
 
-        ws2.focusPane(id: pD.id)
-        ws2.focusPaneInDirection(.up)
-        #expect(ws2.focusedPaneID == pB.id)
+        ws.focusPane(id: pD.id)
+        ws.focusPaneInDirection(.up)
+        #expect(ws.focusedPaneID == pB.id)
     }
 
     @Test func directionalFocusMixedTree() {
-        // H(A, V(B, C))
         let pA = Pane(name: "A")
         let pB = Pane(name: "B")
         let pC = Pane(name: "C")
@@ -146,27 +150,16 @@ import Foundation
             focusedPaneID: pA.id
         )
 
-        // From A: right → B (overlaps top half) or C (overlaps bottom half)
-        // Both overlap, closer center wins
         ws.focusPaneInDirection(.right)
-        // A spans full height, B is top half, C is bottom half
-        // B.midY = 0.25, C.midY = 0.75, A.midY = 0.5
-        // B perpDist = 0.25, C perpDist = 0.25 — tie, both adjacent at same primary dist
-        // With tie on perpDist, either is valid; B wins because it's iterated first or same dist
         let focused = ws.focusedPaneID
         #expect(focused == pB.id || focused == pC.id)
 
-        // From B: left → A
         ws.focusPane(id: pB.id)
         ws.focusPaneInDirection(.left)
         #expect(ws.focusedPaneID == pA.id)
     }
 
     @Test func directionalFocusNonOverlappingPanesSkipped() {
-        // V(H(A, B), C) where C is full width
-        // Focus A, go right → B (overlapping). Focus A, go down → C (overlapping).
-        // But B and C don't overlap horizontally... actually C is full width so they do.
-        // Let's test: V(H(A, B), H(C, D)) focus A, go down → C (same x range)
         let pA = Pane(name: "A")
         let pB = Pane(name: "B")
         let pC = Pane(name: "C")
@@ -190,8 +183,6 @@ import Foundation
             focusedPaneID: pB.id
         )
 
-        // From B (right half, top row): down → D (right half, bottom row)
-        // C (left half, bottom row) doesn't overlap B's x range
         ws.focusPaneInDirection(.down)
         #expect(ws.focusedPaneID == pD.id)
     }
@@ -199,7 +190,7 @@ import Foundation
     @Test func directionalFocusClearsAttention() {
         let pA = Pane(name: "A")
         let pB = Pane(name: "B")
-        pB.attentionKind = .input
+        pB.attentionKind = .bell
         let ws = Workspace(
             id: UUID(),
             name: "Test",
@@ -251,12 +242,71 @@ import Foundation
         ws.focusPane(id: p1.id)
         let p2 = ws.splitFocusedPane(direction: .horizontal)!
 
-        // Now split p2 vertically — this should NOT equalize the horizontal parent
         ws.focusPane(id: p2.id)
         _ = ws.splitFocusedPane(direction: .vertical)!
 
         let rects = ws.rootNode.paneRects()
-        // p1 should still have ~0.5 width (equalized from 2-pane horizontal split)
         #expect(abs(rects[p1.id]!.width - 0.5) < 0.001)
     }
+
+    // MARK: - Focus Next/Previous
+
+    @Test func focusNextPaneWrapsAround() {
+        let ws = Workspace(name: "Test")
+        let firstPaneID = ws.focusedPaneID!
+        _ = ws.splitFocusedPane(direction: .horizontal)
+        let secondPaneID = ws.focusedPaneID!
+
+        ws.focusNextPane()
+        #expect(ws.focusedPaneID == firstPaneID)
+
+        ws.focusNextPane()
+        #expect(ws.focusedPaneID == secondPaneID)
+    }
+
+    @Test func focusPreviousPaneWrapsAround() {
+        let ws = Workspace(name: "Test")
+        let firstPaneID = ws.focusedPaneID!
+        _ = ws.splitFocusedPane(direction: .horizontal)
+
+        ws.focusPane(id: firstPaneID)
+        ws.focusPreviousPane()
+        #expect(ws.focusedPaneID != firstPaneID)
+    }
+
+    @Test func focusNextPaneNoOpWithSinglePane() {
+        let ws = Workspace(name: "Test")
+        let onlyPaneID = ws.focusedPaneID!
+
+        ws.focusNextPane()
+        #expect(ws.focusedPaneID == onlyPaneID)
+    }
+
+    @Test func focusPreviousPaneNoOpWithSinglePane() {
+        let ws = Workspace(name: "Test")
+        let onlyPaneID = ws.focusedPaneID!
+
+        ws.focusPreviousPane()
+        #expect(ws.focusedPaneID == onlyPaneID)
+    }
+
+    // MARK: - Codable
+
+    @Test func roundTrip() throws {
+        let ws = Workspace(name: "Project")
+        ws.repoPath = "/Users/test/project"
+        ws.splitFocusedPane(direction: .horizontal)
+        ws.allPanes[0].branch = "main"
+
+        let data = try JSONEncoder().encode(ws)
+        let restored = try JSONDecoder().decode(Workspace.self, from: data)
+
+        #expect(restored.id == ws.id)
+        #expect(restored.name == "Project")
+        #expect(restored.repoPath == "/Users/test/project")
+        #expect(restored.allPanes.count == 2)
+        #expect(restored.focusedPaneID == ws.focusedPaneID)
+        #expect(restored.allPanes[0].branch == "main")
+    }
+
 }

@@ -10,6 +10,7 @@ struct SplitNodeView: View {
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
+    var onNewWorktree: (() -> Void)?
     let onSave: () -> Void
 
     var body: some View {
@@ -23,6 +24,7 @@ struct SplitNodeView: View {
                 onSplitPane: onSplitPane,
                 onClosePane: onClosePane,
                 onSwapPanes: onSwapPanes,
+                onNewWorktree: onNewWorktree,
                 onSave: onSave
             )
 
@@ -49,14 +51,14 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave)
+                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onNewWorktree: onNewWorktree, onSave: onSave)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
                     )
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave)
+                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onNewWorktree: onNewWorktree, onSave: onSave)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize

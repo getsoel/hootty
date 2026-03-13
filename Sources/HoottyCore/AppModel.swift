@@ -9,14 +9,16 @@ public final class AppModel {
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
-    public var sidebarWidth: CGFloat = 200
+    public var sidebarWidth: CGFloat = 260
 
     public enum ModalState {
         case none
         case commandPalette
         case themePicker
+        case branchPicker
     }
     public var modalState: ModalState = .none
+    public var sidebarHasFocus: Bool = false
 
     public static let sidebarMinWidth: CGFloat = 140
     public static let sidebarMaxWidth: CGFloat = 400
@@ -129,13 +131,7 @@ public final class AppModel {
     public func handleBell(_ paneID: UUID) -> Bool {
         for workspace in workspaces {
             guard let pane = workspace.findPane(id: paneID) else { continue }
-            let isFocusedPane = workspace.id == selectedWorkspaceID
-                && workspace.focusedPaneID == paneID
-            if isFocusedPane {
-                pane.attentionKind = .bell
-            } else {
-                pane.attentionKind = .input
-            }
+            pane.attentionKind = .bell
             return true
         }
         return false
@@ -152,6 +148,49 @@ public final class AppModel {
         }
     }
 
+    public func handleTitleChange(_ paneID: UUID, title: String) {
+        guard let (_, pane) = findPane(id: paneID),
+              pane.claudeSessionID != nil else { return }
+        guard let state = ClaudeTitleParser.parse(title) else { return }
+
+        switch state {
+        case .thinking:
+            if !pane.isThinking {
+                pane.isThinking = true
+                pane.attentionKind = nil
+            }
+        case .idle:
+            if pane.isThinking { pane.isThinking = false }
+        }
+    }
+
+    public func handlePwdChanged(_ paneID: UUID, pwd: String) {
+        guard let (workspace, pane) = findPane(id: paneID) else { return }
+        let newBranch = GitWorktreeManager.currentBranch(for: pwd)
+
+        // Short-circuit: non-git directory and pane already has no branch — skip extra subprocess calls
+        if newBranch == nil && pane.branch == nil {
+            return
+        }
+
+        let repoRoot = GitWorktreeManager.repoRoot(for: pwd)
+        let newWorktreePath = GitWorktreeManager.isWorktree(for: pwd) ? repoRoot : nil
+        var changed = false
+        if pane.branch != newBranch {
+            pane.branch = newBranch
+            changed = true
+        }
+        if pane.worktreePath != newWorktreePath {
+            pane.worktreePath = newWorktreePath
+            changed = true
+        }
+        if workspace.repoPath == nil, let root = repoRoot {
+            workspace.repoPath = root
+            changed = true
+        }
+        if changed { debouncedSave() }
+    }
+
     public func findPane(id: UUID) -> (Workspace, Pane)? {
         for workspace in workspaces {
             if let pane = workspace.findPane(id: id) {
@@ -159,6 +198,15 @@ public final class AppModel {
             }
         }
         return nil
+    }
+
+    public func resetWorkspaces() {
+        workspaceStore.deleteStorage()
+        workspaces = []
+        sidebarWidth = 260
+        sidebarVisible = true
+        let workspace = addWorkspace()
+        selectedWorkspaceID = workspace.id
     }
 
     public func toggleSidebar() {
@@ -181,4 +229,5 @@ public final class AppModel {
         let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
         selectedWorkspaceID = workspaces[prevIdx].id
     }
+
 }

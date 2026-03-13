@@ -1,10 +1,22 @@
 import SwiftUI
 import HoottyCore
 
+private struct SidebarHasFocusKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var sidebarHasFocus: Bool {
+        get { self[SidebarHasFocusKey.self] }
+        set { self[SidebarHasFocusKey.self] = newValue }
+    }
+}
+
 struct TerminalPaneView: NSViewRepresentable {
     let pane: Pane
     let isFocused: Bool
     let onFocusPane: () -> Void
+    @Environment(\.sidebarHasFocus) private var sidebarHasFocus
 
     func makeNSView(context: Context) -> TerminalSurfaceView {
         // Reuse cached view if available (survives SwiftUI structural identity changes)
@@ -25,10 +37,18 @@ struct TerminalPaneView: NSViewRepresentable {
             parentSurface: parentSurface
         )
 
+        var pendingTitleUpdate: DispatchWorkItem?
         view.titleDidChange = { [weak pane] title in
-            if pane?.customName == nil {
-                pane?.name = title
+            guard let pane, pane.customName == nil, pane.claudeSessionID != nil else { return }
+            pendingTitleUpdate?.cancel()
+            let work = DispatchWorkItem { [weak pane] in
+                guard let pane, pane.customName == nil else { return }
+                if let clean = ClaudeTitleParser.stripPrefix(title) {
+                    pane.name = clean
+                }
             }
+            pendingTitleUpdate = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
         }
         view.pwdDidChange = { [weak pane] pwd in
             pane?.workingDirectory = pwd
@@ -63,7 +83,7 @@ struct TerminalPaneView: NSViewRepresentable {
 
     func updateNSView(_ view: TerminalSurfaceView, context: Context) {
         view.onFocusRequest = onFocusPane
-        if isFocused {
+        if isFocused && !sidebarHasFocus {
             DispatchQueue.main.async {
                 if view.window?.firstResponder !== view {
                     view.window?.makeFirstResponder(view)
