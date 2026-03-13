@@ -4,11 +4,30 @@ public enum FocusDirection: String, CaseIterable, Sendable {
     case up, down, left, right
 }
 
+public struct SidebarSection: Identifiable {
+    public var id: String {
+        guard let branch else { return "__ungrouped__" }
+        return "\(repoRoot ?? "__norepo__")|\(branch)"
+    }
+    public let repoRoot: String?
+    public let repoDisplayName: String?
+    public let branch: String?
+    public let isHead: Bool
+    public let panes: [Pane]
+
+    public var displayLabel: String? {
+        guard let branch else { return nil }
+        if let repoDisplayName { return "\(repoDisplayName)/\(branch)" }
+        return branch
+    }
+}
+
 @Observable
 public final class Workspace: Identifiable {
     public let id: UUID
     public var name: String
     public var repoPath: String?
+    public var headBranches: [String: String] = [:]
     public var rootNode: SplitNode
     public var focusedPaneID: UUID?
     private var paneCounter = 0
@@ -44,6 +63,75 @@ public final class Workspace: Identifiable {
         return nil
     }
 
+    // MARK: - Sidebar Sections
+
+    /// Backward-compat: returns first head branch value for branch picker.
+    public var headBranch: String? {
+        headBranches.values.first
+    }
+
+    public var hasBranchSections: Bool {
+        allPanes.contains { $0.branch != nil }
+    }
+
+    public var sidebarSections: [SidebarSection] {
+        struct GroupKey: Hashable {
+            let repoRoot: String?
+            let branch: String?
+        }
+
+        let panes = allPanes
+        var grouped: [GroupKey: [Pane]] = [:]
+        for pane in panes {
+            let key = GroupKey(repoRoot: pane.repoRoot, branch: pane.branch)
+            grouped[key, default: []].append(pane)
+        }
+
+        var headSections: [SidebarSection] = []
+        var otherSections: [SidebarSection] = []
+        var ungroupedPanes: [Pane] = []
+
+        for (key, groupPanes) in grouped {
+            guard let branch = key.branch else {
+                ungroupedPanes.append(contentsOf: groupPanes)
+                continue
+            }
+
+            let repoRoot = key.repoRoot
+            let repoDisplayName = repoRoot.map { URL(fileURLWithPath: $0).lastPathComponent }
+            let isHead: Bool
+            if let root = repoRoot {
+                isHead = headBranches[root] == branch
+            } else {
+                isHead = false
+            }
+
+            let section = SidebarSection(
+                repoRoot: repoRoot,
+                repoDisplayName: repoDisplayName,
+                branch: branch,
+                isHead: isHead,
+                panes: groupPanes
+            )
+
+            if isHead {
+                headSections.append(section)
+            } else {
+                otherSections.append(section)
+            }
+        }
+
+        // Sort: HEAD sections by repo name, others alphabetically by displayLabel
+        headSections.sort { ($0.repoDisplayName ?? "").localizedCaseInsensitiveCompare($1.repoDisplayName ?? "") == .orderedAscending }
+        otherSections.sort { ($0.displayLabel ?? "").localizedCaseInsensitiveCompare($1.displayLabel ?? "") == .orderedAscending }
+
+        var result = headSections + otherSections
+        if !ungroupedPanes.isEmpty {
+            result.append(SidebarSection(repoRoot: nil, repoDisplayName: nil, branch: nil, isHead: false, panes: ungroupedPanes))
+        }
+        return result
+    }
+
     // MARK: - Initializers
 
     public init(name: String) {
@@ -57,10 +145,12 @@ public final class Workspace: Identifiable {
 
     /// Restoration initializer.
     public init(id: UUID, name: String, repoPath: String? = nil,
+                headBranches: [String: String] = [:],
                 rootNode: SplitNode, focusedPaneID: UUID?) {
         self.id = id
         self.name = name
         self.repoPath = repoPath
+        self.headBranches = headBranches
         self.rootNode = rootNode
         self.focusedPaneID = focusedPaneID
         self.paneCounter = rootNode.allPanes().count
@@ -248,15 +338,28 @@ public final class Workspace: Identifiable {
 
 extension Workspace: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, repoPath, rootNode, focusedPaneID
+        case id, name, repoPath, headBranch, headBranches, rootNode, focusedPaneID
     }
 
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // Migration: try new headBranches dict first, fall back to old headBranch string
+        let branches: [String: String]
+        if let dict = try container.decodeIfPresent([String: String].self, forKey: .headBranches) {
+            branches = dict
+        } else if let oldBranch = try container.decodeIfPresent(String.self, forKey: .headBranch),
+                  let repoPath = try container.decodeIfPresent(String.self, forKey: .repoPath) {
+            branches = [repoPath: oldBranch]
+        } else {
+            branches = [:]
+        }
+
         self.init(
             id: try container.decode(UUID.self, forKey: .id),
             name: try container.decode(String.self, forKey: .name),
             repoPath: try container.decodeIfPresent(String.self, forKey: .repoPath),
+            headBranches: branches,
             rootNode: try container.decode(SplitNode.self, forKey: .rootNode),
             focusedPaneID: try container.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
         )
@@ -267,6 +370,9 @@ extension Workspace: Codable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(repoPath, forKey: .repoPath)
+        if !headBranches.isEmpty {
+            try container.encode(headBranches, forKey: .headBranches)
+        }
         try container.encode(rootNode, forKey: .rootNode)
         try container.encodeIfPresent(focusedPaneID, forKey: .focusedPaneID)
     }

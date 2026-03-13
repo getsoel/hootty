@@ -75,20 +75,41 @@ struct WorkspaceSidebar: View {
         ScrollView {
             LazyVStack(spacing: 0) {
                 ForEach(workspaces) { workspace in
-                    let canClose = workspace.allPanes.count > 1
-                    let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
-
                     workspaceRow(workspace)
-
-                    ForEach(workspace.allPanes) { pane in
-                        paneRow(
-                            pane,
-                            workspace: workspace,
-                            canClose: canClose,
-                            layoutRects: layoutRects
-                        )
-                    }
+                    workspacePaneList(workspace)
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func workspacePaneList(_ workspace: Workspace) -> some View {
+        let canClose = workspace.allPanes.count > 1
+        let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
+
+        if workspace.hasBranchSections {
+            ForEach(workspace.sidebarSections) { section in
+                branchSectionHeader(section)
+
+                ForEach(section.panes) { pane in
+                    paneRow(
+                        pane,
+                        workspace: workspace,
+                        canClose: canClose,
+                        layoutRects: layoutRects,
+                        depth: 2
+                    )
+                }
+            }
+        } else {
+            ForEach(workspace.allPanes) { pane in
+                paneRow(
+                    pane,
+                    workspace: workspace,
+                    canClose: canClose,
+                    layoutRects: layoutRects,
+                    depth: 1
+                )
             }
         }
     }
@@ -164,7 +185,7 @@ struct WorkspaceSidebar: View {
             Image(systemName: "folder.fill")
                 .font(.system(size: TypeScale.iconSize))
                 .foregroundStyle(Color(tokens.textMuted))
-                .frame(width: 16)
+                .frame(width: TreeLayout.columnWidth)
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
@@ -233,58 +254,95 @@ struct WorkspaceSidebar: View {
 
     // MARK: - Pane row
 
-    private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool, layoutRects: [UUID: CGRect]) -> some View {
-        let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
-        let isHovered = pane.id == hoveredPaneID
-        let isConnected = pane.branch != nil
+    // MARK: - Branch Section Header
 
-        return HStack(spacing: 0) {
+    private func branchSectionHeader(_ section: SidebarSection) -> some View {
+        HStack(spacing: 0) {
             TreeConnectorView(depth: 1, tokens: tokens)
 
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
-                    StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
-                        .fixedSize()
-                        .frame(width: 16)
+            HStack(spacing: 6) {
+                Image(systemName: worktreeIcon(for: section))
+                    .font(.system(size: TypeScale.iconSize))
+                    .foregroundStyle(Color(tokens.textMuted))
+                    .frame(width: TreeLayout.columnWidth)
 
-                    Text(pane.displayName)
+                if let displayLabel = section.displayLabel {
+                    branchLabelView(displayLabel, repoDisplayName: section.repoDisplayName)
+                } else {
+                    Text("No Branch")
+                        .font(.system(size: TypeScale.bodySize))
+                        .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+                        .lineLimit(1)
+                }
+
+                if section.panes.contains(where: { $0.worktreePath != nil }) {
+                    Text("(worktree)")
                         .font(.system(size: TypeScale.bodySize))
                         .foregroundStyle(Color(tokens.textMuted))
                         .lineLimit(1)
-
-                    Spacer(minLength: 0)
-
-                    if !layoutRects.isEmpty {
-                        SplitLayoutThumbnail(
-                            layoutRects: layoutRects,
-                            highlightedPaneID: pane.id,
-                            tokens: tokens
-                        )
-                    }
                 }
-                .padding(.vertical, Spacing.md)
 
-                if isConnected {
-                    HStack(spacing: 6) {
-                        Canvas { context, size in
-                            let lineColor = Color(tokens.textMuted)
-                                .opacity(0.3)
-                            let midX = size.width / 2
-                            let midY = size.height / 2
-                            var path = Path()
-                            path.move(to: CGPoint(x: midX, y: 0))
-                            path.addLine(to: CGPoint(x: midX, y: midY))
-                            path.addLine(to: CGPoint(x: size.width, y: midY))
-                            context.stroke(path, with: .color(lineColor), lineWidth: 1)
-                        }
-                        .frame(width: 16)
-                        .frame(maxHeight: .infinity)
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, Spacing.md)
+            .padding(.trailing, Spacing.md)
+        }
+        .padding(.leading, Spacing.md)
+    }
 
-                        connectedDetailLine(pane: pane)
-                    }
-                    .padding(.bottom, Spacing.md)
+    private func worktreeIcon(for section: SidebarSection) -> String {
+        if section.branch == nil { return "cube.transparent" }
+        let isWorktree = section.panes.contains { $0.worktreePath != nil }
+        return isWorktree ? "cube" : "cube.fill"
+    }
+
+    @ViewBuilder
+    private func branchLabelView(_ displayLabel: String, repoDisplayName: String?) -> some View {
+        if let repoName = repoDisplayName, let slashRange = displayLabel.range(of: "/") {
+            let branchPart = String(displayLabel[slashRange.upperBound...])
+            (Text(repoName).foregroundStyle(Color(tokens.textRepo))
+             + Text("/").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+             + Text(branchPart).foregroundStyle(Color(tokens.textMuted)))
+                .font(.system(size: TypeScale.bodySize))
+                .lineLimit(1)
+        } else {
+            Text(displayLabel)
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(tokens.textMuted))
+                .lineLimit(1)
+        }
+    }
+
+    // MARK: - Pane Row
+
+    private func paneRow(_ pane: Pane, workspace: Workspace, canClose: Bool, layoutRects: [UUID: CGRect], depth: Int = 1) -> some View {
+        let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
+        let isHovered = pane.id == hoveredPaneID
+
+        return HStack(spacing: 0) {
+            TreeConnectorView(depth: depth, tokens: tokens)
+
+            HStack(spacing: 6) {
+                StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
+                    .fixedSize()
+                    .frame(width: TreeLayout.columnWidth)
+
+                Text(pane.displayName)
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(tokens.textMuted))
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+
+                if !layoutRects.isEmpty {
+                    SplitLayoutThumbnail(
+                        layoutRects: layoutRects,
+                        highlightedPaneID: pane.id,
+                        tokens: tokens
+                    )
                 }
             }
+            .padding(.vertical, Spacing.md)
             .padding(.trailing, Spacing.md)
         }
         .padding(.leading, Spacing.md)
@@ -319,7 +377,7 @@ struct WorkspaceSidebar: View {
                 editingPaneName = pane.displayName
                 renamePaneTargetID = pane.id
             }
-            if isConnected {
+            if pane.branch != nil {
                 Button("New Worktree") {
                     onNewWorktree?(workspace.id)
                 }
@@ -330,24 +388,6 @@ struct WorkspaceSidebar: View {
                 }
             }
         }
-    }
-
-    // MARK: - Connected Detail Line
-
-    private func connectedDetailLine(pane: Pane) -> some View {
-        let branchColor = Color(tokens.textAccent)
-        let mutedColor = Color(tokens.textMuted)
-
-        var combined = Text(pane.branch ?? "")
-            .foregroundColor(branchColor)
-
-        if pane.worktreePath != nil {
-            combined = combined + Text(" (worktree)").foregroundColor(mutedColor)
-        }
-
-        return combined
-            .font(.system(size: TypeScale.bodySize))
-            .lineLimit(1)
     }
 
 }
@@ -404,22 +444,28 @@ private struct WorkspaceRowDropDelegate: DropDelegate {
 
 // MARK: - Tree Connector
 
+private enum TreeLayout {
+    /// Column width shared by tree connector gutters and icon frames.
+    static let columnWidth: CGFloat = 22
+}
+
 private struct TreeConnectorView: View {
     let depth: Int
     let tokens: DesignTokens
 
-    private let gutterWidth: CGFloat = 16
-
     var body: some View {
         Canvas { context, size in
+            let cw = TreeLayout.columnWidth
             let lineColor = Color(tokens.textMuted).opacity(0.3)
-            let x = size.width - gutterWidth / 2
-            var path = Path()
-            path.move(to: CGPoint(x: x, y: 0))
-            path.addLine(to: CGPoint(x: x, y: size.height))
-            context.stroke(path, with: .color(lineColor), lineWidth: 1)
+            for level in 1...depth {
+                let x = (CGFloat(level) - 0.5) * cw
+                var path = Path()
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: size.height))
+                context.stroke(path, with: .color(lineColor), lineWidth: 1)
+            }
         }
-        .frame(width: CGFloat(depth) * gutterWidth)
+        .frame(width: CGFloat(depth) * TreeLayout.columnWidth)
     }
 }
 

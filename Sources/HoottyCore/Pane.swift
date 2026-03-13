@@ -19,6 +19,7 @@ public final class Pane: Identifiable {
     public var workingDirectory: String
     public var claudeSessionID: String?
     public var branch: String?
+    public var repoRoot: String?
     public var worktreePath: String?
 
     public var displayName: String {
@@ -37,14 +38,15 @@ public final class Pane: Identifiable {
         return path
     }
 
-    /// Repository name derived from worktree or working directory path.
+    /// Repository name derived from repoRoot, worktree, or working directory path.
     public var repoName: String? {
         guard branch != nil else { return nil }
+        if let repoRoot { return URL(fileURLWithPath: repoRoot).lastPathComponent }
         let path = worktreePath ?? workingDirectory
         return URL(fileURLWithPath: path).lastPathComponent
     }
 
-    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, claudeSessionID: String? = nil, branch: String? = nil, worktreePath: String? = nil) {
+    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, claudeSessionID: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil) {
         self.id = id
         self.name = name
         self.customName = customName
@@ -52,13 +54,14 @@ public final class Pane: Identifiable {
         self.workingDirectory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
         self.claudeSessionID = claudeSessionID
         self.branch = branch
+        self.repoRoot = repoRoot
         self.worktreePath = worktreePath
     }
 }
 
 extension Pane: Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, customName, shell, workingDirectory, claudeSessionID, branch, worktreePath
+        case id, name, customName, shell, workingDirectory, claudeSessionID, branch, repoRoot, worktreePath
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -71,6 +74,7 @@ extension Pane: Codable {
             workingDirectory: try container.decode(String.self, forKey: .workingDirectory),
             claudeSessionID: try container.decodeIfPresent(String.self, forKey: .claudeSessionID),
             branch: try container.decodeIfPresent(String.self, forKey: .branch),
+            repoRoot: try container.decodeIfPresent(String.self, forKey: .repoRoot),
             worktreePath: try container.decodeIfPresent(String.self, forKey: .worktreePath)
         )
     }
@@ -84,6 +88,7 @@ extension Pane: Codable {
         try container.encode(workingDirectory, forKey: .workingDirectory)
         try container.encodeIfPresent(claudeSessionID, forKey: .claudeSessionID)
         try container.encodeIfPresent(branch, forKey: .branch)
+        try container.encodeIfPresent(repoRoot, forKey: .repoRoot)
         try container.encodeIfPresent(worktreePath, forKey: .worktreePath)
     }
 }

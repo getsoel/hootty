@@ -115,17 +115,75 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 
 ### Sidebar
 
-- Background: `surfaceLow` (Mantle)
-- Row default: transparent
-- Row hover: `elementHover`
-- Row selected: `elementSelected`
-- Row selected + focused: `elementSelected` with `borderFocused` left accent
-- Text primary: `text` (unselected), `elementSelectedText` (selected/focused)
-- Text secondary: `textMuted`
-- Status dot running: `statusSuccess`
-- Status dot stopped: `statusInactive`
-- Status dot thinking: `statusThinking`
-- Status dot attention: `statusWarning`
+#### Container
+
+- Background: `surfaceLow`
+- Width: configurable (`sidebarWidth`, default 260, min 140, max 400)
+- Layout: `VStack(spacing: 0)` — scrollable workspace list, 1pt `border` divider, add-workspace button
+- Keyboard nav: up/down arrows navigate panes, return/escape release focus
+
+#### Tree Layout System
+
+- `TreeLayout.columnWidth = 22pt` — shared by tree connector gutters and icon frames
+- Tree connector: `Canvas` drawing vertical lines at `(level - 0.5) * columnWidth` per depth level
+- Line style: `textMuted` @ 30% opacity, 1pt stroke
+- Icon frames use `columnWidth` (22pt) so icon centers align with tree continuation lines across rows
+- Depths: workspace = 0 (no connector), branch header = 1, pane = 1 (flat) or 2 (grouped)
+
+#### Row Types
+
+**Workspace row (depth 0)**
+
+- Icon: `folder.fill`, `iconSize`, `textMuted`, frame `columnWidth`
+- Text: `bodySize`, `textMuted`
+- Padding: `Spacing.md` horizontal + vertical
+- Background: clear / `elementHover` on hover
+- Drag-and-drop reorderable with 2pt `textAccent` drop indicator
+- Context menu: Rename Workspace, Close Workspace
+
+**Branch section header (depth 1)**
+
+- Icon: `cube.fill` (`textAccent`) for named branches, `cube.transparent` (`textMuted`) for ungrouped
+- Text: `bodySize`, `textAccent` for branch name, `textMuted` for "(no branch)"
+- Padding: inner `Spacing.md` vertical + trailing, outer `Spacing.md` leading
+- Non-interactive: no hover state, no selection, no context menu
+- Only shown when `workspace.hasBranchSections` (any pane has a branch)
+- Sort: HEAD branch first, then alphabetical, ungrouped last
+
+**Pane row (depth 1 or 2)**
+
+- Icon: `StatusDotView` — see Status Indicators below
+- Text: `bodySize`, `textMuted`, shows `pane.displayName`
+- Worktree badge: `captionSize`, `textMuted`, "(worktree)" — shown when `pane.worktreePath != nil`
+- Split thumbnail: 24×16pt `Canvas` minimap when workspace has multiple panes
+- Padding: inner `Spacing.md` vertical + trailing, outer `Spacing.md` leading
+- Background: clear / `elementHover` on hover / `elementSelected` when focused
+- Context menu: Rename Pane, New Worktree (if pane has branch), Close Pane (if multi-pane)
+
+#### Add Workspace Button
+
+- Icon: `plus`, `smallSize`
+- Text: "New Workspace", `smallSize`, `textMuted`
+- Padding: `Spacing.lg` horizontal, `Spacing.md` vertical
+- `.plain` button style
+
+#### Status Indicators (StatusDotView)
+
+| State | Icon | Color Token | Animation |
+|-------|------|-------------|-----------|
+| Default | `apple.terminal` | `textMuted` | — |
+| Attention | `bell` | `statusBell` (Green) | — |
+| Thinking | `arrow.2.circlepath` | `statusThinking` (Blue) | 1.5s linear rotation |
+
+All use `iconSize` (16pt) within `columnWidth` (22pt) frame.
+
+#### Visual State Matrix
+
+| Row Type | Default | Hover | Selected |
+|----------|---------|-------|----------|
+| Workspace | clear | `elementHover` | — |
+| Branch header | clear | — | — |
+| Pane | clear | `elementHover` | `elementSelected` |
 
 ### Tab Bar
 

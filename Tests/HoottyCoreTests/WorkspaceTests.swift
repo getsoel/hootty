@@ -297,6 +297,7 @@ import Foundation
         ws.repoPath = "/Users/test/project"
         ws.splitFocusedPane(direction: .horizontal)
         ws.allPanes[0].branch = "main"
+        ws.allPanes[0].repoRoot = "/Users/test/project"
 
         let data = try JSONEncoder().encode(ws)
         let restored = try JSONDecoder().decode(Workspace.self, from: data)
@@ -307,6 +308,175 @@ import Foundation
         #expect(restored.allPanes.count == 2)
         #expect(restored.focusedPaneID == ws.focusedPaneID)
         #expect(restored.allPanes[0].branch == "main")
+        #expect(restored.allPanes[0].repoRoot == "/Users/test/project")
+    }
+
+    @Test func headBranchRoundTrip() throws {
+        let ws = Workspace(name: "Test")
+        ws.repoPath = "/Users/test/project"
+        ws.headBranches["/Users/test/project"] = "main"
+
+        let data = try JSONEncoder().encode(ws)
+        let restored = try JSONDecoder().decode(Workspace.self, from: data)
+        #expect(restored.headBranches["/Users/test/project"] == "main")
+        #expect(restored.headBranch == "main")
+    }
+
+    @Test func headBranchBackwardCompat() throws {
+        // Simulate old JSON with headBranch string (pre-headBranches migration)
+        let oldJSON = """
+        {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "name": "Test",
+            "repoPath": "/Users/test/project",
+            "headBranch": "main",
+            "rootNode": {"id":"00000000-0000-0000-0000-000000000003","type":"leaf","pane":{"id":"00000000-0000-0000-0000-000000000002","name":"P","shell":"/bin/zsh","workingDirectory":"/tmp"}},
+            "focusedPaneID": "00000000-0000-0000-0000-000000000002"
+        }
+        """
+        let data = oldJSON.data(using: .utf8)!
+        let restored = try JSONDecoder().decode(Workspace.self, from: data)
+        #expect(restored.headBranches["/Users/test/project"] == "main")
+        #expect(restored.headBranch == "main")
+    }
+
+    // MARK: - Sidebar Sections
+
+    @Test func sidebarSectionsGroupsByBranch() {
+        let repo = "/Users/test/project"
+        let pA = Pane(name: "A", branch: "main", repoRoot: repo)
+        let pB = Pane(name: "B", branch: "feature", repoRoot: repo)
+        let pC = Pane(name: "C", branch: "main", repoRoot: repo)
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(
+                    direction: .vertical,
+                    first: SplitNode(pane: pA),
+                    second: SplitNode(pane: pB)
+                ),
+                second: SplitNode(pane: pC)
+            ),
+            focusedPaneID: pA.id
+        )
+
+        let sections = ws.sidebarSections
+        #expect(sections.count == 2)
+        let branchNames = sections.map(\.branch)
+        #expect(branchNames.contains("main"))
+        #expect(branchNames.contains("feature"))
+
+        let mainSection = sections.first { $0.branch == "main" }!
+        #expect(mainSection.panes.count == 2)
+    }
+
+    @Test func sidebarSectionsHeadFirst() {
+        let repo = "/Users/test/project"
+        let pA = Pane(name: "A", branch: "main", repoRoot: repo)
+        let pB = Pane(name: "B", branch: "feature-z", repoRoot: repo)
+        let pC = Pane(name: "C", branch: "feature-a", repoRoot: repo)
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            headBranches: [repo: "main"],
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(
+                    direction: .vertical,
+                    first: SplitNode(pane: pA),
+                    second: SplitNode(pane: pB)
+                ),
+                second: SplitNode(pane: pC)
+            ),
+            focusedPaneID: pA.id
+        )
+
+        let sections = ws.sidebarSections
+        #expect(sections.count == 3)
+        #expect(sections[0].branch == "main")
+        #expect(sections[0].isHead == true)
+        // Remaining are alpha sorted by displayLabel (repoName/branch)
+        #expect(sections[1].branch == "feature-a")
+        #expect(sections[2].branch == "feature-z")
+    }
+
+    @Test func sidebarSectionsUngroupedLast() {
+        let repo = "/Users/test/project"
+        let pA = Pane(name: "A", branch: "main", repoRoot: repo)
+        let pB = Pane(name: "B")
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            headBranches: [repo: "main"],
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(pane: pA),
+                second: SplitNode(pane: pB)
+            ),
+            focusedPaneID: pA.id
+        )
+
+        let sections = ws.sidebarSections
+        #expect(sections.count == 2)
+        #expect(sections[0].branch == "main")
+        #expect(sections[1].branch == nil)
+        #expect(sections[1].panes.count == 1)
+    }
+
+    @Test func sidebarSectionsSeparateReposWithSameBranch() {
+        let repoA = "/Users/test/alpha"
+        let repoB = "/Users/test/beta"
+        let pA = Pane(name: "A", branch: "main", repoRoot: repoA)
+        let pB = Pane(name: "B", branch: "main", repoRoot: repoB)
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            headBranches: [repoA: "main", repoB: "main"],
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(pane: pA),
+                second: SplitNode(pane: pB)
+            ),
+            focusedPaneID: pA.id
+        )
+
+        let sections = ws.sidebarSections
+        #expect(sections.count == 2)
+        // Both are HEAD sections, sorted by repo name
+        #expect(sections[0].repoDisplayName == "alpha")
+        #expect(sections[1].repoDisplayName == "beta")
+        #expect(sections[0].branch == "main")
+        #expect(sections[1].branch == "main")
+        #expect(sections[0].panes.count == 1)
+        #expect(sections[1].panes.count == 1)
+        #expect(sections[0].displayLabel == "alpha/main")
+        #expect(sections[1].displayLabel == "beta/main")
+    }
+
+    @Test func sidebarSectionsNoBranches() {
+        let ws = Workspace(name: "Test")
+        let sections = ws.sidebarSections
+        #expect(sections.count == 1)
+        #expect(sections[0].branch == nil)
+        #expect(sections[0].panes.count == 1)
+    }
+
+    @Test func hasBranchSectionsTrueWhenAnyBranch() {
+        let pA = Pane(name: "A", branch: "main")
+        let pB = Pane(name: "B")
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(pane: pA),
+                second: SplitNode(pane: pB)
+            ),
+            focusedPaneID: pA.id
+        )
+        #expect(ws.hasBranchSections == true)
+    }
+
+    @Test func hasBranchSectionsFalseWhenNone() {
+        let ws = Workspace(name: "Test")
+        #expect(ws.hasBranchSections == false)
     }
 
 }

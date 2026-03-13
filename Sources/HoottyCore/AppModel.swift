@@ -173,18 +173,28 @@ public final class AppModel {
             return
         }
 
-        let repoRoot = GitWorktreeManager.repoRoot(for: pwd)
-        let newWorktreePath = GitWorktreeManager.isWorktree(for: pwd) ? repoRoot : nil
+        let canonicalRoot = GitWorktreeManager.canonicalRepoRoot(for: pwd)
+        let showToplevel = GitWorktreeManager.repoRoot(for: pwd)
+        let newWorktreePath = GitWorktreeManager.isWorktree(for: pwd) ? showToplevel : nil
         var changed = false
         if pane.branch != newBranch {
             pane.branch = newBranch
+            changed = true
+        }
+        if pane.repoRoot != canonicalRoot {
+            pane.repoRoot = canonicalRoot
             changed = true
         }
         if pane.worktreePath != newWorktreePath {
             pane.worktreePath = newWorktreePath
             changed = true
         }
-        if workspace.repoPath == nil, let root = repoRoot {
+        if newWorktreePath == nil, let root = canonicalRoot, let branch = newBranch,
+           workspace.headBranches[root] != branch {
+            workspace.headBranches[root] = branch
+            changed = true
+        }
+        if workspace.repoPath == nil, let root = canonicalRoot {
             workspace.repoPath = root
             changed = true
         }

@@ -739,6 +739,77 @@ private func reloadModel(from url: URL) -> AppModel {
     }
 }
 
+// MARK: - Suite H: Sidebar Sections
+
+@Suite struct SidebarSectionsIntegration {
+    @Test func sidebarSectionsUpdateWhenBranchChanges() {
+        let repo = "/Users/test/project"
+        let pA = Pane(name: "A", branch: "main", repoRoot: repo)
+        let pB = Pane(name: "B", branch: "main", repoRoot: repo)
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            headBranches: [repo: "main"],
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(pane: pA),
+                second: SplitNode(pane: pB)
+            ),
+            focusedPaneID: pA.id
+        )
+
+        // Initially all on main
+        #expect(ws.sidebarSections.count == 1)
+        #expect(ws.sidebarSections[0].branch == "main")
+        #expect(ws.sidebarSections[0].panes.count == 2)
+
+        // Change pB's branch
+        pB.branch = "feature"
+        let sections = ws.sidebarSections
+        #expect(sections.count == 2)
+        #expect(sections[0].branch == "main")
+        #expect(sections[0].isHead == true)
+        #expect(sections[0].panes.count == 1)
+        #expect(sections[1].branch == "feature")
+        #expect(sections[1].panes.count == 1)
+    }
+
+    @Test func multiRepoSidebarSectionsStaySeparate() {
+        let repoA = "/Users/test/frontend"
+        let repoB = "/Users/test/backend"
+        let pA = Pane(name: "A", branch: "main", repoRoot: repoA)
+        let pB = Pane(name: "B", branch: "main", repoRoot: repoB)
+        let pC = Pane(name: "C", branch: "feature", repoRoot: repoA)
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            headBranches: [repoA: "main", repoB: "main"],
+            rootNode: SplitNode(
+                direction: .horizontal,
+                first: SplitNode(
+                    direction: .vertical,
+                    first: SplitNode(pane: pA),
+                    second: SplitNode(pane: pB)
+                ),
+                second: SplitNode(pane: pC)
+            ),
+            focusedPaneID: pA.id
+        )
+
+        let sections = ws.sidebarSections
+        // Two HEAD sections (frontend/main, backend/main) + one non-head (frontend/feature)
+        #expect(sections.count == 3)
+
+        // HEAD sections first, sorted by repo name
+        #expect(sections[0].isHead == true)
+        #expect(sections[1].isHead == true)
+        #expect(sections[0].repoDisplayName == "backend")
+        #expect(sections[1].repoDisplayName == "frontend")
+
+        // Non-head last
+        #expect(sections[2].isHead == false)
+        #expect(sections[2].displayLabel == "frontend/feature")
+    }
+}
+
 // MARK: - Helpers
 
 /// Verify that pane rects tile the full [0,0,1,1] area by checking total area ≈ 1.0

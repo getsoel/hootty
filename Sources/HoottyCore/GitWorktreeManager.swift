@@ -52,6 +52,19 @@ public enum GitWorktreeManager {
         run(["git", "-C", path, "rev-parse", "--show-toplevel"])
     }
 
+    /// Canonical repo root that resolves to the same path for both main checkouts and worktrees.
+    /// Uses `--git-common-dir` → parent directory, unlike `--show-toplevel` which returns the worktree root.
+    public static func canonicalRepoRoot(for path: String) -> String? {
+        guard let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
+            return nil
+        }
+        // --git-common-dir returns the .git directory (absolute or relative).
+        // The repo root is its parent.
+        let resolved = (commonDir as NSString).standardizingPath
+        let gitURL = URL(fileURLWithPath: resolved, relativeTo: URL(fileURLWithPath: path))
+        return gitURL.deletingLastPathComponent().standardized.path
+    }
+
     /// Current branch name for a path.
     public static func currentBranch(for path: String) -> String? {
         run(["git", "-C", path, "branch", "--show-current"])
