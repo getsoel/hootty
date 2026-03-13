@@ -72,7 +72,7 @@ struct WorkspaceSidebar: View {
 
     private var workspaceList: some View {
         ScrollView {
-            LazyVStack(spacing: 0) {
+            VStack(spacing: 0) {
                 ForEach(workspaces) { workspace in
                     workspaceRow(workspace)
                     workspacePaneList(workspace)
@@ -85,29 +85,21 @@ struct WorkspaceSidebar: View {
     private func workspacePaneList(_ workspace: Workspace) -> some View {
         let canClose = workspace.allPanes.count > 1
         let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
+        let hasBranches = workspace.hasBranchSections
+        let depth = hasBranches ? 2 : 1
 
-        if workspace.hasBranchSections {
-            ForEach(workspace.sidebarSections) { section in
+        ForEach(workspace.sidebarSections) { section in
+            if hasBranches {
                 branchSectionHeader(section)
-
-                ForEach(section.panes) { pane in
-                    paneRow(
-                        pane,
-                        workspace: workspace,
-                        canClose: canClose,
-                        layoutRects: layoutRects,
-                        depth: 2
-                    )
-                }
             }
-        } else {
-            ForEach(workspace.allPanes) { pane in
+
+            ForEach(section.panes) { pane in
                 paneRow(
                     pane,
                     workspace: workspace,
                     canClose: canClose,
                     layoutRects: layoutRects,
-                    depth: 1
+                    depth: depth
                 )
             }
         }
@@ -202,6 +194,12 @@ struct WorkspaceSidebar: View {
         .onContinuousHover { phase in
             switch phase {
             case .active:
+                // Clear stale drop state from cancelled drags
+                // (onContinuousHover doesn't fire during drag sessions)
+                if dropTargetWorkspaceID != nil {
+                    dropTargetWorkspaceID = nil
+                    dropEdge = nil
+                }
                 hoveredWorkspaceID = workspace.id
                 DispatchQueue.main.async { NSCursor.pointingHand.set() }
             case .ended:
@@ -256,31 +254,28 @@ struct WorkspaceSidebar: View {
     // MARK: - Branch Section Header
 
     private func branchSectionHeader(_ section: SidebarSection) -> some View {
-        HStack(spacing: 0) {
-            TreeConnectorView(depth: 1, tokens: tokens)
+        HStack(spacing: 6) {
+            Image(systemName: worktreeIcon(for: section))
+                .font(.system(size: TypeScale.smallSize))
+                .foregroundStyle(Color(tokens.textMuted))
+                .frame(width: TreeLayout.columnWidth)
 
-            HStack(spacing: 6) {
-                Image(systemName: worktreeIcon(for: section))
-                    .font(.system(size: TypeScale.smallSize))
-                    .foregroundStyle(Color(tokens.textMuted))
-                    .frame(width: TreeLayout.columnWidth)
-
-                if let displayLabel = section.displayLabel {
-                    let isWorktree = section.panes.contains { $0.worktreePath != nil }
-                    branchLabelView(displayLabel, repoDisplayName: section.repoDisplayName, isWorktree: isWorktree)
-                } else {
-                    Text("No Branch")
-                        .font(.system(size: TypeScale.bodySize))
-                        .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 0)
+            if let displayLabel = section.displayLabel {
+                let isWorktree = section.panes.contains { $0.worktreePath != nil }
+                branchLabelView(displayLabel, repoDisplayName: section.repoDisplayName, isWorktree: isWorktree)
+            } else {
+                Text("No Branch")
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+                    .lineLimit(1)
             }
-            .padding(.vertical, Spacing.smd)
-            .padding(.trailing, Spacing.md)
+
+            Spacer(minLength: 0)
         }
-        .padding(.leading, Spacing.md)
+        .padding(.vertical, Spacing.smd)
+        .padding(.trailing, Spacing.md)
+        .padding(.leading, Spacing.md + TreeLayout.columnWidth)
+        .background(TreeLinesBackground(depth: 1, tokens: tokens))
     }
 
     private func worktreeIcon(for section: SidebarSection) -> String {
@@ -316,32 +311,28 @@ struct WorkspaceSidebar: View {
         let isFocusedPane = workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID
         let isHovered = pane.id == hoveredPaneID
 
-        return HStack(spacing: 0) {
-            TreeConnectorView(depth: depth, tokens: tokens)
+        return HStack(spacing: 6) {
+            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
+                .frame(width: TreeLayout.columnWidth)
 
-            HStack(spacing: 6) {
-                StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
-                    .frame(width: TreeLayout.columnWidth)
+            Text(pane.displayName)
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(tokens.textMuted))
+                .lineLimit(1)
 
-                Text(pane.displayName)
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(tokens.textMuted))
-                    .lineLimit(1)
+            Spacer(minLength: 0)
 
-                Spacer(minLength: 0)
-
-                if !layoutRects.isEmpty {
-                    SplitLayoutThumbnail(
-                        layoutRects: layoutRects,
-                        highlightedPaneID: pane.id,
-                        tokens: tokens
-                    )
-                }
+            if !layoutRects.isEmpty {
+                SplitLayoutThumbnail(
+                    layoutRects: layoutRects,
+                    highlightedPaneID: pane.id,
+                    tokens: tokens
+                )
             }
-            .padding(.vertical, Spacing.smd)
-            .padding(.trailing, Spacing.md)
         }
-        .padding(.leading, Spacing.md)
+        .padding(.vertical, Spacing.smd)
+        .padding(.trailing, Spacing.md)
+        .padding(.leading, Spacing.md + CGFloat(depth) * TreeLayout.columnWidth)
         .background(
             Rectangle()
                 .fill(
@@ -352,9 +343,15 @@ struct WorkspaceSidebar: View {
                             : Color.clear
                 )
         )
+        .background(TreeLinesBackground(depth: depth, tokens: tokens))
         .onContinuousHover { phase in
             switch phase {
             case .active:
+                // Clear stale drop state from cancelled drags
+                if dropTargetWorkspaceID != nil {
+                    dropTargetWorkspaceID = nil
+                    dropEdge = nil
+                }
                 hoveredPaneID = pane.id
                 DispatchQueue.main.async { NSCursor.pointingHand.set() }
             case .ended:
@@ -440,23 +437,25 @@ private enum TreeLayout {
     static let columnWidth: CGFloat = 16
 }
 
-private struct TreeConnectorView: View {
+/// Draws vertical tree lines as a background, positioned within the leading padding area.
+private struct TreeLinesBackground: View {
     let depth: Int
     let tokens: DesignTokens
 
     var body: some View {
         Canvas { context, size in
+            guard depth > 0 else { return }
             let cw = TreeLayout.columnWidth
+            let leadingPad = Spacing.md
             let lineColor = Color(tokens.textMuted).opacity(0.3)
             for level in 1...depth {
-                let x = (CGFloat(level) - 0.5) * cw
+                let x = leadingPad + (CGFloat(level) - 0.5) * cw
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: 0))
                 path.addLine(to: CGPoint(x: x, y: size.height))
                 context.stroke(path, with: .color(lineColor), lineWidth: 1)
             }
         }
-        .frame(width: CGFloat(depth) * TreeLayout.columnWidth)
     }
 }
 

@@ -60,46 +60,19 @@ struct PaneContentView: View {
         .onTapGesture {
             onFocusPane()
         }
-        .onDrop(of: [.utf8PlainText], delegate: PaneSwapDropDelegate(
-            targetPaneID: pane.id,
-            isDropTarget: $isDropTarget,
-            onSwapPanes: onSwapPanes
-        ))
-    }
-}
-
-private struct PaneSwapDropDelegate: DropDelegate {
-    let targetPaneID: UUID
-    @Binding var isDropTarget: Bool
-    let onSwapPanes: ((UUID, UUID) -> Void)?
-
-    func validateDrop(info: DropInfo) -> Bool {
-        info.hasItemsConforming(to: [.utf8PlainText])
-    }
-
-    func dropEntered(info: DropInfo) {
-        isDropTarget = true
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        return DropProposal(operation: .move)
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        isDropTarget = false
-        guard let item = info.itemProviders(for: [.utf8PlainText]).first else { return false }
-        item.loadItem(forTypeIdentifier: UTType.utf8PlainText.identifier, options: nil) { data, _ in
-            guard let data = data as? Data,
-                  let str = String(data: data, encoding: .utf8),
-                  let sourceID = UUID(uuidString: str) else { return }
-            DispatchQueue.main.async {
-                onSwapPanes?(sourceID, targetPaneID)
+        .onDrop(of: [.utf8PlainText], isTargeted: $isDropTarget) { providers in
+            let targetID = pane.id
+            let swap = onSwapPanes
+            guard let item = providers.first else { return false }
+            item.loadItem(forTypeIdentifier: UTType.utf8PlainText.identifier, options: nil) { data, _ in
+                guard let data = data as? Data,
+                      let str = String(data: data, encoding: .utf8),
+                      let sourceID = UUID(uuidString: str) else { return }
+                DispatchQueue.main.async {
+                    swap?(sourceID, targetID)
+                }
             }
+            return true
         }
-        return true
-    }
-
-    func dropExited(info: DropInfo) {
-        isDropTarget = false
     }
 }
