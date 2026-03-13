@@ -50,6 +50,8 @@ Three levels of text prominence:
 | `textMuted` | `text.muted` | `sidebarTextSecondary` | Subtext0 |
 | `textAccent` | `text.accent` | `palette[5]` | Pink |
 | `textRepo` | -- | `palette[6]` | Teal |
+| `textBranch` | -- | `palette[4]` | Blue |
+| `textTree` | -- | `palette[3]` | Yellow |
 
 ### Borders
 
@@ -144,7 +146,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 **Branch section header (depth 1)**
 
 - Icon: `cube.fill` (`textAccent`) for named branches, `cube.transparent` (`textMuted`) for ungrouped
-- Text: `bodySize`, `textAccent` for branch name, `textMuted` for "(no branch)"
+- Text: `bodySize`, `textBranch` (Blue) for branch name, `textRepo` (Teal) for repo prefix, `textTree` (Yellow) for "(tree)" indicator, `textMuted` for "(no branch)"
 - Padding: inner `Spacing.md` vertical + trailing, outer `Spacing.md` leading
 - Non-interactive: no hover state, no selection, no context menu
 - Only shown when `workspace.hasBranchSections` (any pane has a branch)
@@ -154,7 +156,7 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 
 - Icon: `StatusDotView` — see Status Indicators below
 - Text: `bodySize`, `textMuted`, shows `pane.displayName`
-- Worktree badge: `captionSize`, `textMuted`, "(worktree)" — shown when `pane.worktreePath != nil`
+- Worktree badge: `captionSize`, `textMuted`, "(tree)" — shown when `pane.worktreePath != nil`
 - Split thumbnail: 24×16pt `Canvas` minimap when workspace has multiple panes
 - Padding: inner `Spacing.md` vertical + trailing, outer `Spacing.md` leading
 - Background: clear / `elementHover` on hover / `elementSelected` when focused

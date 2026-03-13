@@ -45,6 +45,12 @@ public struct DesignTokens {
     /// Repository name text. Maps to palette[6] (Catppuccin Teal).
     public let textRepo: NSColor
 
+    /// Branch name text. Maps to palette[4] (Catppuccin Blue).
+    public let textBranch: NSColor
+
+    /// Worktree indicator text. Maps to palette[3] (Catppuccin Yellow).
+    public let textTree: NSColor
+
     // MARK: - Borders
 
     /// Default border color for dividers and separators.
@@ -115,6 +121,8 @@ public struct DesignTokens {
             textMuted: theme.palette[7],
             textAccent: theme.palette[5],
             textRepo: theme.palette[6],
+            textBranch: theme.palette[4],
+            textTree: theme.palette[3],
             border: theme.palette[0],
             borderFocused: theme.foreground,
             statusSuccess: theme.palette[2],
@@ -157,6 +165,8 @@ public enum Spacing {
     public static let xs: CGFloat = 2
     /// 4pt - Icon padding, small gaps
     public static let sm: CGFloat = 4
+    /// 6pt - Dense row padding
+    public static let smd: CGFloat = 6
     /// 8pt - Row padding, standard gaps
     public static let md: CGFloat = 8
     /// 12pt - Section padding

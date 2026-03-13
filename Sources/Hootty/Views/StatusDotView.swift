@@ -27,8 +27,7 @@ struct StatusDotView: View {
                     .foregroundStyle(Color(tokens.textMuted))
             }
         }
-        .font(.system(size: TypeScale.iconSize))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .aspectRatio(1, contentMode: .fit)
+        .font(.system(size: TypeScale.smallSize))
+        .frame(width: TypeScale.iconSize)
     }
 }

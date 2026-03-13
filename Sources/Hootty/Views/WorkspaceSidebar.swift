@@ -125,7 +125,7 @@ struct WorkspaceSidebar: View {
             .foregroundStyle(Color(tokens.textMuted))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.md)
+            .padding(.vertical, Spacing.smd)
         }
         .buttonStyle(.plain)
     }
@@ -183,7 +183,7 @@ struct WorkspaceSidebar: View {
         let isHovered = workspace.id == hoveredWorkspaceID
         return HStack(spacing: 6) {
             Image(systemName: "folder.fill")
-                .font(.system(size: TypeScale.iconSize))
+                .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
 
@@ -195,7 +195,7 @@ struct WorkspaceSidebar: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.md)
+        .padding(.vertical, Spacing.smd)
         .background(
             Rectangle()
                 .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
@@ -262,12 +262,13 @@ struct WorkspaceSidebar: View {
 
             HStack(spacing: 6) {
                 Image(systemName: worktreeIcon(for: section))
-                    .font(.system(size: TypeScale.iconSize))
+                    .font(.system(size: TypeScale.smallSize))
                     .foregroundStyle(Color(tokens.textMuted))
                     .frame(width: TreeLayout.columnWidth)
 
                 if let displayLabel = section.displayLabel {
-                    branchLabelView(displayLabel, repoDisplayName: section.repoDisplayName)
+                    let isWorktree = section.panes.contains { $0.worktreePath != nil }
+                    branchLabelView(displayLabel, repoDisplayName: section.repoDisplayName, isWorktree: isWorktree)
                 } else {
                     Text("No Branch")
                         .font(.system(size: TypeScale.bodySize))
@@ -275,16 +276,9 @@ struct WorkspaceSidebar: View {
                         .lineLimit(1)
                 }
 
-                if section.panes.contains(where: { $0.worktreePath != nil }) {
-                    Text("(worktree)")
-                        .font(.system(size: TypeScale.bodySize))
-                        .foregroundStyle(Color(tokens.textMuted))
-                        .lineLimit(1)
-                }
-
                 Spacer(minLength: 0)
             }
-            .padding(.vertical, Spacing.md)
+            .padding(.vertical, Spacing.smd)
             .padding(.trailing, Spacing.md)
         }
         .padding(.leading, Spacing.md)
@@ -297,18 +291,22 @@ struct WorkspaceSidebar: View {
     }
 
     @ViewBuilder
-    private func branchLabelView(_ displayLabel: String, repoDisplayName: String?) -> some View {
+    private func branchLabelView(_ displayLabel: String, repoDisplayName: String?, isWorktree: Bool = false) -> some View {
+        let treeSuffix = isWorktree
+            ? Text("@").foregroundStyle(Color(tokens.textMuted).opacity(0.5)) + Text("tree").foregroundStyle(Color(tokens.textTree))
+            : Text("")
         if let repoName = repoDisplayName, let slashRange = displayLabel.range(of: "/") {
             let branchPart = String(displayLabel[slashRange.upperBound...])
             (Text(repoName).foregroundStyle(Color(tokens.textRepo))
-             + Text("/").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-             + Text(branchPart).foregroundStyle(Color(tokens.textMuted)))
+             + Text("⎇").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+             + Text(branchPart).foregroundStyle(Color(tokens.textBranch))
+             + treeSuffix)
                 .font(.system(size: TypeScale.bodySize))
                 .lineLimit(1)
         } else {
-            Text(displayLabel)
+            (Text(displayLabel).foregroundStyle(Color(tokens.textBranch))
+             + treeSuffix)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
         }
     }
@@ -324,7 +322,6 @@ struct WorkspaceSidebar: View {
 
             HStack(spacing: 6) {
                 StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
-                    .fixedSize()
                     .frame(width: TreeLayout.columnWidth)
 
                 Text(pane.displayName)
@@ -342,7 +339,7 @@ struct WorkspaceSidebar: View {
                     )
                 }
             }
-            .padding(.vertical, Spacing.md)
+            .padding(.vertical, Spacing.smd)
             .padding(.trailing, Spacing.md)
         }
         .padding(.leading, Spacing.md)
@@ -446,7 +443,7 @@ private struct WorkspaceRowDropDelegate: DropDelegate {
 
 private enum TreeLayout {
     /// Column width shared by tree connector gutters and icon frames.
-    static let columnWidth: CGFloat = 22
+    static let columnWidth: CGFloat = 16
 }
 
 private struct TreeConnectorView: View {

@@ -34,6 +34,6 @@ struct SplitLayoutThumbnail: View {
                 }
             }
         }
-        .frame(width: 24, height: 16)
+        .frame(width: 24, height: 14)
     }
 }
