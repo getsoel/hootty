@@ -62,7 +62,7 @@ public enum GitWorktreeManager {
         // The repo root is its parent.
         let resolved = (commonDir as NSString).standardizingPath
         let gitURL = URL(fileURLWithPath: resolved, relativeTo: URL(fileURLWithPath: path))
-        return gitURL.deletingLastPathComponent().standardized.path
+        return gitURL.standardizedFileURL.deletingLastPathComponent().path
     }
 
     /// Current branch name for a path.
