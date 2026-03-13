@@ -30,19 +30,15 @@ struct WorkspaceSidebar: View {
     @State private var dropTargetWorkspaceID: UUID?
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
+    @State private var showWorktreeActions: Bool = true
+    @State private var hoveredHeaderButton: String?
 
     var body: some View {
         VStack(spacing: 0) {
+            sidebarHeader
             workspaceList
 
             Spacer(minLength: 0)
-
-            // Divider
-            Rectangle()
-                .fill(Color(tokens.border))
-                .frame(height: 1)
-
-            addWorkspaceButton
         }
         .frame(width: sidebarWidth)
         .background(Color(tokens.surfaceLow))
@@ -90,6 +86,76 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    private var sidebarHeader: some View {
+        HStack(spacing: 0) {
+            Text("Workspaces")
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(tokens.textMuted))
+                .padding(.leading, Spacing.md)
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: Spacing.xs) {
+                Button {
+                    showWorktreeActions.toggle()
+                } label: {
+                    Image(systemName: "cube")
+                        .font(.system(size: TypeScale.smallSize))
+                        .foregroundStyle(Color(showWorktreeActions ? tokens.textAccent : tokens.textMuted))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aspectRatio(1, contentMode: .fit)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(hoveredHeaderButton == "worktree" ? Color(tokens.elementHover) : Color.clear))
+                        .contentShape(RoundedRectangle(cornerRadius: 4))
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                hoveredHeaderButton = "worktree"
+                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                            case .ended:
+                                if hoveredHeaderButton == "worktree" { hoveredHeaderButton = nil }
+                            @unknown default: break
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Toggle worktrees")
+
+                Button(action: onAddWorkspace) {
+                    Image(systemName: "plus")
+                        .font(.system(size: TypeScale.smallSize))
+                        .foregroundStyle(Color(tokens.textMuted))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .aspectRatio(1, contentMode: .fit)
+                        .background(RoundedRectangle(cornerRadius: 4).fill(hoveredHeaderButton == "add" ? Color(tokens.elementHover) : Color.clear))
+                        .contentShape(RoundedRectangle(cornerRadius: 4))
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                hoveredHeaderButton = "add"
+                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                            case .ended:
+                                if hoveredHeaderButton == "add" { hoveredHeaderButton = nil }
+                            @unknown default: break
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("New workspace")
+            }
+            .padding(Spacing.smd)
+            .frame(maxHeight: .infinity)
+            .overlay(alignment: .leading) {
+                Rectangle().fill(Color(tokens.border)).frame(width: 1)
+            }
+        }
+        .frame(height: 38)
+        .frame(maxWidth: .infinity)
+        .background(Color(tokens.tabBarBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color(tokens.border)).frame(height: 1)
+        }
+    }
+
     private var workspaceList: some View {
         ScrollView {
             VStack(spacing: 0) {
@@ -127,7 +193,8 @@ struct WorkspaceSidebar: View {
 
             // Show "+ New worktree" at the end of each repo's group
             // (right before the next HEAD section or at the end of the list)
-            if let repoRoot = section.repoRoot,
+            if showWorktreeActions,
+               let repoRoot = section.repoRoot,
                headBranchRepos.contains(repoRoot) {
                 let isLastForRepo = index + 1 >= sections.count
                     || sections[index + 1].isHead
@@ -137,22 +204,6 @@ struct WorkspaceSidebar: View {
                 }
             }
         }
-    }
-
-    private var addWorkspaceButton: some View {
-        Button(action: onAddWorkspace) {
-            HStack {
-                Image(systemName: "plus")
-                    .font(.system(size: TypeScale.smallSize))
-                Text("New Workspace")
-                    .font(.system(size: TypeScale.smallSize))
-            }
-            .foregroundStyle(Color(tokens.textMuted))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.smd)
-        }
-        .buttonStyle(.plain)
     }
 
     private func commitRename() {
