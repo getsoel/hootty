@@ -58,12 +58,17 @@ struct TerminalPaneView: NSViewRepresentable {
 
         var pendingTitleUpdate: DispatchWorkItem?
         view.titleDidChange = { [weak pane] title in
-            guard let pane, pane.customName == nil, pane.claudeSessionID != nil else { return }
+            guard let pane, pane.customName == nil else { return }
             pendingTitleUpdate?.cancel()
             let work = DispatchWorkItem { [weak pane] in
                 guard let pane, pane.customName == nil else { return }
                 if let clean = ClaudeTitleParser.stripPrefix(title) {
                     pane.name = clean
+                    if pane.claudeSessionID == nil {
+                        pane.claudeSessionID = "auto"
+                    }
+                } else if pane.claudeSessionID == "auto" {
+                    pane.claudeSessionID = nil
                 }
             }
             pendingTitleUpdate = work

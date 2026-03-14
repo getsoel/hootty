@@ -648,27 +648,28 @@ private func reloadModel(from url: URL) -> AppModel {
 // MARK: - Suite G: Title-Based Claude Detection
 
 @Suite struct TitleBasedClaudeDetection {
-    @Test func titleThinkingIgnoredWithoutClaudeSession() {
+    @Test func titleAutoDetectsClaudeSession() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
-        // No claudeSessionID set
         #expect(pane.claudeSessionID == nil)
 
-        model.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
-        #expect(pane.isThinking == false)
-        #expect(pane.attentionKind == nil)
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
+        #expect(pane.claudeSessionID == "auto")
+        #expect(pane.isThinking == true)
     }
 
-    @Test func titleThinkingDetectedWithClaudeSession() {
+    @Test func autoDetectedSessionClearsOnNonClaudeTitle() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
-        pane.claudeSessionID = "test-session-id"
 
-        model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
-        #expect(pane.isThinking == true)
-        #expect(pane.attentionKind == nil)
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
+        #expect(pane.claudeSessionID == "auto")
+
+        model.handleTitleChange(pane.id, title: "~/project")
+        #expect(pane.claudeSessionID == nil)
+        #expect(pane.isThinking == false)
     }
 
     @Test func titleIdleStopsThinkingWithoutAttention() {

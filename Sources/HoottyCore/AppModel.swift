@@ -143,8 +143,18 @@ public final class AppModel {
 
     public func handleTitleChange(_ paneID: UUID, title: String) {
         withPane(id: paneID) { _, pane in
-            guard pane.claudeSessionID != nil else { return }
-            guard let state = ClaudeTitleParser.parse(title) else { return }
+            guard let state = ClaudeTitleParser.parse(title) else {
+                // Title no longer matches Claude pattern — clear auto-detected session
+                if pane.claudeSessionID == "auto" {
+                    pane.claudeSessionID = nil
+                    pane.isThinking = false
+                }
+                return
+            }
+
+            if pane.claudeSessionID == nil {
+                pane.claudeSessionID = "auto"
+            }
 
             switch state {
             case .thinking:
