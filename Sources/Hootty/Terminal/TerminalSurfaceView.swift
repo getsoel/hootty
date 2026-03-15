@@ -621,8 +621,7 @@ extension TerminalSurfaceView {
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let pb = sender.draggingPasteboard
         if pb.canReadObject(forClasses: [NSURL.self], options: nil) ||
-            pb.types?.contains(.string) == true
-        {
+            pb.types?.contains(.string) == true {
             return .copy
         }
         return []
@@ -637,8 +636,7 @@ extension TerminalSurfaceView {
         ]) as? [URL], !urls.isEmpty {
             urls.map { shellEscape($0.path) }.joined(separator: " ")
         } else if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-                  let url = urls.first
-        {
+                  let url = urls.first {
             shellEscape(url.absoluteString)
         } else if let str = pb.string(forType: .string), !str.isEmpty {
             str

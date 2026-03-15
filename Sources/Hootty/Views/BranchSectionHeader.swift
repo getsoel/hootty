@@ -31,8 +31,7 @@ struct BranchSectionHeader: View {
         .background(TreeLinesBackground(depth: 1, tokens: tokens))
         .contextMenu {
             if !section.isHead, let branch = section.branch,
-               let worktreePath = section.panes.compactMap(\.worktreePath).first
-            {
+               let worktreePath = section.panes.compactMap(\.worktreePath).first {
                 Button("Copy merge prompt") {
                     let prompt = "Merge branch '\(branch)' into the main branch. The worktree is at \(worktreePath). Remove the worktree when done."
                     NSPasteboard.general.clearContents()

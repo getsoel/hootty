@@ -28,8 +28,7 @@ public final class ThemeCatalog {
     public init(themesDirectory: URL?) {
         self.themesDirectory = themesDirectory
         if let dir = themesDirectory,
-           let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path)
-        {
+           let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) {
             self.availableThemes = files
                 .filter { !$0.hasPrefix(".") }
                 .sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })

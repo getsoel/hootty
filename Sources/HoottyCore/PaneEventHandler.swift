@@ -107,8 +107,7 @@ public final class PaneEventHandler {
                 changed = true
             }
             if newWorktreePath == nil, let root = canonicalRoot, let branch = newBranch,
-               workspace.headBranches[root] != branch
-            {
+               workspace.headBranches[root] != branch {
                 workspace.headBranches[root] = branch
                 changed = true
             }

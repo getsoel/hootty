@@ -158,8 +158,7 @@ final class GhosttyApp {
             let themeName = parsed["theme"] ?? ThemeCatalog.fallbackThemeName
             let themesDir = Self.themesDirectoryURL
             if let content = try? String(contentsOf: themesDir.appendingPathComponent(themeName), encoding: .utf8),
-               let parsed = TerminalTheme.parse(ghosttyThemeContent: content)
-            {
+               let parsed = TerminalTheme.parse(ghosttyThemeContent: content) {
                 theme = parsed
             } else {
                 theme = TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
@@ -188,8 +187,7 @@ final class GhosttyApp {
 
         // Themes
         if let bundledURL = HoottyBundle.resourceBundle?.url(forResource: "Themes", withExtension: nil),
-           let files = try? fm.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil)
-        {
+           let files = try? fm.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil) {
             for file in files where !file.lastPathComponent.hasPrefix(".") {
                 let dest = themesDir.appendingPathComponent(file.lastPathComponent)
                 try? fm.removeItem(at: dest)

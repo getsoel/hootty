@@ -186,8 +186,7 @@ extension TerminalSurfaceView {
         keyEv.unshifted_codepoint = 0
         if event.type == .keyDown || event.type == .keyUp {
             if let chars = event.characters(byApplyingModifiers: []),
-               let codepoint = chars.unicodeScalars.first
-            {
+               let codepoint = chars.unicodeScalars.first {
                 keyEv.unshifted_codepoint = codepoint.value
             }
         }

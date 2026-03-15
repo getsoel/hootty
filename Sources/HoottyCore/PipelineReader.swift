@@ -86,8 +86,7 @@ public enum PipelineReader {
                 let filePath = (stageDir as NSString).appendingPathComponent(file)
                 let title: String = if let data = fm.contents(atPath: filePath),
                                        let content = String(data: data, encoding: .utf8),
-                                       let parsed = parseFrontmatterTitle(content)
-                {
+                                       let parsed = parseFrontmatterTitle(content) {
                     parsed
                 } else {
                     slug

@@ -156,8 +156,7 @@ public final class Workspace: Identifiable {
         for headSection in headSections {
             result.append(headSection)
             if let root = headSection.repoRoot,
-               let worktrees = worktreeSectionsByRepo[root]
-            {
+               let worktrees = worktreeSectionsByRepo[root] {
                 result.append(contentsOf: worktrees)
             }
         }
@@ -182,8 +181,7 @@ public final class Workspace: Identifiable {
     /// Restoration initializer.
     public init(id: UUID, name: String, repoPath: String? = nil,
                 headBranches: [String: String] = [:],
-                rootNode: SplitNode, focusedPaneID: UUID?)
-    {
+                rootNode: SplitNode, focusedPaneID: UUID?) {
         self.id = id
         self.name = name
         self.repoPath = repoPath
@@ -263,8 +261,7 @@ public final class Workspace: Identifiable {
             let adj = adjacency(from: focusedRect, to: candidateRect, direction: direction, epsilon: epsilon)
             guard adj.isAdjacent && adj.hasOverlap else { continue }
             if adj.primaryDist < bestPrimary - epsilon
-                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp)
-            {
+                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp) {
                 bestPrimary = adj.primaryDist
                 bestPerp = adj.perpendicularDist
                 bestID = candidateID
@@ -386,8 +383,7 @@ extension Workspace: @preconcurrency Codable {
         let branches: [String: String] = if let dict = try container.decodeIfPresent([String: String].self, forKey: .headBranches) {
             dict
         } else if let oldBranch = try container.decodeIfPresent(String.self, forKey: .headBranch),
-                  let repoPath = try container.decodeIfPresent(String.self, forKey: .repoPath)
-        {
+                  let repoPath = try container.decodeIfPresent(String.self, forKey: .repoPath) {
             [repoPath: oldBranch]
         } else {
             [:]

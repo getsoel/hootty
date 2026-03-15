@@ -223,8 +223,7 @@ struct WorkspaceSidebar: View {
             // Show "+ New worktree" at the end of each repo's group
             if showWorktreeActions,
                let repoRoot = section.repoRoot,
-               headBranchRepos.contains(repoRoot)
-            {
+               headBranchRepos.contains(repoRoot) {
                 let isLastForRepo = index + 1 >= sections.count
                     || sections[index + 1].isHead
                     || sections[index + 1].repoRoot != repoRoot
@@ -296,8 +295,7 @@ struct WorkspaceSidebar: View {
 
     private func confirmCursor() {
         if let cursorID = sidebarCursorPaneID,
-           let item = allNavigableItems.first(where: { $0.paneID == cursorID })
-        {
+           let item = allNavigableItems.first(where: { $0.paneID == cursorID }) {
             onSelectPane(item.workspaceID, item.paneID)
         }
         sidebarHasFocus = false

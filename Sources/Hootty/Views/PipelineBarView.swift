@@ -69,9 +69,11 @@ struct PipelineBarView: View {
             Color(tokens.textMuted)
         } else if index == claimInfo.currentStageIndex {
             // Current stage
-            claimInfo.status == .interrupted
-                ? Color(tokens.statusWarning)
-                : Color(tokens.textAccent)
+            if claimInfo.status == .interrupted {
+                Color(tokens.statusWarning)
+            } else {
+                Color(tokens.textAccent)
+            }
         } else {
             // Future stage — outline only, fill transparent
             .clear

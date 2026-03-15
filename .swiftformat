@@ -7,3 +7,4 @@
 --commas inline
 --importgrouping testable-last
 --exclude Sources/CGhostty,ghostty,.build,Vendors,.hootty
+--disable wrapMultilineStatementBraces
