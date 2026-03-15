@@ -40,7 +40,7 @@ struct WindowAccessor: NSViewRepresentable {
                     forName: name, object: window, queue: .main
                 ) { [weak self] _ in
                     guard let self, let window = self.window else { return }
-                    self.onWindow(window)
+                    onWindow(window)
                 }
                 observations.append(obs)
             }

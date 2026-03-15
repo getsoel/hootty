@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 @Observable
 public final class ThemeManager {
     private let configFile: ConfigFile

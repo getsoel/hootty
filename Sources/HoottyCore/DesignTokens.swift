@@ -96,7 +96,7 @@ public struct DesignTokens {
     /// Returns the appropriate status color for an attention kind.
     public func attentionColor(for kind: AttentionKind) -> NSColor {
         switch kind {
-        case .bell: return statusBell
+        case .bell: statusBell
         }
     }
 
@@ -174,6 +174,7 @@ public enum Spacing {
 }
 
 // MARK: - Typography Scale
+
 // Font construction requires SwiftUI or AppKit font APIs.
 // These constants define the size/weight pairs for views to consume.
 

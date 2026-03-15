@@ -128,7 +128,7 @@ final class TerminalSurfaceView: NSView {
         surfaceCreated = true
 
         let ctx = SurfaceCallbackContext(view: self, paneID: paneID)
-        self.callbackContext = ctx
+        callbackContext = ctx
         let userdataPtr = ctx.retainedPointer()
 
         if let parentSurface {
@@ -137,7 +137,7 @@ final class TerminalSurfaceView: NSView {
             applyPlatformConfig(&config, userdata: userdataPtr)
             let envAlloc = applyHoottyEnvVars(to: &config)
             defer { freeEnvVarAllocations(envAlloc.cStrings, envAlloc.envArray) }
-            self.surface = ghostty_surface_new(app, &config)
+            surface = ghostty_surface_new(app, &config)
         } else {
             var config = ghostty_surface_config_new()
             applyPlatformConfig(&config, userdata: userdataPtr)
@@ -150,7 +150,7 @@ final class TerminalSurfaceView: NSView {
                     self.surface = ghostty_surface_new(app, &config)
                 }
             } else {
-                self.surface = ghostty_surface_new(app, &config)
+                surface = ghostty_surface_new(app, &config)
             }
         }
 
@@ -276,7 +276,8 @@ final class TerminalSurfaceView: NSView {
 
     private func flushPendingText() {
         guard let surface, !pendingTextQueue.isEmpty else { return }
-        Log.surface.info("Flushing \(self.pendingTextQueue.count) pending text items")
+        let count = pendingTextQueue.count
+        Log.surface.info("Flushing \(count) pending text items")
 
         for data in pendingTextQueue {
             data.withUnsafeBytes { buffer in
@@ -294,10 +295,12 @@ final class TerminalSurfaceView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
 
+        let panePrefix = paneID.uuidString.prefix(8)
         if window != nil {
-            Log.surface.info("Surface attached to window (pane: \(self.paneID.uuidString.prefix(8)), created: \(self.surfaceCreated))")
+            let created = surfaceCreated
+            Log.surface.info("Surface attached to window (pane: \(panePrefix), created: \(created))")
         } else {
-            Log.surface.info("Surface detached from window (pane: \(self.paneID.uuidString.prefix(8)))")
+            Log.surface.info("Surface detached from window (pane: \(panePrefix))")
         }
 
         // Deferred creation: create surface on first window attachment
@@ -618,7 +621,8 @@ extension TerminalSurfaceView {
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let pb = sender.draggingPasteboard
         if pb.canReadObject(forClasses: [NSURL.self], options: nil) ||
-            pb.types?.contains(.string) == true {
+            pb.types?.contains(.string) == true
+        {
             return .copy
         }
         return []
@@ -633,7 +637,8 @@ extension TerminalSurfaceView {
         ]) as? [URL], !urls.isEmpty {
             urls.map { shellEscape($0.path) }.joined(separator: " ")
         } else if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-                  let url = urls.first {
+                  let url = urls.first
+        {
             shellEscape(url.absoluteString)
         } else if let str = pb.string(forType: .string), !str.isEmpty {
             str

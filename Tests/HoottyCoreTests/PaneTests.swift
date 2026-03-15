@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct PaneTests {
     @Test func displayNameReturnsAbbreviatedPathWhenNoCustomName() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path

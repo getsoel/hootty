@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct SplitNodeTests {
     @Test func splitUnknownPaneReturnsFalse() {
         let pane = Pane(name: "Test")

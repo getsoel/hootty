@@ -4,6 +4,7 @@ import Testing
 
 // MARK: - Helpers
 
+@MainActor
 private func makeModel() -> (AppModel, URL) {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString + ".json")
@@ -13,6 +14,7 @@ private func makeModel() -> (AppModel, URL) {
     return (AppModel(workspaceStore: WorkspaceStore(fileURL: url), configFile: ConfigFile(fileURL: cfgURL)), url)
 }
 
+@MainActor
 private func reloadModel(from url: URL) -> AppModel {
     let cfgURL = FileManager.default.temporaryDirectory
         .appendingPathComponent("hootty-test-\(UUID().uuidString)")
@@ -22,6 +24,7 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite A: Workspace Lifecycle
 
+@MainActor
 struct WorkspaceLifecycleIntegration {
     @Test func createSplitRenamePersistRestore() throws {
         let (model, url) = makeModel()
@@ -91,6 +94,7 @@ struct WorkspaceLifecycleIntegration {
 
 // MARK: - Suite B: Multi-Workspace Management
 
+@MainActor
 struct MultiWorkspaceIntegration {
     @Test func createReorderDeletePersistRestore() {
         let (model, url) = makeModel()
@@ -175,6 +179,7 @@ struct MultiWorkspaceIntegration {
 
 // MARK: - Suite C: Complex Split Tree Operations
 
+@MainActor
 struct SplitTreeIntegration {
     @Test func deepNestedSplitPersistRestore() throws {
         let (model, url) = makeModel()
@@ -324,6 +329,7 @@ struct SplitTreeIntegration {
 
 // MARK: - Suite D: Pane Swap
 
+@MainActor
 struct PaneSwapIntegration {
     @Test func swapPanesPreservesStructureAndPersists() throws {
         let (model, url) = makeModel()
@@ -371,6 +377,7 @@ struct PaneSwapIntegration {
 
 // MARK: - Suite E: Attention Flow
 
+@MainActor
 struct AttentionFlowIntegration {
     @Test func attentionOnUnfocusedPaneFocusClearsIt() throws {
         let (model, _) = makeModel()
@@ -515,6 +522,7 @@ struct AttentionFlowIntegration {
 
 // MARK: - Suite E: Preferences Persistence
 
+@MainActor
 struct PreferencesPersistenceIntegration {
     @Test func themeAndWorkspacesPersistIndependently() {
         let (model, url) = makeModel()
@@ -588,6 +596,7 @@ struct PreferencesPersistenceIntegration {
 
 // MARK: - Suite F: Split Enhancements
 
+@MainActor
 struct SplitEnhancementsIntegration {
     @Test func equalizePersistsAfterSaveReload() throws {
         let (model, url) = makeModel()
@@ -647,6 +656,7 @@ struct SplitEnhancementsIntegration {
 
 // MARK: - Suite G: Title-Based Claude Detection
 
+@MainActor
 struct TitleBasedClaudeDetection {
     @Test func titleAutoDetectsClaudeSession() {
         let (model, _) = makeModel()
@@ -742,6 +752,7 @@ struct TitleBasedClaudeDetection {
 
 // MARK: - Suite H: Sidebar Sections
 
+@MainActor
 struct SidebarSectionsIntegration {
     @Test func sidebarSectionsUpdateWhenBranchChanges() {
         let repo = "/Users/test/project"

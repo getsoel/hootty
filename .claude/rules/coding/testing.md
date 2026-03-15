@@ -14,3 +14,5 @@ HoottyCore is a UI-free library target. Never add `import SwiftUI` to files in S
 Use `init()` on Swift Testing `@Suite` structs for shared setup (e.g., UserDefaults cleanup). The struct re-initializes per test automatically.
 
 `AppModel()` with default `WorkspaceStore()` loads persisted data from disk, polluting test assertions. Always use `AppModel(workspaceStore: WorkspaceStore(fileURL: tempURL))` with a unique temp file per test.
+
+All `@Observable` classes are `@MainActor`. Test `@Suite` structs that instantiate or interact with them must also be `@MainActor`. Test files for pure value types (enums, structs like `ClaudeTitleParser`, `TerminalTheme`, `DesignTokens`) don't need it.

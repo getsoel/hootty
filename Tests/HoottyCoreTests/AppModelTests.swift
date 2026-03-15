@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct AppModelTests {
     private func makeModel() -> AppModel {
         let wsURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")

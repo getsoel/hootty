@@ -183,6 +183,7 @@ struct PipelineReaderTests {
     }
 }
 
+@MainActor
 struct PipelineModelTests {
     @Test func refreshPopulatesClaimsForMatchingPanes() throws {
         let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

@@ -14,6 +14,7 @@ public struct ThemePreview: Identifiable, Sendable {
     }
 }
 
+@MainActor
 @Observable
 public final class ThemeCatalog {
     /// Sorted list of available theme filenames.
@@ -27,7 +28,8 @@ public final class ThemeCatalog {
     public init(themesDirectory: URL?) {
         self.themesDirectory = themesDirectory
         if let dir = themesDirectory,
-           let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) {
+           let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path)
+        {
             self.availableThemes = files
                 .filter { !$0.hasPrefix(".") }
                 .sorted(by: { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending })
@@ -65,10 +67,10 @@ public final class ThemeCatalog {
     }
 
     /// Hardcoded fallback theme name when the themes directory is missing.
-    public static let fallbackThemeName = "Catppuccin Mocha"
+    public nonisolated static let fallbackThemeName = "Catppuccin Mocha"
 
     /// Hardcoded fallback Catppuccin Mocha content (with # prefix, matching tarball format).
-    public static let fallbackThemeContent = """
+    public nonisolated static let fallbackThemeContent = """
     background = #1e1e2e
     foreground = #cdd6f4
     cursor-color = #f5e0dc

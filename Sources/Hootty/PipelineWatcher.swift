@@ -14,6 +14,10 @@ final class PipelineWatcher {
     private var entries: [String: WatchEntry] = [:]
     private var onChange: ((String) -> Void)?
 
+    deinit {
+        stopAll()
+    }
+
     /// Set the callback invoked when any watched `.state.json` changes.
     /// The parameter is the repo root path.
     func setOnChange(_ handler: @escaping (String) -> Void) {

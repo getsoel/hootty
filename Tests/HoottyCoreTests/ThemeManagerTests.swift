@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct ThemeManagerTests {
     private func tempFileURL() -> URL {
         FileManager.default.temporaryDirectory

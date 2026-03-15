@@ -120,7 +120,8 @@ public enum GitWorktreeManager {
     public static func isWorktree(for path: String) -> Bool {
         cached(&isWorktreeCache, key: path) {
             guard let gitDir = run(["git", "-C", path, "rev-parse", "--git-dir"]),
-                  let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
+                  let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"])
+            else {
                 return false
             }
             let base = URL(fileURLWithPath: path)

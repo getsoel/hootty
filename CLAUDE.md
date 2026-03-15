@@ -36,6 +36,7 @@ Sources/
     ClaudeTitleParser.swift    -- Detects Claude Code sessions from terminal title patterns
     ConfigFile.swift           -- Observable key-value config file store (persisted to app support)
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
+    PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd)
     PipelineModel.swift        -- @Observable pipeline claim/board state per pane/repo
     PipelineReader.swift       -- Reads pipeline config and state from .hootty/pipeline/
     PipelineState.swift        -- Pipeline data structures (stages, config, jobs, claims)
@@ -51,6 +52,10 @@ Sources/
     Views/
       ContentView.swift        -- Main layout: switches between workspaces (sidebar + detail) and templates view
       WorkspaceSidebar.swift   -- Workspace list with status indicators
+      WorkspaceRow.swift       -- Extracted workspace row with drag-and-drop
+      SidebarPaneRow.swift     -- Extracted pane row with status dot and layout thumbnail
+      BranchSectionHeader.swift -- Extracted branch/worktree section header
+      SidebarTreeLines.swift   -- Shared tree connector primitives (TreeLayout, TreeLinesBackground)
       PaneGroupTabBar.swift     -- Tab strip within a pane group region
       PaneGroupView.swift      -- Per-region pane group container (tab bar + split content)
       SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers

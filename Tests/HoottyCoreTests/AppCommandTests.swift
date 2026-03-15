@@ -29,6 +29,7 @@ struct AppCommandTests {
     }
 }
 
+@MainActor
 struct WorkspaceNavigationTests {
     private func makeModel() -> AppModel {
         let wsURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
@@ -79,6 +80,7 @@ struct WorkspaceNavigationTests {
     }
 }
 
+@MainActor
 struct PaneNavigationTests {
     @Test func focusNextPaneWrapsAround() throws {
         let workspace = Workspace(name: "Test")

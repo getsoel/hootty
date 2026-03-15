@@ -3,6 +3,7 @@ import SwiftUI
 
 /// Maps AppCommand to executable actions. Single dispatch point for menus,
 /// command palette, and ghostty action callbacks.
+@MainActor
 @Observable
 final class CommandRegistry {
     private var handlers: [AppCommand: () -> Void] = [:]

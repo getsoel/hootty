@@ -2,6 +2,7 @@ import Foundation
 
 /// Observable model holding resolved pipeline claim info for each pane.
 /// Updated by the PipelineWatcher whenever `.hootty/pipeline/.state.json` changes.
+@MainActor
 @Observable
 public final class PipelineModel {
     /// Resolved claim info per pane ID. Nil means no active claim for that pane.

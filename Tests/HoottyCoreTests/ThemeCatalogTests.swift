@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct ThemeCatalogTests {
     private func makeTempThemesDir() throws -> URL {
         let dir = FileManager.default.temporaryDirectory

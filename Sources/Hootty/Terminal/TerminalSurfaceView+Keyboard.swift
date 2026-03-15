@@ -109,26 +109,26 @@ extension TerminalSurfaceView {
         if ghostty_surface_key_is_binding(surface, keyEvent, &flags) {
             // If the binding is consumed, we handle it
             if flags.rawValue & GHOSTTY_BINDING_FLAGS_CONSUMED.rawValue != 0 {
-                self.keyDown(with: event)
+                keyDown(with: event)
                 return true
             }
         }
 
         // Claim Escape so AppKit doesn't propagate it as a cancel/close action
         if event.keyCode == 0x35 { // Escape
-            self.keyDown(with: event)
+            keyDown(with: event)
             return true
         }
 
         // Claim Ctrl+Return to prevent AppKit's default context menu equivalent
         if mods.contains(.control), event.keyCode == 0x24 { // Return
-            self.keyDown(with: event)
+            keyDown(with: event)
             return true
         }
 
         // Claim Ctrl+/ and translate to Ctrl+_ (prevents macOS beep)
         if mods.contains(.control), event.keyCode == 0x2C { // slash
-            self.keyDown(with: event)
+            keyDown(with: event)
             return true
         }
 
@@ -186,7 +186,8 @@ extension TerminalSurfaceView {
         keyEv.unshifted_codepoint = 0
         if event.type == .keyDown || event.type == .keyUp {
             if let chars = event.characters(byApplyingModifiers: []),
-               let codepoint = chars.unicodeScalars.first {
+               let codepoint = chars.unicodeScalars.first
+            {
                 keyEv.unshifted_codepoint = codepoint.value
             }
         }

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct ConfigFileTests {
     private func tempDir() -> URL {
         FileManager.default.temporaryDirectory

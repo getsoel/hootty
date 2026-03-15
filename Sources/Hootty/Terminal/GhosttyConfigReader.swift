@@ -11,7 +11,8 @@ enum GhosttyConfigReader {
               let foreground = readColor(from: config, key: "foreground"),
               let cursorColor = readColor(from: config, key: "cursor-color"),
               let selectionBg = readColor(from: config, key: "selection-background"),
-              let selectionFg = readColor(from: config, key: "selection-foreground") else {
+              let selectionFg = readColor(from: config, key: "selection-foreground")
+        else {
             Log.ghostty.warning("Failed to read one or more colors from ghostty config")
             return nil
         }

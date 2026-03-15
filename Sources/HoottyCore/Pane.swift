@@ -5,6 +5,7 @@ public enum AttentionKind: String, Codable, Sendable {
     case bell
 }
 
+@MainActor
 @Observable
 public final class Pane: Identifiable {
     public let id: UUID
@@ -62,7 +63,7 @@ public final class Pane: Identifiable {
     }
 }
 
-extension Pane: Codable {
+extension Pane: @preconcurrency Codable {
     private enum CodingKeys: String, CodingKey {
         case id, name, customName, shell, workingDirectory, claudeSessionID, branch, repoRoot, worktreePath
     }

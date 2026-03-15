@@ -4,6 +4,7 @@ import HoottyCore
 
 /// Singleton wrapper around ghostty_app_t. One per application lifetime.
 /// Manages global ghostty state, configuration, and runtime callbacks.
+@MainActor
 final class GhosttyApp {
     static let shared = GhosttyApp()
 
@@ -157,7 +158,8 @@ final class GhosttyApp {
             let themeName = parsed["theme"] ?? ThemeCatalog.fallbackThemeName
             let themesDir = Self.themesDirectoryURL
             if let content = try? String(contentsOf: themesDir.appendingPathComponent(themeName), encoding: .utf8),
-               let parsed = TerminalTheme.parse(ghosttyThemeContent: content) {
+               let parsed = TerminalTheme.parse(ghosttyThemeContent: content)
+            {
                 theme = parsed
             } else {
                 theme = TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
@@ -186,7 +188,8 @@ final class GhosttyApp {
 
         // Themes
         if let bundledURL = HoottyBundle.resourceBundle?.url(forResource: "Themes", withExtension: nil),
-           let files = try? fm.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil) {
+           let files = try? fm.contentsOfDirectory(at: bundledURL, includingPropertiesForKeys: nil)
+        {
             for file in files where !file.lastPathComponent.hasPrefix(".") {
                 let dest = themesDir.appendingPathComponent(file.lastPathComponent)
                 try? fm.removeItem(at: dest)
@@ -315,8 +318,8 @@ final class GhosttyApp {
     func reloadConfig(ghosttyContent: String) -> TerminalTheme? {
         guard let app else { return nil }
         guard let (newConfig, resolvedTheme) = Self.buildConfig(ghosttyContent: ghosttyContent) else { return nil }
-        let oldConfig = self.config
-        self.config = newConfig
+        let oldConfig = config
+        config = newConfig
         ghostty_app_update_config(app, newConfig)
         if let oldConfig { ghostty_config_free(oldConfig) }
         Log.ghostty.info("Reloaded ghostty config")

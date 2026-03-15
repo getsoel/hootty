@@ -25,3 +25,9 @@ When refactoring stored properties to computed aggregates (e.g., `Tab.isRunning`
 SPM `swift build` does not compile `.xcassets` in library dependencies — it copies the raw directory but never invokes `actool`, so `Bundle.module.image(forResource:)` returns nil at runtime. Use `xcodebuild` (via `make build`/`make run`) to build the app; it compiles asset catalogs automatically.
 
 `actool --compile` into flat SPM bundle directories (no `Contents/Resources/` structure) does not fix xcassets loading — `NSBundle.image(forResource:)` only searches `Assets.car` in properly structured bundles. Don't attempt post-build actool workarounds with `swift build`; use `xcodebuild` instead.
+
+All `@Observable` classes must be `@MainActor`. When adding `@MainActor` to classes with manual `Codable` conformance, use `extension Foo: @preconcurrency Codable` — the `init(from:)` and `encode(to:)` methods inherit actor isolation and can't satisfy the nonisolated protocol requirement otherwise.
+
+On `@MainActor` classes, mark static `let` constants with `Sendable` types and pure static functions (parsers, formatters) as `nonisolated` so they're accessible from non-main-actor contexts. Instance methods that only read from disk (no mutable state) can also be `nonisolated`.
+
+Default parameter expressions for `@MainActor` types fail in nonisolated context — `func foo(config: ConfigFile = ConfigFile())` won't compile. Use optional + resolve inside the body: `func foo(config: ConfigFile? = nil) { let resolved = config ?? ConfigFile() }`.

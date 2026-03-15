@@ -5,6 +5,7 @@ public enum SplitDirection: String, Codable {
     case vertical
 }
 
+@MainActor
 @Observable
 public final class SplitNode: Identifiable {
     public let id: UUID
@@ -70,27 +71,27 @@ public final class SplitNode: Identifiable {
     public func firstPane() -> Pane? {
         switch content {
         case let .leaf(pane):
-            return pane
+            pane
         case let .split(_, first, _):
-            return first.firstPane()
+            first.firstPane()
         }
     }
 
     public func findPane(id: UUID) -> Pane? {
         switch content {
         case let .leaf(pane):
-            return pane.id == id ? pane : nil
+            pane.id == id ? pane : nil
         case let .split(_, first, second):
-            return first.findPane(id: id) ?? second.findPane(id: id)
+            first.findPane(id: id) ?? second.findPane(id: id)
         }
     }
 
     public func findLeafNode(paneID: UUID) -> SplitNode? {
         switch content {
         case let .leaf(pane):
-            return pane.id == paneID ? self : nil
+            pane.id == paneID ? self : nil
         case let .split(_, first, second):
-            return first.findLeafNode(paneID: paneID) ?? second.findLeafNode(paneID: paneID)
+            first.findLeafNode(paneID: paneID) ?? second.findLeafNode(paneID: paneID)
         }
     }
 
@@ -112,9 +113,9 @@ public final class SplitNode: Identifiable {
             let oldNode = SplitNode(pane: pane)
             let newNode = SplitNode(pane: newPane)
             if placeBefore {
-                self.content = .split(direction: direction, first: newNode, second: oldNode)
+                content = .split(direction: direction, first: newNode, second: oldNode)
             } else {
-                self.content = .split(direction: direction, first: oldNode, second: newNode)
+                content = .split(direction: direction, first: oldNode, second: newNode)
             }
             return true
         case let .split(_, first, second):
@@ -186,13 +187,13 @@ public final class SplitNode: Identifiable {
             return false
         case let .split(_, first, second):
             if case let .leaf(pane) = first.content, pane.id == id {
-                self.content = second.content
-                self.splitRatio = second.splitRatio
+                content = second.content
+                splitRatio = second.splitRatio
                 return true
             }
             if case let .leaf(pane) = second.content, pane.id == id {
-                self.content = first.content
-                self.splitRatio = first.splitRatio
+                content = first.content
+                splitRatio = first.splitRatio
                 return true
             }
             return first.removePane(id: id) || second.removePane(id: id)
@@ -200,7 +201,7 @@ public final class SplitNode: Identifiable {
     }
 }
 
-extension SplitNode: Codable {
+extension SplitNode: @preconcurrency Codable {
     private enum CodingKeys: String, CodingKey {
         case id, type, pane, direction, first, second, splitRatio
     }

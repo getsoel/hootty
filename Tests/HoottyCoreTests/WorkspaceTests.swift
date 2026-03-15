@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import HoottyCore
 
+@MainActor
 struct WorkspaceTests {
     @Test func singlePaneByDefault() {
         let ws = Workspace(name: "Test")

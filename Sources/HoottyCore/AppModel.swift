@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 @Observable
 public final class AppModel {
     public let configFile: ConfigFile
@@ -19,6 +20,7 @@ public final class AppModel {
 
     public var modalState: ModalState = .none
     public var sidebarHasFocus: Bool = false
+    public private(set) var paneEventHandler: PaneEventHandler!
 
     public static let sidebarMinWidth: CGFloat = 140
     public static let sidebarMaxWidth: CGFloat = 400
@@ -26,12 +28,13 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile = ConfigFile(), themesDirectory: URL? = nil) {
-        self.configFile = configFile
-        configFile.ensureExists()
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil) {
+        let resolvedConfigFile = configFile ?? ConfigFile()
+        self.configFile = resolvedConfigFile
+        resolvedConfigFile.ensureExists()
         let catalog = ThemeCatalog(themesDirectory: themesDirectory)
-        self.themeManager = ThemeManager(configFile: configFile, themeCatalog: catalog)
-        self.soundManager = SoundManager(configFile: configFile)
+        self.themeManager = ThemeManager(configFile: resolvedConfigFile, themeCatalog: catalog)
+        self.soundManager = SoundManager(configFile: resolvedConfigFile)
         self.workspaceStore = workspaceStore
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
@@ -44,8 +47,13 @@ public final class AppModel {
             }
         } else {
             let workspace = addWorkspace()
-            selectedWorkspaceID = workspace.id
+            self.selectedWorkspaceID = workspace.id
         }
+        self.paneEventHandler = PaneEventHandler(
+            findPane: { [weak self] id in self?.findPane(id: id) },
+            selectedWorkspaceID: { [weak self] in self?.selectedWorkspaceID },
+            debouncedSave: { [weak self] in self?.debouncedSave() }
+        )
     }
 
     private var saveDebounceTask: DispatchWorkItem?
@@ -116,97 +124,24 @@ public final class AppModel {
 
     @discardableResult
     public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
-        withPane(id: paneID) { workspace, pane in
-            let isFocusedPane = workspace.id == selectedWorkspaceID
-                && workspace.focusedPaneID == paneID
-            if !isFocusedPane {
-                pane.attentionKind = kind
-                return true
-            }
-            return false
-        } ?? false
+        paneEventHandler.handlePaneNeedsAttention(paneID, kind: kind)
     }
 
     @discardableResult
     public func handleBell(_ paneID: UUID) -> Bool {
-        withPane(id: paneID) { _, pane in
-            pane.attentionKind = .bell
-            return true
-        } ?? false
+        paneEventHandler.handleBell(paneID)
     }
 
     public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
-        withPane(id: paneID) { _, pane in
-            pane.isThinking = isThinking
-            if isThinking {
-                pane.attentionKind = nil
-            }
-        }
+        paneEventHandler.handlePaneThinkingChanged(paneID, isThinking: isThinking)
     }
 
     public func handleTitleChange(_ paneID: UUID, title: String) {
-        withPane(id: paneID) { _, pane in
-            guard let state = ClaudeTitleParser.parse(title) else {
-                // Title no longer matches Claude pattern — clear auto-detected session
-                if pane.claudeSessionID == "auto" {
-                    pane.claudeSessionID = nil
-                    pane.isThinking = false
-                }
-                return
-            }
-
-            if pane.claudeSessionID == nil {
-                pane.claudeSessionID = "auto"
-            }
-
-            switch state {
-            case .thinking:
-                if !pane.isThinking {
-                    pane.isThinking = true
-                    pane.attentionKind = nil
-                }
-            case .idle:
-                if pane.isThinking { pane.isThinking = false }
-            }
-        }
+        paneEventHandler.handleTitleChange(paneID, title: title)
     }
 
     public func handlePwdChanged(_ paneID: UUID, pwd: String) {
-        withPane(id: paneID) { workspace, pane in
-            let newBranch = GitWorktreeManager.currentBranch(for: pwd)
-
-            // Short-circuit: non-git directory and pane already has no branch — skip extra subprocess calls
-            if newBranch == nil && pane.branch == nil {
-                return
-            }
-
-            let canonicalRoot = GitWorktreeManager.canonicalRepoRoot(for: pwd)
-            let showToplevel = GitWorktreeManager.repoRoot(for: pwd)
-            let newWorktreePath = GitWorktreeManager.isWorktree(for: pwd) ? showToplevel : nil
-            var changed = false
-            if pane.branch != newBranch {
-                pane.branch = newBranch
-                changed = true
-            }
-            if pane.repoRoot != canonicalRoot {
-                pane.repoRoot = canonicalRoot
-                changed = true
-            }
-            if pane.worktreePath != newWorktreePath {
-                pane.worktreePath = newWorktreePath
-                changed = true
-            }
-            if newWorktreePath == nil, let root = canonicalRoot, let branch = newBranch,
-               workspace.headBranches[root] != branch {
-                workspace.headBranches[root] = branch
-                changed = true
-            }
-            if workspace.repoPath == nil, let root = canonicalRoot {
-                workspace.repoPath = root
-                changed = true
-            }
-            if changed { debouncedSave() }
-        }
+        paneEventHandler.handlePwdChanged(paneID, pwd: pwd)
     }
 
     public func findPane(id: UUID) -> (Workspace, Pane)? {

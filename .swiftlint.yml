@@ -17,9 +17,11 @@ disabled_rules:
   - line_length
   - nesting
   - no_fallthrough_only
+  - opening_brace
   - todo
   - trailing_comma
   - type_body_length
+  - void_function_in_ternary
 
 identifier_name:
   min_length: 1

@@ -66,15 +66,15 @@ struct PipelineBarView: View {
     private func dotColor(for index: Int) -> Color {
         if index < claimInfo.currentStageIndex {
             // Completed stage
-            return Color(tokens.textMuted)
+            Color(tokens.textMuted)
         } else if index == claimInfo.currentStageIndex {
             // Current stage
-            return claimInfo.status == .interrupted
+            claimInfo.status == .interrupted
                 ? Color(tokens.statusWarning)
                 : Color(tokens.textAccent)
         } else {
             // Future stage — outline only, fill transparent
-            return .clear
+            .clear
         }
     }
 

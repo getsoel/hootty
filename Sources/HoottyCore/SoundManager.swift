@@ -5,6 +5,7 @@ public enum SoundTrigger: String, CaseIterable, Sendable {
     case bell
 }
 
+@MainActor
 @Observable
 public final class SoundManager {
     private let configFile: ConfigFile
@@ -22,7 +23,7 @@ public final class SoundManager {
 
     public func sound(for trigger: SoundTrigger) -> String? {
         switch trigger {
-        case .bell: return bellSound
+        case .bell: bellSound
         }
     }
 

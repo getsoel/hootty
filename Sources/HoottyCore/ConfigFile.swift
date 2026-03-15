@@ -1,6 +1,7 @@
 import Foundation
 import os
 
+@MainActor
 @Observable
 public final class ConfigFile {
     private static let logger = Logger(subsystem: "com.soel.hootty", category: "config")
@@ -10,7 +11,7 @@ public final class ConfigFile {
     private var removedKeys: Set<String> = []
     private var changedKeys: Set<String> = []
 
-    public static var defaultFileURL: URL {
+    public nonisolated static var defaultFileURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         #if DEBUG
             let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
@@ -21,7 +22,7 @@ public final class ConfigFile {
     }
 
     /// Application support directory (shared between ConfigFile and GhosttyApp).
-    public static var appSupportDirectory: URL {
+    public nonisolated static var appSupportDirectory: URL {
         defaultFileURL.deletingLastPathComponent()
     }
 
@@ -53,15 +54,16 @@ public final class ConfigFile {
     public func load() {
         removedKeys.removeAll()
         changedKeys.removeAll()
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            Self.logger.info("No config file at \(self.fileURL.path)")
+        let path = fileURL.path
+        guard FileManager.default.fileExists(atPath: path) else {
+            Self.logger.info("No config file at \(path)")
             values = [:]
             return
         }
         do {
             let content = try String(contentsOf: fileURL, encoding: .utf8)
             values = Self.parse(content)
-            Self.logger.info("Loaded config from \(self.fileURL.path)")
+            Self.logger.info("Loaded config from \(path)")
         } catch {
             Self.logger.error("Failed to read config: \(error.localizedDescription)")
             values = [:]
@@ -78,9 +80,10 @@ public final class ConfigFile {
             buildFreshContent()
         }
 
+        let path = fileURL.path
         do {
             try content.write(to: fileURL, atomically: true, encoding: .utf8)
-            Self.logger.debug("Saved config to \(self.fileURL.path)")
+            Self.logger.debug("Saved config to \(path)")
         } catch {
             Self.logger.error("Failed to save config: \(error.localizedDescription)")
         }
@@ -106,7 +109,7 @@ public final class ConfigFile {
     /// Returns config content with only non-hootty keys (for feeding to ghostty).
     /// Reads the raw file from disk to preserve repeatable keys (e.g. multiple font-family lines).
     /// If `themeOverride` is provided, replaces the theme value without modifying the file on disk.
-    public func ghosttyConfigContent(themeOverride: String? = nil) -> String {
+    public nonisolated func ghosttyConfigContent(themeOverride: String? = nil) -> String {
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else {
             let themeName = themeOverride ?? "Catppuccin Mocha"
             return "theme = \(themeName)\n"
@@ -130,7 +133,7 @@ public final class ConfigFile {
 
     // MARK: - Parsing
 
-    public static func parse(_ content: String) -> [String: String] {
+    public nonisolated static func parse(_ content: String) -> [String: String] {
         var result: [String: String] = [:]
         for line in content.components(separatedBy: .newlines) {
             guard let (key, value) = parseConfigLine(line),
@@ -143,7 +146,7 @@ public final class ConfigFile {
     // MARK: - Private
 
     /// Parses a config line into (key, value), returning nil for comments, blanks, or lines without `=`.
-    private static func parseConfigLine(_ line: String) -> (key: String, value: String)? {
+    private nonisolated static func parseConfigLine(_ line: String) -> (key: String, value: String)? {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !trimmed.hasPrefix("#"),
               let eqIndex = trimmed.firstIndex(of: "=") else { return nil }
@@ -220,7 +223,7 @@ public final class ConfigFile {
         return lines.joined(separator: "\n")
     }
 
-    static func defaultConfigContent() -> String {
+    nonisolated static func defaultConfigContent() -> String {
         """
         # Ghostty settings
         theme = Catppuccin Mocha
