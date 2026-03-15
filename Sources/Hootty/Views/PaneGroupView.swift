@@ -41,7 +41,7 @@ struct PaneContentView: View {
             }
         }
         .overlay {
-            if let kind = pane.attentionKind {
+            if let kind = pane.attentionKind, !terminalHasFocus {
                 Color.clear
                     .glowBorder(
                         shape: Rectangle(),
