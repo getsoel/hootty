@@ -49,7 +49,6 @@ public struct GitWorktreeInfo: Sendable {
 /// Caches frequently-queried results (branch, repoRoot, isWorktree) per directory
 /// with a short TTL to avoid repeated subprocess calls on rapid pwd changes.
 public enum GitWorktreeManager {
-
     // MARK: - Cache
 
     private struct CacheEntry<T> {

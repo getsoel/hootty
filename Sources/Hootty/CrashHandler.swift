@@ -4,11 +4,11 @@ import os
 enum CrashHandler {
     private static let logger = Logger(subsystem: "com.soel.hootty", category: "crash")
     #if DEBUG
-    private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/Hootty-Dev")
+        private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/Hootty-Dev")
     #else
-    private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Logs/Hootty")
+        private static let logDirectory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/Hootty")
     #endif
     private static let logFile = logDirectory.appendingPathComponent("crash.log")
 
@@ -19,14 +19,14 @@ enum CrashHandler {
         // Catch uncaught ObjC exceptions
         NSSetUncaughtExceptionHandler { exception in
             let info = """
-                === Hootty Crash Report ===
-                Date: \(ISO8601DateFormatter().string(from: Date()))
-                Exception: \(exception.name.rawValue)
-                Reason: \(exception.reason ?? "unknown")
-                Call Stack:
-                \(exception.callStackSymbols.joined(separator: "\n"))
-                ===========================
-                """
+            === Hootty Crash Report ===
+            Date: \(ISO8601DateFormatter().string(from: Date()))
+            Exception: \(exception.name.rawValue)
+            Reason: \(exception.reason ?? "unknown")
+            Call Stack:
+            \(exception.callStackSymbols.joined(separator: "\n"))
+            ===========================
+            """
             CrashHandler.logger.fault("Uncaught exception: \(exception.name.rawValue) — \(exception.reason ?? "unknown")")
             CrashHandler.writeCrashLog(info)
         }
@@ -37,30 +37,29 @@ enum CrashHandler {
             (SIGSEGV, "SIGSEGV"),
             (SIGBUS, "SIGBUS"),
             (SIGFPE, "SIGFPE"),
-            (SIGILL, "SIGILL"),
+            (SIGILL, "SIGILL")
         ]
 
         for (sig, _) in signals {
             signal(sig) { receivedSignal in
-                let name: String
-                switch receivedSignal {
-                case SIGABRT: name = "SIGABRT"
-                case SIGSEGV: name = "SIGSEGV"
-                case SIGBUS: name = "SIGBUS"
-                case SIGFPE: name = "SIGFPE"
-                case SIGILL: name = "SIGILL"
-                default: name = "SIGNAL(\(receivedSignal))"
+                let name = switch receivedSignal {
+                case SIGABRT: "SIGABRT"
+                case SIGSEGV: "SIGSEGV"
+                case SIGBUS: "SIGBUS"
+                case SIGFPE: "SIGFPE"
+                case SIGILL: "SIGILL"
+                default: "SIGNAL(\(receivedSignal))"
                 }
 
                 let info = """
-                    === Hootty Crash Report ===
-                    Date: \(ISO8601DateFormatter().string(from: Date()))
-                    Signal: \(name) (\(receivedSignal))
-                    Thread: \(Thread.current)
-                    Call Stack:
-                    \(Thread.callStackSymbols.joined(separator: "\n"))
-                    ===========================
-                    """
+                === Hootty Crash Report ===
+                Date: \(ISO8601DateFormatter().string(from: Date()))
+                Signal: \(name) (\(receivedSignal))
+                Thread: \(Thread.current)
+                Call Stack:
+                \(Thread.callStackSymbols.joined(separator: "\n"))
+                ===========================
+                """
                 CrashHandler.writeCrashLog(info)
 
                 // Re-raise with default handler so the process terminates normally

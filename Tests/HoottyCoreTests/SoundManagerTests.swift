@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct SoundManagerTests {
+struct SoundManagerTests {
     private func tempFileURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-test-\(UUID().uuidString)")

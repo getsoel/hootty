@@ -41,7 +41,7 @@ public final class ThemeManager {
             "catppuccin-mocha": "Catppuccin Mocha",
             "catppuccin-latte": "Catppuccin Latte",
             "catppuccin-frappe": "Catppuccin Frappe",
-            "catppuccin-macchiato": "Catppuccin Macchiato",
+            "catppuccin-macchiato": "Catppuccin Macchiato"
         ]
         return migrations[name] ?? name
     }

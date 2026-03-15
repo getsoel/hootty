@@ -35,9 +35,9 @@ public final class SplitNode: Identifiable {
 
     private func collectPanes(into result: inout [Pane]) {
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             result.append(pane)
-        case .split(_, let first, let second):
+        case let .split(_, first, second):
             first.collectPanes(into: &result)
             second.collectPanes(into: &result)
         }
@@ -51,9 +51,9 @@ public final class SplitNode: Identifiable {
 
     private func collectRects(into result: inout [UUID: CGRect], rect: CGRect) {
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             result[pane.id] = rect
-        case .split(let direction, let first, let second):
+        case let .split(direction, first, second):
             switch direction {
             case .horizontal:
                 let w = rect.width * splitRatio
@@ -69,27 +69,27 @@ public final class SplitNode: Identifiable {
 
     public func firstPane() -> Pane? {
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             return pane
-        case .split(_, let first, _):
+        case let .split(_, first, _):
             return first.firstPane()
         }
     }
 
     public func findPane(id: UUID) -> Pane? {
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             return pane.id == id ? pane : nil
-        case .split(_, let first, let second):
+        case let .split(_, first, second):
             return first.findPane(id: id) ?? second.findPane(id: id)
         }
     }
 
     public func findLeafNode(paneID: UUID) -> SplitNode? {
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             return pane.id == paneID ? self : nil
-        case .split(_, let first, let second):
+        case let .split(_, first, second):
             return first.findLeafNode(paneID: paneID) ?? second.findLeafNode(paneID: paneID)
         }
     }
@@ -108,7 +108,7 @@ public final class SplitNode: Identifiable {
     @discardableResult
     public func splitPane(paneID: UUID, direction: SplitDirection, newPane: Pane, placeBefore: Bool = false) -> Bool {
         switch content {
-        case .leaf(let pane) where pane.id == paneID:
+        case let .leaf(pane) where pane.id == paneID:
             let oldNode = SplitNode(pane: pane)
             let newNode = SplitNode(pane: newPane)
             if placeBefore {
@@ -117,7 +117,7 @@ public final class SplitNode: Identifiable {
                 self.content = .split(direction: direction, first: oldNode, second: newNode)
             }
             return true
-        case .split(_, let first, let second):
+        case let .split(_, first, second):
             return first.splitPane(paneID: paneID, direction: direction, newPane: newPane, placeBefore: placeBefore)
                 || second.splitPane(paneID: paneID, direction: direction, newPane: newPane, placeBefore: placeBefore)
         default:
@@ -129,7 +129,7 @@ public final class SplitNode: Identifiable {
 
     /// Reset all split ratios in this subtree to 0.5 (equal division at each level).
     public func equalizeSplits() {
-        guard case .split(_, let first, let second) = content else { return }
+        guard case let .split(_, first, second) = content else { return }
         splitRatio = 0.5
         first.equalizeSplits()
         second.equalizeSplits()
@@ -140,17 +140,17 @@ public final class SplitNode: Identifiable {
     /// Count terminals (leaves or cross-direction subtrees) reachable through
     /// same-direction splits from this node.
     public func sameDirectionChainLeafCount(direction: SplitDirection) -> Int {
-        guard case .split(let dir, let first, let second) = content, dir == direction else {
+        guard case let .split(dir, first, second) = content, dir == direction else {
             return 1
         }
         return first.sameDirectionChainLeafCount(direction: direction)
-             + second.sameDirectionChainLeafCount(direction: direction)
+            + second.sameDirectionChainLeafCount(direction: direction)
     }
 
     /// Equalize ratios so each terminal in a same-direction chain gets equal space.
     /// At each node in the chain: splitRatio = firstChildTerminalCount / totalCount.
     public func equalizeSameDirectionChain(direction: SplitDirection) {
-        guard case .split(let dir, let first, let second) = content, dir == direction else { return }
+        guard case let .split(dir, first, second) = content, dir == direction else { return }
         let total = sameDirectionChainLeafCount(direction: direction)
         let firstCount = first.sameDirectionChainLeafCount(direction: direction)
         splitRatio = Double(firstCount) / Double(total)
@@ -162,9 +162,9 @@ public final class SplitNode: Identifiable {
     /// Each entry: (splitNode, paneIsInFirstChild: Bool).
     public func ancestorChain(for paneID: UUID) -> [(node: SplitNode, childIsFirst: Bool)] {
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             return pane.id == paneID ? [] : []
-        case .split(_, let first, let second):
+        case let .split(_, first, second):
             if first.containsPane(id: paneID) {
                 return [(node: self, childIsFirst: true)] + first.ancestorChain(for: paneID)
             } else if second.containsPane(id: paneID) {
@@ -184,13 +184,13 @@ public final class SplitNode: Identifiable {
         switch content {
         case .leaf:
             return false
-        case .split(_, let first, let second):
-            if case .leaf(let pane) = first.content, pane.id == id {
+        case let .split(_, first, second):
+            if case let .leaf(pane) = first.content, pane.id == id {
                 self.content = second.content
                 self.splitRatio = second.splitRatio
                 return true
             }
-            if case .leaf(let pane) = second.content, pane.id == id {
+            if case let .leaf(pane) = second.content, pane.id == id {
                 self.content = first.content
                 self.splitRatio = first.splitRatio
                 return true
@@ -232,10 +232,10 @@ extension SplitNode: Codable {
         try container.encode(id, forKey: .id)
 
         switch content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             try container.encode(NodeType.leaf, forKey: .type)
             try container.encode(pane, forKey: .pane)
-        case .split(let direction, let first, let second):
+        case let .split(direction, first, second):
             try container.encode(NodeType.split, forKey: .type)
             try container.encode(direction, forKey: .direction)
             try container.encode(first, forKey: .first)

@@ -1,9 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct BranchListTests {
-
+struct BranchListTests {
     // MARK: - Parsing
 
     @Test func parsesLocalBranches() {
@@ -71,14 +70,14 @@ import Foundation
 
     // MARK: - Cross-reference with pane branches
 
-    @Test func listBranchesCrossReferencesPanes() {
+    @Test func listBranchesCrossReferencesPanes() throws {
         let ws = Workspace(name: "Test")
         ws.repoPath = "/tmp/fake-repo"
 
         let p1 = ws.allPanes[0]
         p1.branch = "main"
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         p2.branch = "feature-auth"
 
         // Build cross-reference manually (same logic as listBranches)
@@ -92,7 +91,7 @@ import Foundation
         let refs = [
             BranchRef(name: "main", isHead: true),
             BranchRef(name: "feature-auth"),
-            BranchRef(name: "fix-bug-123"),
+            BranchRef(name: "fix-bug-123")
         ]
 
         let crossReferenced = refs.map { ref -> BranchRef in

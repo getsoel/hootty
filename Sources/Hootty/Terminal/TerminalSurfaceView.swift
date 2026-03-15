@@ -37,7 +37,6 @@ final class SurfaceCallbackContext {
 /// Ghostty handles PTY, parsing, and Metal rendering internally.
 /// This view forwards keyboard/mouse input and resize events to ghostty.
 final class TerminalSurfaceView: NSView {
-
     // MARK: - Properties
 
     private(set) var surface: ghostty_surface_t?
@@ -69,7 +68,9 @@ final class TerminalSurfaceView: NSView {
 
     private var currentCursor: NSCursor = .iBeam
 
-    override var acceptsFirstResponder: Bool { true }
+    override var acceptsFirstResponder: Bool {
+        true
+    }
 
     // MARK: - Initialization
 
@@ -87,7 +88,7 @@ final class TerminalSurfaceView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) {
+    required init?(coder _: NSCoder) {
         fatalError("init(coder:) is not supported")
     }
 
@@ -188,9 +189,7 @@ final class TerminalSurfaceView: NSView {
 
     // MARK: - Hootty Env Vars
 
-    private static let hoottyBinPath: String? = {
-        HoottyBundle.resourceBundle?.url(forResource: "bin", withExtension: nil)?.path
-    }()
+    private static let hoottyBinPath: String? = HoottyBundle.resourceBundle?.url(forResource: "bin", withExtension: nil)?.path
 
     /// Inject HOOTTY_PANE_ID and prepend our bin/ to PATH in the surface config.
     /// Returns allocated C strings that must be freed after `ghostty_surface_new`.
@@ -225,7 +224,9 @@ final class TerminalSurfaceView: NSView {
         }
 
         let arr = UnsafeMutablePointer<ghostty_env_var_s>.allocate(capacity: envVars.count)
-        for (i, ev) in envVars.enumerated() { arr[i] = ev }
+        for (i, ev) in envVars.enumerated() {
+            arr[i] = ev
+        }
         config.env_vars = arr
         config.env_var_count = envVars.count
 
@@ -234,7 +235,9 @@ final class TerminalSurfaceView: NSView {
 
     /// Free allocations from `applyHoottyEnvVars`.
     private func freeEnvVarAllocations(_ cStrings: [UnsafeMutablePointer<CChar>], _ envArray: UnsafeMutablePointer<ghostty_env_var_s>) {
-        for ptr in cStrings { free(ptr) }
+        for ptr in cStrings {
+            free(ptr)
+        }
         envArray.deallocate()
     }
 
@@ -330,7 +333,7 @@ final class TerminalSurfaceView: NSView {
         ghostty_surface_refresh(surface)
     }
 
-    @objc private func windowOcclusionDidChange(_ notification: Notification) {
+    @objc private func windowOcclusionDidChange(_: Notification) {
         guard let surface else { return }
         let visible = window?.occlusionState.contains(.visible) ?? false
         ghostty_surface_set_occlusion(surface, visible)
@@ -382,7 +385,7 @@ final class TerminalSurfaceView: NSView {
         addCursorRect(bounds, cursor: currentCursor)
     }
 
-    override func cursorUpdate(with event: NSEvent) {
+    override func cursorUpdate(with _: NSEvent) {
         currentCursor.set()
     }
 
@@ -453,7 +456,7 @@ final class TerminalSurfaceView: NSView {
         ghostty_surface_mouse_button(surface, GHOSTTY_MOUSE_RELEASE, GHOSTTY_MOUSE_RIGHT, ghosttyMods(event.modifierFlags))
     }
 
-    override func mouseEntered(with event: NSEvent) {
+    override func mouseEntered(with _: NSEvent) {
         DispatchQueue.main.async { [weak self] in
             self?.currentCursor.set()
         }
@@ -491,9 +494,9 @@ final class TerminalSurfaceView: NSView {
 
         // Encode momentum phase
         switch event.momentumPhase {
-        case .began:   mods |= (1 << 1)
+        case .began: mods |= (1 << 1)
         case .changed: mods |= (2 << 1)
-        case .ended:   mods |= (3 << 1)
+        case .ended: mods |= (3 << 1)
         default: break
         }
 
@@ -522,7 +525,7 @@ final class TerminalSurfaceView: NSView {
 // MARK: - NSTextInputClient
 
 extension TerminalSurfaceView: NSTextInputClient {
-    func insertText(_ string: Any, replacementRange: NSRange) {
+    func insertText(_ string: Any, replacementRange _: NSRange) {
         let str: String
         if let s = string as? NSAttributedString {
             str = s.string
@@ -549,14 +552,14 @@ extension TerminalSurfaceView: NSTextInputClient {
         }
     }
 
-    override func doCommand(by selector: Selector) {
+    override func doCommand(by _: Selector) {
         // Intentionally empty: prevents NSBeep for unhandled selectors.
         // interpretKeyEvents() dispatches command selectors (moveUp:, insertNewline:, etc.)
         // for non-text keys. The default NSResponder implementation beeps for each one.
         // We handle all key input via ghostty_surface_key() instead.
     }
 
-    func setMarkedText(_ string: Any, selectedRange: NSRange, replacementRange: NSRange) {
+    func setMarkedText(_ string: Any, selectedRange _: NSRange, replacementRange _: NSRange) {
         if let s = string as? NSAttributedString {
             markedText = NSMutableAttributedString(attributedString: s)
         } else if let s = string as? String {
@@ -585,7 +588,7 @@ extension TerminalSurfaceView: NSTextInputClient {
         markedText.length > 0
     }
 
-    func attributedSubstring(forProposedRange range: NSRange, actualRange: NSRangePointer?) -> NSAttributedString? {
+    func attributedSubstring(forProposedRange _: NSRange, actualRange _: NSRangePointer?) -> NSAttributedString? {
         nil
     }
 
@@ -593,7 +596,7 @@ extension TerminalSurfaceView: NSTextInputClient {
         []
     }
 
-    func firstRect(forCharacterRange range: NSRange, actualRange: NSRangePointer?) -> NSRect {
+    func firstRect(forCharacterRange _: NSRange, actualRange _: NSRangePointer?) -> NSRect {
         guard let surface else { return .zero }
         var x: Double = 0, y: Double = 0, w: Double = 0, h: Double = 0
         ghostty_surface_ime_point(surface, &x, &y, &w, &h)
@@ -604,7 +607,7 @@ extension TerminalSurfaceView: NSTextInputClient {
         return NSRect(origin: screenPoint, size: NSSize(width: w, height: h))
     }
 
-    func characterIndex(for point: NSPoint) -> Int {
+    func characterIndex(for _: NSPoint) -> Int {
         0
     }
 }
@@ -615,7 +618,7 @@ extension TerminalSurfaceView {
     override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
         let pb = sender.draggingPasteboard
         if pb.canReadObject(forClasses: [NSURL.self], options: nil) ||
-           pb.types?.contains(.string) == true {
+            pb.types?.contains(.string) == true {
             return .copy
         }
         return []
@@ -625,18 +628,17 @@ extension TerminalSurfaceView {
         let pb = sender.draggingPasteboard
 
         // Resolve drag content (same priority as before)
-        let resolved: String?
-        if let urls = pb.readObjects(forClasses: [NSURL.self], options: [
+        let resolved: String? = if let urls = pb.readObjects(forClasses: [NSURL.self], options: [
             .urlReadingFileURLsOnly: true
         ]) as? [URL], !urls.isEmpty {
-            resolved = urls.map { shellEscape($0.path) }.joined(separator: " ")
+            urls.map { shellEscape($0.path) }.joined(separator: " ")
         } else if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
                   let url = urls.first {
-            resolved = shellEscape(url.absoluteString)
+            shellEscape(url.absoluteString)
         } else if let str = pb.string(forType: .string), !str.isEmpty {
-            resolved = str
+            str
         } else {
-            resolved = nil
+            nil
         }
 
         guard let content = resolved, let surface else { return false }

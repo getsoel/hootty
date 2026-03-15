@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 private struct SidebarHasFocusKey: EnvironmentKey {
     static let defaultValue = false
@@ -37,7 +37,7 @@ struct TerminalPaneView: NSViewRepresentable {
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
     @Environment(\.modalIsOpen) private var modalIsOpen
 
-    func makeNSView(context: Context) -> TerminalSurfaceView {
+    func makeNSView(context _: Context) -> TerminalSurfaceView {
         // Reuse cached view if available (survives SwiftUI structural identity changes)
         if let cached = GhosttyApp.shared.cachedSurfaceView(for: pane.id) {
             return cached
@@ -98,7 +98,7 @@ struct TerminalPaneView: NSViewRepresentable {
             view.queueText(command)
         }
 
-        if !sidebarHasFocus && !modalIsOpen {
+        if !sidebarHasFocus, !modalIsOpen {
             DispatchQueue.main.async {
                 view.window?.makeFirstResponder(view)
             }
@@ -107,9 +107,9 @@ struct TerminalPaneView: NSViewRepresentable {
         return view
     }
 
-    func updateNSView(_ view: TerminalSurfaceView, context: Context) {
+    func updateNSView(_ view: TerminalSurfaceView, context _: Context) {
         view.onFocusRequest = onFocusPane
-        if isFocused && !sidebarHasFocus && !modalIsOpen {
+        if isFocused, !sidebarHasFocus, !modalIsOpen {
             DispatchQueue.main.async {
                 if view.window?.firstResponder !== view {
                     view.window?.makeFirstResponder(view)

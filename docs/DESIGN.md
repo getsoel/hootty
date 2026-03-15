@@ -21,24 +21,24 @@ Modeled after [Zed's theme token system](https://zed.dev/docs/extensions/themes)
 
 ### Surface Layers
 
-Four depth levels, ordered darkest-to-lightest in dark themes (reversed in Latte):
+Four semantic depth levels are defined, but chrome shares the terminal background (no crust/mantle depth layers). In practice, `background`, `surfaceLow`, and `surface` all map to the same color. Only `surfaceHighlight` differs.
 
-| Token | Zed Equivalent | TerminalTheme Property | Catppuccin Role |
-|-------|---------------|----------------------|-----------------|
-| `background` | `background` | `crust` | Crust |
-| `surfaceLow` | `panel.background` | `mantle` | Mantle |
-| `surface` | `surface.background` | `background` | Base |
-| `surfaceHighlight` | `elevated_surface.background` | `sidebarSurface` | Surface0 |
+| Token | Zed Equivalent | TerminalTheme Property | Actual Mapping |
+|-------|---------------|----------------------|----------------|
+| `background` | `background` | `background` | theme.background |
+| `surfaceLow` | `panel.background` | `background` | theme.background (same as above) |
+| `surface` | `surface.background` | `background` | theme.background (same as above) |
+| `surfaceHighlight` | `elevated_surface.background` | `palette[0]` | theme.palette[0] (Surface1) |
 
 ### Element States
 
-Interactive element backgrounds for hover/selection feedback:
+Interactive element backgrounds for hover/selection feedback. Uses accent (Blue, palette[4]) tint to avoid contrast collisions where selectionBackground matches textMuted (e.g., Catppuccin Latte).
 
 | Token | Zed Equivalent | Derivation |
 |-------|---------------|------------|
-| `elementHover` | `element.hover` | `selectionBackground` @ 40% opacity |
-| `elementSelected` | `element.selected` | `selectionBackground` (solid) |
-| `elementSelectedText` | -- | `foreground` if contrast ratio >= 3.0 vs `selectionBackground`, else `selectionForeground` |
+| `elementHover` | `element.hover` | `palette[4]` (Blue) @ 8% opacity |
+| `elementSelected` | `element.selected` | `palette[4]` (Blue) @ 15% opacity |
+| `elementSelectedText` | -- | `theme.foreground` (always) |
 
 ### Text Hierarchy
 
@@ -47,7 +47,7 @@ Three levels of text prominence:
 | Token | Zed Equivalent | TerminalTheme Property | Catppuccin Role |
 |-------|---------------|----------------------|-----------------|
 | `text` | `text` | `foreground` | Text |
-| `textMuted` | `text.muted` | `sidebarTextSecondary` | Subtext0 |
+| `textMuted` | `text.muted` | `palette[7]` | Subtext1 |
 | `textAccent` | `text.accent` | `palette[5]` | Pink |
 | `textRepo` | -- | `palette[6]` | Teal |
 | `textBranch` | -- | `palette[4]` | Blue |
@@ -57,8 +57,8 @@ Three levels of text prominence:
 
 | Token | Zed Equivalent | TerminalTheme Property | Catppuccin Role |
 |-------|---------------|----------------------|-----------------|
-| `border` | `border` | `sidebarSurface` | Surface0 |
-| `borderFocused` | `pane.focused_border` | `palette[5]` | Pink |
+| `border` | `border` | `palette[0]` | Surface1 |
+| `borderFocused` | `pane.focused_border` | `foreground` | Text |
 
 ### Status Colors
 
@@ -66,21 +66,23 @@ Semantic status indicators for process state and alerts:
 
 | Token | Zed Equivalent | TerminalTheme Property | Catppuccin Role |
 |-------|---------------|----------------------|-----------------|
-| `statusSuccess` | `success` | `sidebarRunningDot` | Green |
-| `statusInactive` | `ignored` | `sidebarStoppedDot` | Overlay0 |
-| `statusWarning` | `warning` | `attentionColor` (palette[3]) | Yellow |
+| `statusSuccess` | `success` | `palette[2]` | Green |
+| `statusInactive` | `ignored` | `palette[8]` | Overlay0 |
+| `statusWarning` | `warning` | `palette[3]` | Yellow |
 | `statusError` | `error` | `palette[1]` | Red |
 | `statusThinking` | -- | `palette[4]` | Blue |
+| `statusBell` | -- | `palette[2]` | Green |
+| `statusDone` | -- | `palette[2]` | Green |
 
 ### Component-Specific Tokens
 
 | Token | Zed Equivalent | Derivation |
 |-------|---------------|------------|
-| `tabBarBackground` | `tab_bar.background` | Same as `background` (Mantle) |
-| `tabActive` | `tab.active_background` | Same as `surface` (Base) |
+| `tabBarBackground` | `tab_bar.background` | Same as `background` (theme.background) |
+| `tabActive` | `tab.active_background` | Same as `background` (theme.background) |
 | (tab inactive) | `tab.inactive_background` | `Color.clear` (no dedicated token -- use transparency) |
 | `scrim` | -- | `NSColor.black` @ 30% opacity (modal backdrop) |
-| `unfocusedDimColor` | -- | `NSColor.black` @ 30% opacity (darkens entire unfocused pane) |
+| `unfocusedDimColor` | -- | `NSColor.black` @ 50% opacity (darkens entire unfocused pane) |
 
 ---
 
@@ -107,9 +109,25 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 |-------|-------|-------|
 | `xs` | 2pt | Micro gaps (e.g., icon-to-text in tight layouts) |
 | `sm` | 4pt | Icon padding, small insets |
+| `smd` | 6pt | Dense row padding |
 | `md` | 8pt | Row padding, standard gaps between elements |
 | `lg` | 12pt | Section padding, group separators |
 | `xl` | 16pt | Container padding, outer margins |
+
+---
+
+## Layout Constants
+
+### Bar Height
+
+All horizontal bars must share the same height (`Layout.barHeight`, 38pt) to maintain visual alignment across the window. This includes:
+
+- **Sidebar header bar** (`WorkspaceSidebar`)
+- **Tab bar** (`PaneGroupTabBar`)
+- **Pipeline bar** (`PipelineBoardView`)
+- **Titlebar** (NSToolbar, sized to match via safe area)
+
+Never hardcode `38` in view code — always use `Layout.barHeight`. If a new bar-like component is added, it must use this constant.
 
 ---
 
@@ -175,7 +193,8 @@ Font construction uses `Font.system(size:weight:)` in SwiftUI views. `TypeScale`
 |-------|------|-------------|-----------|
 | Default | `apple.terminal` | `textMuted` | — |
 | Attention | `bell` | `statusBell` (Green) | — |
-| Thinking | `arrow.2.circlepath` | `statusThinking` (Blue) | 1.5s linear rotation |
+| Thinking | `arrow.2.circlepath` | `textMuted` | 1.5s linear rotation |
+| Done | `checkmark.circle` | `statusDone` (Green) | — |
 
 All use `iconSize` (16pt) within `columnWidth` (22pt) frame.
 
@@ -189,8 +208,8 @@ All use `iconSize` (16pt) within `columnWidth` (22pt) frame.
 
 ### Tab Bar
 
-- Background: `tabBarBackground` (Mantle)
-- Active tab: `tabActive` (Base), `text` label
+- Background: `tabBarBackground` (theme.background)
+- Active tab: `tabActive` (theme.background), `text` label
 - Inactive tab: transparent, `textMuted` label
 - Tab separator: `border`
 - Close button: `textMuted`, hover `text`
@@ -209,7 +228,7 @@ All use `iconSize` (16pt) within `columnWidth` (22pt) frame.
 ### Window Chrome
 
 - `.windowStyle(.hiddenTitleBar)` -- traffic lights only
-- Title bar area: `background` (Crust), darker than sidebar/tab bar
+- Title bar area: `background` (theme.background), same as sidebar/tab bar
 
 ---
 

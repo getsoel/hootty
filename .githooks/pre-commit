@@ -3,7 +3,31 @@ set -euo pipefail
 
 echo "==> Running pre-commit checks..."
 
-# 1. Build check
+# 1. Format check (optional — skipped if swiftformat not installed)
+if command -v swiftformat &>/dev/null; then
+    echo "==> swiftformat --lint"
+    if ! swiftformat --lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests 2>&1; then
+        echo ""
+        echo "COMMIT REJECTED: formatting violations found. Run 'make format' to fix."
+        exit 1
+    fi
+else
+    echo "==> swiftformat not found, skipping format check (brew install swiftformat)"
+fi
+
+# 2. Lint check (optional — skipped if swiftlint not installed)
+if command -v swiftlint &>/dev/null; then
+    echo "==> swiftlint lint --strict"
+    if ! swiftlint lint --strict Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests 2>&1; then
+        echo ""
+        echo "COMMIT REJECTED: lint violations found."
+        exit 1
+    fi
+else
+    echo "==> swiftlint not found, skipping lint check (brew install swiftlint)"
+fi
+
+# 3. Build check
 echo "==> swift build"
 if ! swift build 2>&1; then
     echo ""
@@ -11,7 +35,7 @@ if ! swift build 2>&1; then
     exit 1
 fi
 
-# 2. Test check
+# 4. Test check
 # swift test exits with signal 10 due to XCTest runner crash (no XCTest tests exist,
 # only Swift Testing). This is a known issue. We parse output for actual test failures
 # instead of relying on the exit code.

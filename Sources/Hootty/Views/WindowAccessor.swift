@@ -4,11 +4,11 @@ import SwiftUI
 struct WindowAccessor: NSViewRepresentable {
     var onWindow: (NSWindow) -> Void
 
-    func makeNSView(context: Context) -> WindowObserverView {
+    func makeNSView(context _: Context) -> WindowObserverView {
         WindowObserverView(onWindow: onWindow)
     }
 
-    func updateNSView(_ nsView: WindowObserverView, context: Context) {
+    func updateNSView(_ nsView: WindowObserverView, context _: Context) {
         nsView.onWindow = onWindow
         if let window = nsView.window {
             onWindow(window)
@@ -24,7 +24,10 @@ struct WindowAccessor: NSViewRepresentable {
             super.init(frame: .zero)
         }
 
-        required init?(coder: NSCoder) { fatalError() }
+        @available(*, unavailable)
+        required init?(coder _: NSCoder) {
+            fatalError()
+        }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()

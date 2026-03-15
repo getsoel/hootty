@@ -3,7 +3,7 @@ import CGhostty
 import HoottyCore
 
 /// Reads resolved theme colors from a finalized ghostty config via ghostty_config_get().
-struct GhosttyConfigReader {
+enum GhosttyConfigReader {
     /// Read resolved theme colors from a finalized ghostty config.
     /// Returns nil if any required color read fails.
     static func readTheme(from config: ghostty_config_t) -> TerminalTheme? {
@@ -55,7 +55,7 @@ struct GhosttyConfigReader {
         // Use withUnsafePointer to index into it.
         return withUnsafePointer(to: &palette.colors) { tuplePtr in
             let base = UnsafeRawPointer(tuplePtr).assumingMemoryBound(to: ghostty_config_color_s.self)
-            return (0..<16).map { i in
+            return (0 ..< 16).map { i in
                 let c = base[i]
                 return NSColor(
                     srgbRed: CGFloat(c.r) / 255.0,

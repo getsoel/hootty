@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct PaneTests {
+struct PaneTests {
     @Test func displayNameReturnsAbbreviatedPathWhenNoCustomName() {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let pane = Pane(name: "zsh", workingDirectory: home + "/Projects/myapp")

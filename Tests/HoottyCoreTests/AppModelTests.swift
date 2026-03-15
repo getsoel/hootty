@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct AppModelTests {
+struct AppModelTests {
     private func makeModel() -> AppModel {
         let wsURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
         let cfgURL = FileManager.default.temporaryDirectory

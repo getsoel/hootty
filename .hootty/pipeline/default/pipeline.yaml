@@ -1,0 +1,16 @@
+name: "Default Pipeline"
+
+stages:
+  - name: Backlog
+    type: manual
+  - name: Implement
+    type: automated
+  - name: Review
+    type: manual
+  - name: Done
+    type: manual
+
+settings:
+  pause_on_error: true
+  max_claims: null
+  variables: {}

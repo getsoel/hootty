@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct AppCommandTests {
+struct AppCommandTests {
     @Test func allCommandsHaveNonEmptyTitle() {
         for command in AppCommand.allCases {
             #expect(!command.title.isEmpty, "AppCommand.\(command.rawValue) has empty title")
@@ -29,7 +29,7 @@ import Foundation
     }
 }
 
-@Suite struct WorkspaceNavigationTests {
+struct WorkspaceNavigationTests {
     private func makeModel() -> AppModel {
         let wsURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
         let cfgURL = FileManager.default.temporaryDirectory
@@ -79,12 +79,12 @@ import Foundation
     }
 }
 
-@Suite struct PaneNavigationTests {
-    @Test func focusNextPaneWrapsAround() {
+struct PaneNavigationTests {
+    @Test func focusNextPaneWrapsAround() throws {
         let workspace = Workspace(name: "Test")
-        let firstPaneID = workspace.focusedPaneID!
+        let firstPaneID = try #require(workspace.focusedPaneID)
         _ = workspace.splitFocusedPane(direction: .horizontal)
-        let secondPaneID = workspace.focusedPaneID!
+        let secondPaneID = try #require(workspace.focusedPaneID)
 
         // Now focused on second pane, go next should wrap to first
         workspace.focusNextPane()
@@ -95,9 +95,9 @@ import Foundation
         #expect(workspace.focusedPaneID == secondPaneID)
     }
 
-    @Test func focusPreviousPaneWrapsAround() {
+    @Test func focusPreviousPaneWrapsAround() throws {
         let workspace = Workspace(name: "Test")
-        let firstPaneID = workspace.focusedPaneID!
+        let firstPaneID = try #require(workspace.focusedPaneID)
         _ = workspace.splitFocusedPane(direction: .horizontal)
 
         // Focus first pane, then go previous should wrap to last
@@ -106,17 +106,17 @@ import Foundation
         #expect(workspace.focusedPaneID != firstPaneID)
     }
 
-    @Test func focusNextPaneNoOpWithSinglePane() {
+    @Test func focusNextPaneNoOpWithSinglePane() throws {
         let workspace = Workspace(name: "Test")
-        let onlyPaneID = workspace.focusedPaneID!
+        let onlyPaneID = try #require(workspace.focusedPaneID)
 
         workspace.focusNextPane()
         #expect(workspace.focusedPaneID == onlyPaneID)
     }
 
-    @Test func focusPreviousPaneNoOpWithSinglePane() {
+    @Test func focusPreviousPaneNoOpWithSinglePane() throws {
         let workspace = Workspace(name: "Test")
-        let onlyPaneID = workspace.focusedPaneID!
+        let onlyPaneID = try #require(workspace.focusedPaneID)
 
         workspace.focusPreviousPane()
         #expect(workspace.focusedPaneID == onlyPaneID)

@@ -61,7 +61,7 @@ Board UI: right-click column header → "Add Stage After", "Remove Stage", "Chan
 
 **Decision**: `pipeline archive` command.
 
-- `pipeline archive [<pipeline>]` moves `done/*.md` to `.pipeline/<name>/archive/`.
+- `pipeline archive [<pipeline>]` moves `done/*.md` to `.hootty/pipeline/<name>/archive/`.
 - Archive is git-tracked (useful history).
 - Hidden from board UI by default (collapsible "Archive" section).
 - Optional: `pipeline archive --before 30d` for age-based archival.
@@ -138,7 +138,7 @@ Current claim: 001-auth-refactor (feature, stage: Implement)
 
 **Decision**: `pipeline delete <name>`.
 
-- Removes `.pipeline/<name>/` directory entirely.
+- Removes `.hootty/pipeline/<name>/` directory entirely.
 - Requires confirmation (or `--yes` to skip).
 - Refuses if there are active claims.
 - If deleting the default pipeline, errors and asks user to set a new default first.
@@ -177,7 +177,7 @@ Current claim: 001-auth-refactor (feature, stage: Implement)
 
 - Board header shows a repo indicator (repo name + path) so the user knows which repo's pipelines are displayed.
 - If panes span multiple repos with pipelines, a repo picker dropdown in the board header lets the user switch.
-- If the focused pane has no repo or no `.pipeline/`, board shows an empty state with setup instructions (`pipeline init`).
+- If the focused pane has no repo or no `.hootty/pipeline/`, board shows an empty state with setup instructions (`pipeline init`).
 - Switching between Terminals and Pipelines views preserves the selected repo.
 
 ## 18. Concurrent `.state.json` Writes ✅
@@ -198,7 +198,7 @@ Current claim: 001-auth-refactor (feature, stage: Implement)
 
 ## 20. Spec Bugs (Audit Round 2) ✅
 
-**Socket path conflict**: Was `~/.pipeline/pipeline.sock` in one place, `.pipeline/pipeline.sock` in another. **Decision**: Repo-local `.pipeline/pipeline.sock`. One daemon per repo.
+**Socket path conflict**: Was `~/.pipeline/pipeline.sock` in one place, `.hootty/pipeline/pipeline.sock` in another. **Decision**: Repo-local `.hootty/pipeline/pipeline.sock`. One daemon per repo.
 
 **`pipeline claim` argument ambiguity**: `pipeline claim feature` — is it a pipeline name or a job slug? **Decision**: Positional argument is always a pipeline name. Use `--job <slug>` for specific jobs. Unambiguous.
 

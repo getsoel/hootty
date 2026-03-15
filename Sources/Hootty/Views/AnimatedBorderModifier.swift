@@ -44,8 +44,8 @@ extension View {
     ///   - color: Border and glow color.
     ///   - lineWidth: Border thickness. Defaults to 2.
     ///   - glowRadius: Shadow blur radius. Defaults to 6.
-    func glowBorder<S: InsettableShape>(
-        shape: S,
+    func glowBorder(
+        shape: some InsettableShape,
         color: Color,
         lineWidth: CGFloat = 2,
         glowRadius: CGFloat = 6

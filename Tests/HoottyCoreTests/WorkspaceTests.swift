@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct WorkspaceTests {
+struct WorkspaceTests {
     @Test func singlePaneByDefault() {
         let ws = Workspace(name: "Test")
         #expect(ws.allPanes.count == 1)
@@ -13,7 +13,7 @@ import Foundation
     @Test func isRunningReflectsPaneState() {
         let ws = Workspace(name: "Test")
         #expect(ws.isRunning == true)
-        ws.allPanes.first!.isRunning = false
+        ws.allPanes.first?.isRunning = false
         #expect(ws.isRunning == false)
     }
 
@@ -31,11 +31,11 @@ import Foundation
         #expect(ws.findPane(id: UUID()) == nil)
     }
 
-    @Test func attentionOnUnfocusedPane() {
+    @Test func attentionOnUnfocusedPane() throws {
         let ws = Workspace(name: "Test")
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p2 is now focused; set attention on p1
         p1.attentionKind = .bell
         #expect(ws.attentionKind == .bell)
@@ -43,11 +43,11 @@ import Foundation
 
     // MARK: - Directional Focus
 
-    @Test func directionalFocusHorizontalSplit() {
+    @Test func directionalFocusHorizontalSplit() throws {
         let ws = Workspace(name: "Test")
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         ws.focusPane(id: p1.id)
 
         ws.focusPaneInDirection(.right)
@@ -62,11 +62,11 @@ import Foundation
         #expect(ws.focusedPaneID == p1.id)
     }
 
-    @Test func directionalFocusVerticalSplit() {
+    @Test func directionalFocusVerticalSplit() throws {
         let ws = Workspace(name: "Test")
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .vertical)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .vertical))
         ws.focusPane(id: p1.id)
 
         ws.focusPaneInDirection(.down)
@@ -208,54 +208,54 @@ import Foundation
 
     // MARK: - Sibling Splitting (i3-style)
 
-    @Test func splitRightTwiceGivesThreeEqualPanes() {
+    @Test func splitRightTwiceGivesThreeEqualPanes() throws {
         let ws = Workspace(name: "Test")
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
-        let p3 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
+        let p3 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         let rects = ws.rootNode.paneRects()
         #expect(rects.count == 3)
-        #expect(abs(rects[p1.id]!.width - 1.0/3.0) < 0.001)
-        #expect(abs(rects[p2.id]!.width - 1.0/3.0) < 0.001)
-        #expect(abs(rects[p3.id]!.width - 1.0/3.0) < 0.001)
+        #expect(try abs(#require(rects[p1.id]?.width) - 1.0 / 3.0) < 0.001)
+        #expect(try abs(#require(rects[p2.id]?.width) - 1.0 / 3.0) < 0.001)
+        #expect(try abs(#require(rects[p3.id]?.width) - 1.0 / 3.0) < 0.001)
     }
 
-    @Test func splitDownTwiceGivesThreeEqualPanes() {
+    @Test func splitDownTwiceGivesThreeEqualPanes() throws {
         let ws = Workspace(name: "Test")
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .vertical)!
-        let p3 = ws.splitFocusedPane(direction: .vertical)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .vertical))
+        let p3 = try #require(ws.splitFocusedPane(direction: .vertical))
 
         let rects = ws.rootNode.paneRects()
         #expect(rects.count == 3)
-        #expect(abs(rects[p1.id]!.height - 1.0/3.0) < 0.001)
-        #expect(abs(rects[p2.id]!.height - 1.0/3.0) < 0.001)
-        #expect(abs(rects[p3.id]!.height - 1.0/3.0) < 0.001)
+        #expect(try abs(#require(rects[p1.id]?.height) - 1.0 / 3.0) < 0.001)
+        #expect(try abs(#require(rects[p2.id]?.height) - 1.0 / 3.0) < 0.001)
+        #expect(try abs(#require(rects[p3.id]?.height) - 1.0 / 3.0) < 0.001)
     }
 
-    @Test func crossDirectionSplitDoesNotEqualizeParentChain() {
+    @Test func crossDirectionSplitDoesNotEqualizeParentChain() throws {
         let ws = Workspace(name: "Test")
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         ws.focusPane(id: p2.id)
-        _ = ws.splitFocusedPane(direction: .vertical)!
+        _ = try #require(ws.splitFocusedPane(direction: .vertical))
 
         let rects = ws.rootNode.paneRects()
-        #expect(abs(rects[p1.id]!.width - 0.5) < 0.001)
+        #expect(try abs(#require(rects[p1.id]?.width) - 0.5) < 0.001)
     }
 
     // MARK: - Focus Next/Previous
 
-    @Test func focusNextPaneWrapsAround() {
+    @Test func focusNextPaneWrapsAround() throws {
         let ws = Workspace(name: "Test")
-        let firstPaneID = ws.focusedPaneID!
+        let firstPaneID = try #require(ws.focusedPaneID)
         _ = ws.splitFocusedPane(direction: .horizontal)
-        let secondPaneID = ws.focusedPaneID!
+        let secondPaneID = try #require(ws.focusedPaneID)
 
         ws.focusNextPane()
         #expect(ws.focusedPaneID == firstPaneID)
@@ -264,9 +264,9 @@ import Foundation
         #expect(ws.focusedPaneID == secondPaneID)
     }
 
-    @Test func focusPreviousPaneWrapsAround() {
+    @Test func focusPreviousPaneWrapsAround() throws {
         let ws = Workspace(name: "Test")
-        let firstPaneID = ws.focusedPaneID!
+        let firstPaneID = try #require(ws.focusedPaneID)
         _ = ws.splitFocusedPane(direction: .horizontal)
 
         ws.focusPane(id: firstPaneID)
@@ -274,17 +274,17 @@ import Foundation
         #expect(ws.focusedPaneID != firstPaneID)
     }
 
-    @Test func focusNextPaneNoOpWithSinglePane() {
+    @Test func focusNextPaneNoOpWithSinglePane() throws {
         let ws = Workspace(name: "Test")
-        let onlyPaneID = ws.focusedPaneID!
+        let onlyPaneID = try #require(ws.focusedPaneID)
 
         ws.focusNextPane()
         #expect(ws.focusedPaneID == onlyPaneID)
     }
 
-    @Test func focusPreviousPaneNoOpWithSinglePane() {
+    @Test func focusPreviousPaneNoOpWithSinglePane() throws {
         let ws = Workspace(name: "Test")
-        let onlyPaneID = ws.focusedPaneID!
+        let onlyPaneID = try #require(ws.focusedPaneID)
 
         ws.focusPreviousPane()
         #expect(ws.focusedPaneID == onlyPaneID)
@@ -334,7 +334,7 @@ import Foundation
             "focusedPaneID": "00000000-0000-0000-0000-000000000002"
         }
         """
-        let data = oldJSON.data(using: .utf8)!
+        let data = try #require(oldJSON.data(using: .utf8))
         let restored = try JSONDecoder().decode(Workspace.self, from: data)
         #expect(restored.headBranches["/Users/test/project"] == "main")
         #expect(restored.headBranch == "main")
@@ -342,7 +342,7 @@ import Foundation
 
     // MARK: - Sidebar Sections
 
-    @Test func sidebarSectionsGroupsByBranch() {
+    @Test func sidebarSectionsGroupsByBranch() throws {
         let repo = "/Users/test/project"
         let pA = Pane(name: "A", branch: "main", repoRoot: repo)
         let pB = Pane(name: "B", branch: "feature", repoRoot: repo)
@@ -367,7 +367,7 @@ import Foundation
         #expect(branchNames.contains("main"))
         #expect(branchNames.contains("feature"))
 
-        let mainSection = sections.first { $0.branch == "main" }!
+        let mainSection = try #require(sections.first { $0.branch == "main" })
         #expect(mainSection.panes.count == 2)
     }
 
@@ -478,5 +478,4 @@ import Foundation
         let ws = Workspace(name: "Test")
         #expect(ws.hasBranchSections == false)
     }
-
 }

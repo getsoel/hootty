@@ -13,9 +13,9 @@ public final class ConfigFile {
     public static var defaultFileURL: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         #if DEBUG
-        let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
+            let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
         #else
-        let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
+            let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
         #endif
         return dir.appendingPathComponent("config")
     }
@@ -72,11 +72,10 @@ public final class ConfigFile {
         let dir = fileURL.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
 
-        let content: String
-        if let existing = try? String(contentsOf: fileURL, encoding: .utf8) {
-            content = buildUpdatedContent(from: existing)
+        let content: String = if let existing = try? String(contentsOf: fileURL, encoding: .utf8) {
+            buildUpdatedContent(from: existing)
         } else {
-            content = buildFreshContent()
+            buildFreshContent()
         }
 
         do {
@@ -115,7 +114,7 @@ public final class ConfigFile {
         let lines = content.components(separatedBy: .newlines)
         var filtered = lines.filter { line in
             guard let (key, _) = Self.parseConfigLine(line) else { return true }
-            if themeOverride != nil && key == "theme" { return false }
+            if themeOverride != nil, key == "theme" { return false }
             return !key.hasPrefix("hootty-")
         }
         if let override = themeOverride {
@@ -148,7 +147,7 @@ public final class ConfigFile {
         let trimmed = line.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty, !trimmed.hasPrefix("#"),
               let eqIndex = trimmed.firstIndex(of: "=") else { return nil }
-        let key = trimmed[trimmed.startIndex..<eqIndex].trimmingCharacters(in: .whitespaces)
+        let key = trimmed[trimmed.startIndex ..< eqIndex].trimmingCharacters(in: .whitespaces)
         let value = String(trimmed[trimmed.index(after: eqIndex)...]).trimmingCharacters(in: .whitespaces)
         return (key, value)
     }
@@ -258,9 +257,9 @@ public final class ConfigFile {
         // Fallback: UserDefaults
         if migratedValues["theme"] == nil {
             #if DEBUG
-            let defaults = UserDefaults(suiteName: "com.soel.hootty-dev")!
+                let defaults = UserDefaults(suiteName: "com.soel.hootty-dev")!
             #else
-            let defaults = UserDefaults.standard
+                let defaults = UserDefaults.standard
             #endif
             if let saved = defaults.string(forKey: "selectedTheme") {
                 let migrated = ThemeManager.migrateThemeName("catppuccin-\(saved)")
@@ -295,9 +294,9 @@ public final class ConfigFile {
 
         // Remove UserDefaults key
         #if DEBUG
-        UserDefaults(suiteName: "com.soel.hootty-dev")?.removeObject(forKey: "selectedTheme")
+            UserDefaults(suiteName: "com.soel.hootty-dev")?.removeObject(forKey: "selectedTheme")
         #else
-        UserDefaults.standard.removeObject(forKey: "selectedTheme")
+            UserDefaults.standard.removeObject(forKey: "selectedTheme")
         #endif
     }
 }

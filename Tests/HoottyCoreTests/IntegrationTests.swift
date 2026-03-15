@@ -1,5 +1,5 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
 // MARK: - Helpers
@@ -22,17 +22,17 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite A: Workspace Lifecycle
 
-@Suite struct WorkspaceLifecycleIntegration {
-    @Test func createSplitRenamePersistRestore() {
+struct WorkspaceLifecycleIntegration {
+    @Test func createSplitRenamePersistRestore() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
 
         // Split horizontally from initial pane, then vertically from the new pane
         let pane1 = ws.allPanes[0]
         pane1.customName = "Editor"
-        let pane2 = ws.splitFocusedPane(direction: .horizontal)!
+        let pane2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         pane2.customName = "Shell"
-        let pane3 = ws.splitFocusedPane(direction: .vertical)!
+        let pane3 = try #require(ws.splitFocusedPane(direction: .vertical))
         pane3.customName = "Logs"
 
         #expect(ws.allPanes.count == 3)
@@ -54,7 +54,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(names.contains("Logs"))
     }
 
-    @Test func workingDirectoryAndShellPreservedThroughPersistence() {
+    @Test func workingDirectoryAndShellPreservedThroughPersistence() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
         let pane1 = ws.allPanes[0]
@@ -63,7 +63,7 @@ private func reloadModel(from url: URL) -> AppModel {
 
         // Split inherits shell + workingDirectory from focused pane
         ws.focusPane(id: pane1.id)
-        let pane2 = ws.splitFocusedPane(direction: .horizontal)!
+        let pane2 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         #expect(pane2.shell == "/bin/bash")
         #expect(pane2.workingDirectory == "/tmp/project")
@@ -91,7 +91,7 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite B: Multi-Workspace Management
 
-@Suite struct MultiWorkspaceIntegration {
+struct MultiWorkspaceIntegration {
     @Test func createReorderDeletePersistRestore() {
         let (model, url) = makeModel()
         let ws1 = model.workspaces[0]
@@ -175,8 +175,8 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite C: Complex Split Tree Operations
 
-@Suite struct SplitTreeIntegration {
-    @Test func deepNestedSplitPersistRestore() {
+struct SplitTreeIntegration {
+    @Test func deepNestedSplitPersistRestore() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
 
@@ -184,9 +184,9 @@ private func reloadModel(from url: URL) -> AppModel {
         // H split → left has P1, right gets V split → top P2, bottom gets H split → P3, P4
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)! // P1 | P2, focus on P2
-        let p3 = ws.splitFocusedPane(direction: .vertical)!   // P2 / P3, focus on P3
-        let p4 = ws.splitFocusedPane(direction: .horizontal)! // P3 | P4, focus on P4
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal)) // P1 | P2, focus on P2
+        let p3 = try #require(ws.splitFocusedPane(direction: .vertical)) // P2 / P3, focus on P3
+        let p4 = try #require(ws.splitFocusedPane(direction: .horizontal)) // P3 | P4, focus on P4
 
         #expect(ws.allPanes.count == 4)
         let paneOrder = ws.allPanes.map(\.id)
@@ -214,14 +214,14 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(rws.findPane(id: p4.id) != nil)
     }
 
-    @Test func removeMiddlePaneCollapsesThenPersists() {
+    @Test func removeMiddlePaneCollapsesThenPersists() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
-        let p3 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
+        let p3 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         #expect(ws.allPanes.count == 3)
 
@@ -241,13 +241,13 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(rws.findPane(id: p3.id) != nil)
     }
 
-    @Test func removeAllPanesReplacesWithFresh() {
+    @Test func removeAllPanesReplacesWithFresh() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         #expect(ws.allPanes.count == 2)
 
@@ -265,17 +265,17 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(fresh.name == "Pane 3") // counter incremented: original 1, split 2, fresh 3
     }
 
-    @Test func focusNavigationAfterRemoval() {
+    @Test func focusNavigationAfterRemoval() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         ws.focusPane(id: p2.id)
-        let p3 = ws.splitFocusedPane(direction: .vertical)!
+        let p3 = try #require(ws.splitFocusedPane(direction: .vertical))
         ws.focusPane(id: p3.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         #expect(ws.allPanes.count == 4)
 
@@ -287,20 +287,20 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(ws.focusedPaneID == ws.rootNode.firstPane()?.id)
 
         // Remove focused pane again
-        let currentFocused = ws.focusedPaneID!
+        let currentFocused = try #require(ws.focusedPaneID)
         ws.removePane(id: currentFocused)
         #expect(ws.focusedPaneID == ws.rootNode.firstPane()?.id)
     }
 
-    @Test func paneRectsConsistentAfterMutations() {
+    @Test func paneRectsConsistentAfterMutations() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         ws.focusPane(id: p2.id)
-        _ = ws.splitFocusedPane(direction: .vertical)!
+        _ = try #require(ws.splitFocusedPane(direction: .vertical))
 
         // 3 panes: check rects
         var rects = ws.rootNode.paneRects()
@@ -324,15 +324,15 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite D: Pane Swap
 
-@Suite struct PaneSwapIntegration {
-    @Test func swapPanesPreservesStructureAndPersists() {
+struct PaneSwapIntegration {
+    @Test func swapPanesPreservesStructureAndPersists() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
 
         let p1 = ws.allPanes[0]
         p1.customName = "Editor"
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         p2.customName = "Shell"
 
         // Verify initial order
@@ -346,7 +346,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(ws.allPanes[1].id == p1.id)
 
         // Tree structure preserved (still horizontal split at root)
-        if case .split(let dir, _, _) = ws.rootNode.content {
+        if case let .split(dir, _, _) = ws.rootNode.content {
             #expect(dir == .horizontal)
         } else {
             Issue.record("Expected split node at root")
@@ -361,7 +361,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(rws.allPanes[1].customName == "Editor")
 
         // Structure preserved after restore
-        if case .split(let dir, _, _) = rws.rootNode.content {
+        if case let .split(dir, _, _) = rws.rootNode.content {
             #expect(dir == .horizontal)
         } else {
             Issue.record("Expected split node at root after restore")
@@ -371,15 +371,15 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite E: Attention Flow
 
-@Suite struct AttentionFlowIntegration {
-    @Test func attentionOnUnfocusedPaneFocusClearsIt() {
+struct AttentionFlowIntegration {
+    @Test func attentionOnUnfocusedPaneFocusClearsIt() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // p2 is now focused; set attention on p1
         model.handlePaneNeedsAttention(p1.id, kind: .bell)
@@ -392,7 +392,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(ws.hasAttention == false)
     }
 
-    @Test func attentionAcrossMultipleWorkspaces() {
+    @Test func attentionAcrossMultipleWorkspaces() throws {
         let (model, _) = makeModel()
         let ws1 = model.workspaces[0]
         let ws2 = model.addWorkspace()
@@ -401,7 +401,7 @@ private func reloadModel(from url: URL) -> AppModel {
         // Split ws2 and set attention on its first pane
         let ws2p1 = ws2.allPanes[0]
         ws2.focusPane(id: ws2p1.id)
-        _ = ws2.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws2.splitFocusedPane(direction: .horizontal))
         // ws2p2 is now focused in ws2; flag attention on ws2p1
         // But model.selectedWorkspaceID is ws1, so ws2p1 is unfocused from model perspective
         model.handlePaneNeedsAttention(ws2p1.id, kind: .bell)
@@ -414,14 +414,14 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(ws2.hasAttention == false)
     }
 
-    @Test func thinkingClearsAttentionStopRestoresClean() {
+    @Test func thinkingClearsAttentionStopRestoresClean() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // Set attention on p1 (unfocused after split)
         model.handlePaneNeedsAttention(p1.id, kind: .bell)
@@ -438,14 +438,14 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(p1.attentionKind == nil)
     }
 
-    @Test func bellOnFocusedPaneSetsBellAttention() {
+    @Test func bellOnFocusedPaneSetsBellAttention() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // p1 is no longer focused after split; re-focus it
         ws.focusPane(id: p1.id)
@@ -456,14 +456,14 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(p1.attentionKind == .bell)
     }
 
-    @Test func bellOnUnfocusedPaneSetsBellAttention() {
+    @Test func bellOnUnfocusedPaneSetsBellAttention() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        let p2 = ws.splitFocusedPane(direction: .horizontal)!
+        let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // p2 is focused after split; bell on p1 (unfocused) should set .bell
         let didSet = model.handleBell(p1.id)
@@ -492,14 +492,14 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(ws.hasAttention == false)
     }
 
-    @Test func attentionNotPersisted() {
+    @Test func attentionNotPersisted() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // Set transient state
         model.handlePaneNeedsAttention(p1.id, kind: .bell)
@@ -507,7 +507,7 @@ private func reloadModel(from url: URL) -> AppModel {
         model.saveWorkspaces()
 
         let restored = reloadModel(from: url)
-        let rp1 = restored.workspaces[0].findPane(id: p1.id)!
+        let rp1 = try #require(restored.workspaces[0].findPane(id: p1.id))
         #expect(rp1.attentionKind == nil)
         #expect(rp1.isThinking == false)
     }
@@ -515,7 +515,7 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite E: Preferences Persistence
 
-@Suite struct PreferencesPersistenceIntegration {
+struct PreferencesPersistenceIntegration {
     @Test func themeAndWorkspacesPersistIndependently() {
         let (model, url) = makeModel()
         _ = model.addWorkspace()
@@ -588,13 +588,13 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite F: Split Enhancements
 
-@Suite struct SplitEnhancementsIntegration {
-    @Test func equalizePersistsAfterSaveReload() {
+struct SplitEnhancementsIntegration {
+    @Test func equalizePersistsAfterSaveReload() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // Manually skew the ratio
         ws.rootNode.splitRatio = 0.3
@@ -607,35 +607,35 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(abs(rws.rootNode.splitRatio - 0.5) < 0.001)
     }
 
-    @Test func chainEqualizationPersistsAfterSaveReload() {
+    @Test func chainEqualizationPersistsAfterSaveReload() throws {
         let (model, url) = makeModel()
         let ws = model.workspaces[0]
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // Verify 3 equal panes
         let rects = ws.rootNode.paneRects()
-        #expect(abs(rects.values.first!.width - 1.0/3.0) < 0.001)
+        #expect(try abs(#require(rects.values.first?.width) - 1.0 / 3.0) < 0.001)
 
         model.saveWorkspaces()
         let restored = reloadModel(from: url)
         let restoredRects = restored.workspaces[0].rootNode.paneRects()
         #expect(restoredRects.count == 3)
         for (_, rect) in restoredRects {
-            #expect(abs(rect.width - 1.0/3.0) < 0.001)
+            #expect(abs(rect.width - 1.0 / 3.0) < 0.001)
         }
     }
 
-    @Test func splitRightFourTimesGivesFourEqualPanes() {
+    @Test func splitRightFourTimesGivesFourEqualPanes() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
-        _ = ws.splitFocusedPane(direction: .horizontal)!
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         let rects = ws.rootNode.paneRects()
         #expect(rects.count == 4)
@@ -647,7 +647,7 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite G: Title-Based Claude Detection
 
-@Suite struct TitleBasedClaudeDetection {
+struct TitleBasedClaudeDetection {
     @Test func titleAutoDetectsClaudeSession() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
@@ -672,7 +672,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(pane.isThinking == false)
     }
 
-    @Test func titleIdleStopsThinkingWithoutAttention() {
+    @Test func titleIdleStopsThinkingWithoutAttention() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -680,7 +680,7 @@ private func reloadModel(from url: URL) -> AppModel {
         let p1 = ws.allPanes[0]
         p1.claudeSessionID = "test-session"
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p1 is now unfocused
 
         // Simulate thinking start
@@ -708,7 +708,7 @@ private func reloadModel(from url: URL) -> AppModel {
         #expect(pane.attentionKind == nil)
     }
 
-    @Test func hookAndTitleDetectionCoexist() {
+    @Test func hookAndTitleDetectionCoexist() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -716,7 +716,7 @@ private func reloadModel(from url: URL) -> AppModel {
         let p1 = ws.allPanes[0]
         p1.claudeSessionID = "test-session"
         ws.focusPane(id: p1.id)
-        _ = ws.splitFocusedPane(direction: .horizontal)!
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p1 is now unfocused
 
         // Title-based thinking detection fires first
@@ -742,7 +742,7 @@ private func reloadModel(from url: URL) -> AppModel {
 
 // MARK: - Suite H: Sidebar Sections
 
-@Suite struct SidebarSectionsIntegration {
+struct SidebarSectionsIntegration {
     @Test func sidebarSectionsUpdateWhenBranchChanges() {
         let repo = "/Users/test/project"
         let pA = Pane(name: "A", branch: "main", repoRoot: repo)

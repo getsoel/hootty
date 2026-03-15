@@ -32,11 +32,10 @@ extension TerminalSurfaceView {
             }
         }
 
-        let translationEvent: NSEvent
-        if translationMods == event.modifierFlags {
-            translationEvent = event
+        let translationEvent: NSEvent = if translationMods == event.modifierFlags {
+            event
         } else {
-            translationEvent = NSEvent.keyEvent(
+            NSEvent.keyEvent(
                 with: event.type,
                 location: event.locationInWindow,
                 modifierFlags: translationMods,
@@ -65,7 +64,7 @@ extension TerminalSurfaceView {
             }
         } else {
             sendKeyEvent(action, event: event, translationEvent: translationEvent,
-                        text: ghosttyCharacters(from: translationEvent), composing: markedText.length > 0 || markedTextBefore)
+                         text: ghosttyCharacters(from: translationEvent), composing: markedText.length > 0 || markedTextBefore)
         }
     }
 
@@ -101,7 +100,7 @@ extension TerminalSurfaceView {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
 
         // Cmd+0: let the SwiftUI menu handle "Focus Sidebar" instead of ghostty's reset_font_size
-        if mods == .command && event.keyCode == 0x1D { // 0 key
+        if mods == .command, event.keyCode == 0x1D { // 0 key
             return false
         }
 
@@ -122,13 +121,13 @@ extension TerminalSurfaceView {
         }
 
         // Claim Ctrl+Return to prevent AppKit's default context menu equivalent
-        if mods.contains(.control) && event.keyCode == 0x24 { // Return
+        if mods.contains(.control), event.keyCode == 0x24 { // Return
             self.keyDown(with: event)
             return true
         }
 
         // Claim Ctrl+/ and translate to Ctrl+_ (prevents macOS beep)
-        if mods.contains(.control) && event.keyCode == 0x2C { // slash
+        if mods.contains(.control), event.keyCode == 0x2C { // slash
             self.keyDown(with: event)
             return true
         }
@@ -201,7 +200,7 @@ extension TerminalSurfaceView {
             if scalar.value < 0x20 {
                 return event.characters(byApplyingModifiers: event.modifierFlags.subtracting(.control))
             }
-            if scalar.value >= 0xF700 && scalar.value <= 0xF8FF {
+            if scalar.value >= 0xF700, scalar.value <= 0xF8FF {
                 return nil
             }
         }

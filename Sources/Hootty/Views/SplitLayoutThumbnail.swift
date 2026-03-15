@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 struct SplitLayoutThumbnail: View {
     let layoutRects: [UUID: CGRect]

@@ -6,7 +6,7 @@ import HoottyCore
 
 extension GhosttyApp {
     static func handleAction(
-        _ app: ghostty_app_t,
+        _: ghostty_app_t,
         target: ghostty_target_s,
         action: ghostty_action_s
     ) -> Bool {
@@ -148,21 +148,20 @@ extension GhosttyApp {
     private static func setMouseShape(target: ghostty_target_s, shape: ghostty_action_mouse_shape_e) -> Bool {
         guard let view = surfaceView(from: target) else { return false }
         DispatchQueue.main.async {
-            let cursor: NSCursor
-            switch shape {
+            let cursor: NSCursor = switch shape {
             case GHOSTTY_MOUSE_SHAPE_TEXT:
-                cursor = .iBeam
+                .iBeam
             case GHOSTTY_MOUSE_SHAPE_POINTER:
-                cursor = .pointingHand
+                .pointingHand
             default:
-                cursor = .arrow
+                .arrow
             }
             view.setCursorShape(cursor)
         }
         return true
     }
 
-    private static func setMouseVisibility(target: ghostty_target_s, v: ghostty_action_mouse_visibility_e) -> Bool {
+    private static func setMouseVisibility(target _: ghostty_target_s, v: ghostty_action_mouse_visibility_e) -> Bool {
         DispatchQueue.main.async {
             NSCursor.setHiddenUntilMouseMoves(v == GHOSTTY_MOUSE_HIDDEN)
         }
@@ -242,8 +241,8 @@ extension GhosttyApp {
     // MARK: - Clipboard
 
     static func readClipboard(
-        _ userdata: UnsafeMutableRawPointer?,
-        location: ghostty_clipboard_e,
+        _: UnsafeMutableRawPointer?,
+        location _: ghostty_clipboard_e,
         state: UnsafeMutableRawPointer?
     ) {
         let surface = GhosttyApp.shared.focusedSurface
@@ -265,11 +264,11 @@ extension GhosttyApp {
     }
 
     static func writeClipboard(
-        _ userdata: UnsafeMutableRawPointer?,
-        location: ghostty_clipboard_e,
+        _: UnsafeMutableRawPointer?,
+        location _: ghostty_clipboard_e,
         content: UnsafePointer<ghostty_clipboard_content_s>?,
         len: Int,
-        confirm: Bool
+        confirm _: Bool
     ) {
         guard let content, len > 0 else { return }
         let item = content.pointee
@@ -282,7 +281,7 @@ extension GhosttyApp {
         }
     }
 
-    static func closeSurface(_ userdata: UnsafeMutableRawPointer?, processAlive: Bool) {
+    static func closeSurface(_: UnsafeMutableRawPointer?, processAlive _: Bool) {
         // userdata here is GhosttyApp (the runtime userdata), not a surface context.
         // Close is dispatched via onCloseSurface from the action callback or process exit handler.
     }

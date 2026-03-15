@@ -1,7 +1,7 @@
 import Testing
 @testable import HoottyCore
 
-@Suite struct ClaudeTitleParserTests {
+struct ClaudeTitleParserTests {
     // MARK: - parse
 
     @Test func brailleSpinnerCharsReturnThinking() {

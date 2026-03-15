@@ -1,4 +1,4 @@
-.PHONY: build test run debug setup clean release dmg install uninstall
+.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint
 
 APP_NAME := Hootty
 INSTALL_DIR := /Applications
@@ -80,3 +80,12 @@ install: release
 uninstall:
 	rm -rf "$(INSTALL_DIR)/$(APP_NAME).app"
 	@echo "Removed $(INSTALL_DIR)/$(APP_NAME).app"
+
+format:
+	swiftformat Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests
+
+format-check:
+	swiftformat --lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests
+
+lint:
+	swiftlint lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests

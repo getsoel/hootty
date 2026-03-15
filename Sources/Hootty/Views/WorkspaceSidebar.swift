@@ -1,6 +1,6 @@
+import HoottyCore
 import SwiftUI
 import UniformTypeIdentifiers
-import HoottyCore
 
 struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
@@ -58,7 +58,7 @@ struct WorkspaceSidebar: View {
             }
         }
         .onChange(of: isFocused) { _, focused in
-            if !focused && sidebarHasFocus { sidebarHasFocus = false }
+            if !focused, sidebarHasFocus { sidebarHasFocus = false }
         }
         .alert("Rename Workspace", isPresented: Binding(
             get: { renameTargetID != nil },
@@ -383,7 +383,7 @@ struct WorkspaceSidebar: View {
         .background(TreeLinesBackground(depth: 1, tokens: tokens))
         .contextMenu {
             if !section.isHead, let branch = section.branch,
-               let worktreePath = section.panes.compactMap({ $0.worktreePath }).first {
+               let worktreePath = section.panes.compactMap(\.worktreePath).first {
                 Button("Copy merge prompt") {
                     let prompt = "Merge branch '\(branch)' into the main branch. The worktree is at \(worktreePath). Remove the worktree when done."
                     NSPasteboard.general.clearContents()
@@ -406,14 +406,14 @@ struct WorkspaceSidebar: View {
         if let repoName = repoDisplayName, let slashRange = displayLabel.range(of: "/") {
             let branchPart = String(displayLabel[slashRange.upperBound...])
             (Text(repoName).foregroundStyle(Color(tokens.textRepo))
-             + Text("⎇").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-             + Text(branchPart).foregroundStyle(Color(tokens.textBranch))
-             + treeSuffix)
+                + Text("⎇").foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+                + Text(branchPart).foregroundStyle(Color(tokens.textBranch))
+                + treeSuffix)
                 .font(.system(size: TypeScale.bodySize))
                 .lineLimit(1)
         } else {
             (Text(displayLabel).foregroundStyle(Color(tokens.textBranch))
-             + treeSuffix)
+                + treeSuffix)
                 .font(.system(size: TypeScale.bodySize))
                 .lineLimit(1)
         }
@@ -454,10 +454,10 @@ struct WorkspaceSidebar: View {
                     isFocusedPane
                         ? Color(tokens.elementSelected)
                         : isHovered
-                            ? Color(tokens.elementHover)
-                            : pane.attentionKind != nil
-                                ? Color(tokens.statusBell).opacity(0.12)
-                                : Color.clear
+                        ? Color(tokens.elementHover)
+                        : pane.attentionKind != nil
+                        ? Color(tokens.statusBell).opacity(0.12)
+                        : Color.clear
                 )
         )
         .overlay {
@@ -593,7 +593,7 @@ private struct WorkspaceRowDropDelegate: DropDelegate {
         return true
     }
 
-    func dropExited(info: DropInfo) {
+    func dropExited(info _: DropInfo) {
         if dropTargetWorkspaceID == workspaceID {
             dropTargetWorkspaceID = nil
             dropEdge = nil
@@ -619,7 +619,7 @@ private struct TreeLinesBackground: View {
             let cw = TreeLayout.columnWidth
             let leadingPad = Spacing.md
             let lineColor = Color(tokens.textMuted).opacity(0.3)
-            for level in 1...depth {
+            for level in 1 ... depth {
                 let x = leadingPad + (CGFloat(level) - 0.5) * cw
                 var path = Path()
                 path.move(to: CGPoint(x: x, y: 0))
@@ -629,4 +629,3 @@ private struct TreeLinesBackground: View {
         }
     }
 }
-

@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 struct ThemePickerView: View {
     let tokens: DesignTokens
@@ -116,7 +116,7 @@ struct ThemePickerView: View {
                         sectionHeader("Recommended")
                     }
                     ForEach(Array(themes.enumerated()), id: \.element.id) { index, preview in
-                        if showSections && index == pinnedCount {
+                        if showSections, index == pinnedCount {
                             sectionHeader("All Themes")
                         }
                         themeRow(preview, isSelected: index == selectedIndex)
@@ -163,12 +163,12 @@ struct ThemePickerView: View {
             // Color swatch strip: bg + 6 representative ANSI colors
             HStack(spacing: Spacing.xs) {
                 colorSwatch(preview.background)
-                colorSwatch(preview.palette[1])  // red
-                colorSwatch(preview.palette[2])  // green
-                colorSwatch(preview.palette[3])  // yellow
-                colorSwatch(preview.palette[4])  // blue
-                colorSwatch(preview.palette[5])  // pink
-                colorSwatch(preview.palette[6])  // cyan
+                colorSwatch(preview.palette[1]) // red
+                colorSwatch(preview.palette[2]) // green
+                colorSwatch(preview.palette[3]) // yellow
+                colorSwatch(preview.palette[4]) // blue
+                colorSwatch(preview.palette[5]) // pink
+                colorSwatch(preview.palette[6]) // cyan
             }
 
             Text(preview.name)

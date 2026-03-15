@@ -14,7 +14,10 @@ public final class Pane: Identifiable {
     public var attentionKind: AttentionKind?
     public var isThinking = false
 
-    public var needsAttention: Bool { attentionKind != nil }
+    public var needsAttention: Bool {
+        attentionKind != nil
+    }
+
     public var shell: String
     public var workingDirectory: String
     public var claudeSessionID: String?
@@ -66,16 +69,16 @@ extension Pane: Codable {
 
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        self.init(
-            id: try container.decode(UUID.self, forKey: .id),
-            name: try container.decode(String.self, forKey: .name),
-            customName: try container.decodeIfPresent(String.self, forKey: .customName),
-            shell: try container.decode(String.self, forKey: .shell),
-            workingDirectory: try container.decode(String.self, forKey: .workingDirectory),
-            claudeSessionID: try container.decodeIfPresent(String.self, forKey: .claudeSessionID),
-            branch: try container.decodeIfPresent(String.self, forKey: .branch),
-            repoRoot: try container.decodeIfPresent(String.self, forKey: .repoRoot),
-            worktreePath: try container.decodeIfPresent(String.self, forKey: .worktreePath)
+        try self.init(
+            id: container.decode(UUID.self, forKey: .id),
+            name: container.decode(String.self, forKey: .name),
+            customName: container.decodeIfPresent(String.self, forKey: .customName),
+            shell: container.decode(String.self, forKey: .shell),
+            workingDirectory: container.decode(String.self, forKey: .workingDirectory),
+            claudeSessionID: container.decodeIfPresent(String.self, forKey: .claudeSessionID),
+            branch: container.decodeIfPresent(String.self, forKey: .branch),
+            repoRoot: container.decodeIfPresent(String.self, forKey: .repoRoot),
+            worktreePath: container.decodeIfPresent(String.self, forKey: .worktreePath)
         )
     }
 

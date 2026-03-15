@@ -1,6 +1,6 @@
+import HoottyCore
 import SwiftUI
 import UniformTypeIdentifiers
-import HoottyCore
 
 struct PaneContentView: View {
     var pane: Pane
@@ -53,7 +53,7 @@ struct PaneContentView: View {
                 Rectangle()
                     .stroke(Color(tokens.borderFocused), lineWidth: 2)
                     .allowsHitTesting(false)
-            } else if sidebarHasFocus && sidebarCursorPaneID == pane.id {
+            } else if sidebarHasFocus, sidebarCursorPaneID == pane.id {
                 VStack(spacing: 0) {
                     Text("Press Enter to focus")
                         .font(.system(size: TypeScale.bodySize, weight: .medium))

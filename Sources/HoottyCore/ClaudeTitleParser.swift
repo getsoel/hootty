@@ -21,7 +21,7 @@ public enum ClaudeTitleParser {
         guard let first = title.unicodeScalars.first else { return nil }
         guard isClaudeIndicator(first) else { return nil }
         // Braille Patterns block: U+2800–U+28FF → thinking (spinner)
-        if first.value >= 0x2800 && first.value <= 0x28FF {
+        if first.value >= 0x2800, first.value <= 0x28FF {
             return .thinking
         }
         return .idle

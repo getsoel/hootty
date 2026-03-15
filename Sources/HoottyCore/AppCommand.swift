@@ -25,7 +25,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case focusPaneLeft
     case focusPaneRight
 
-    // Splits (actions)
+    /// Splits (actions)
     case equalizeSplits
 
     // View
@@ -35,14 +35,16 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case changeTheme
     case refreshTerminal
 
-    // Branches
+    /// Branches
     case refreshBranches
 
     // App
     case resetWorkspaces
     case editConfig
 
-    public var id: String { rawValue }
+    public var id: String {
+        rawValue
+    }
 
     public var title: String {
         switch self {

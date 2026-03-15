@@ -16,6 +16,7 @@ public final class AppModel {
         case commandPalette
         case themePicker
     }
+
     public var modalState: ModalState = .none
     public var sidebarHasFocus: Bool = false
 
@@ -85,7 +86,9 @@ public final class AppModel {
             return num
         })
         var n = 1
-        while existingNumbers.contains(n) { n += 1 }
+        while existingNumbers.contains(n) {
+            n += 1
+        }
         return "Workspace \(n)"
     }
 
@@ -251,5 +254,4 @@ public final class AppModel {
         let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
         selectedWorkspaceID = workspaces[prevIdx].id
     }
-
 }

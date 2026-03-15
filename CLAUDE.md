@@ -11,6 +11,9 @@ After cloning, run `make setup` to configure git hooks (pre-commit runs build + 
 - `make debug`: build + launch with log streaming
 - `swift test`: run unit tests (HoottyCoreTests)
 - `swift test --filter TestName`: run a single test
+- `make format`: auto-format Swift sources with SwiftFormat
+- `make format-check`: check formatting without modifying files
+- `make lint`: run SwiftLint on Swift sources
 
 ## Architecture
 ```
@@ -20,7 +23,7 @@ Sources/
     include/module.modulemap   -- SPM module map
     shims.c                    -- placeholder for SPM
   HoottyCore/                -- testable library target (no UI dependencies)
-    AppModel.swift             -- @Observable app state, workspace management
+    AppModel.swift             -- @Observable app state, workspace/theme/sound/pipeline management, appMode/detailMode
     Workspace.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
     Pane.swift                 -- @Observable: id, name, isRunning, shell, workingDirectory
     SplitNode.swift            -- @Observable binary tree: leaf(Pane) | split(direction, first, second)
@@ -28,28 +31,46 @@ Sources/
     DesignTokens.swift         -- Semantic color/spacing tokens (see docs/DESIGN.md)
     TerminalTheme.swift        -- Catppuccin themes (palette definitions)
     ThemeManager.swift         -- Persisted theme selection
+    ThemeCatalog.swift         -- Theme listing/discovery with cached preview data
     AppCommand.swift           -- Command enum: IDs, titles, shortcut hints (see docs/COMMANDS.md)
+    ClaudeTitleParser.swift    -- Detects Claude Code sessions from terminal title patterns
+    ConfigFile.swift           -- Observable key-value config file store (persisted to app support)
+    GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
+    PipelineModel.swift        -- @Observable pipeline claim/board state per pane/repo
+    PipelineReader.swift       -- Reads pipeline config and state from .hootty/pipeline/
+    PipelineState.swift        -- Pipeline data structures (stages, config, jobs, claims)
+    SoundManager.swift         -- Sound trigger playback management
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
     CommandRegistry.swift      -- Maps AppCommand → actions, generates palette entries
     HoottyBundle.swift         -- shared SPM resource bundle resolver (use for all bundled resources)
     CrashHandler.swift         -- Crash log writer (~/Library/Logs/Hootty/)
     Log.swift                  -- os.Logger wrapper (subsystem: com.soel.hootty)
+    SafeSubscript.swift        -- Safe array subscript extension (returns nil on out-of-bounds)
+    PipelineWatcher.swift      -- DispatchSource file watcher for pipeline state changes
     Views/
-      ContentView.swift        -- HStack: sidebar + detail (terminal view)
+      ContentView.swift        -- Main layout: switches between workspaces (sidebar + detail) and templates view
       WorkspaceSidebar.swift   -- Workspace list with status indicators
       PaneGroupTabBar.swift     -- Tab strip within a pane group region
       PaneGroupView.swift      -- Per-region pane group container (tab bar + split content)
       SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers
       TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
       AnimatedBorderModifier.swift -- Animated gradient border for attention state
-      CatppuccinIcons.swift    -- Catppuccin SVG icon views
-      LucideIcon.swift         -- Lucide icon helper
+      CommandPaletteView.swift -- Searchable command palette with keyboard navigation
+      PipelineBarView.swift    -- Job claim bar with stage progress dots
+      PipelineBoardView.swift  -- Kanban board grouped by pipeline stages
+      SplitLayoutThumbnail.swift -- Canvas-drawn minimap of split layout
       StatusDotView.swift      -- Colored status dot indicator
+      TemplatesView.swift      -- Templates feature UI
+      ThemePickerView.swift    -- Theme selection modal with previews
       WindowAccessor.swift     -- NSWindow access from SwiftUI
     Terminal/
       GhosttyApp.swift         -- Singleton ghostty_app_t wrapper, runtime callbacks
+      GhosttyApp+Actions.swift -- Action callback handlers (split from GhosttyApp.swift)
+      GhosttyConfigReader.swift -- Reads resolved theme colors from ghostty config via C API
       TerminalSurfaceView.swift -- NSView hosting ghostty_surface_t (Metal rendering, keyboard/mouse input)
+      TerminalSurfaceView+Keyboard.swift -- Keyboard event handling with IME and key modifiers
+      ShellEscape.swift        -- Shell escaping utility for paths
 Tests/
   HoottyCoreTests/           -- unit tests for model logic
 Vendors/
@@ -65,6 +86,7 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 - Action callbacks (title, pwd, exit) → update Pane model → Workspace aggregates → SwiftUI reacts
 - Split panes: Workspace.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 - Commands: AppCommand enum → CommandRegistry (maps to actions) → menus, palette, ghostty callbacks all dispatch through `commandRegistry.execute()`
+- PipelineWatcher monitors `.hootty/pipeline/.state.json` → PipelineModel updates → PipelineBarView/PipelineBoardView react
 
 ### Deep-dive docs (read on demand)
 - `docs/COMMANDS.md` — read when adding commands, modifying keyboard shortcuts, or working on the command palette
@@ -74,6 +96,7 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 - `docs/REBUILDING.md` — read when updating or rebuilding libghostty
 - `docs/CONFIG.md` — read when working on the config file system or adding new settings
 - `docs/RULES.md` — read when adding new `.claude/rules/` files or modifying progressive disclosure structure
+- `docs/specs/PIPELINE_SPEC.md` — read when working on pipeline board, claim logic, or job state
 
 ### Naming: Tab vs Pane vs Group
 - **Tab**: UI presentation concept — items in the tab bar. Use in tab bar context: "Rename Tab", "Close Tab"
@@ -83,4 +106,6 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 ## Before Finishing
 - `make build` succeeds
 - `swift test` passes (ignore signal 10 exit — see CLAUDE.local.md)
+- `make format-check` passes
+- `make lint` passes
 - Only task-relevant files changed

@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 /// Maps AppCommand to executable actions. Single dispatch point for menus,
 /// command palette, and ghostty action callbacks.

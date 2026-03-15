@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 @main
 struct HoottyApp: App {
@@ -217,7 +217,6 @@ struct HoottyApp: App {
                 }
         }
         .windowStyle(.hiddenTitleBar)
-
         .commands {
             CommandGroup(replacing: .appSettings) {
                 Button(AppCommand.editConfig.title) {
@@ -301,7 +300,6 @@ struct HoottyApp: App {
                     commandRegistry.execute(.focusPaneRight)
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
-
             }
             CommandMenu("Theme") {
                 Button(AppCommand.changeTheme.title) {

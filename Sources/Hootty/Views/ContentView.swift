@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 struct ContentView: View {
     @Bindable var appModel: AppModel

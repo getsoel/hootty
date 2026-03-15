@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 struct StatusDotView: View {
     let attentionKind: AttentionKind?

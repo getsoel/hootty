@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 struct PaletteCommand: Identifiable {
     let id: String

@@ -6,7 +6,7 @@ enum HoottyBundle {
         let candidates = [
             Bundle.main.resourceURL,
             Bundle.main.bundleURL,
-            Bundle.main.bundleURL.appendingPathComponent("\(bundleName).bundle"),
+            Bundle.main.bundleURL.appendingPathComponent("\(bundleName).bundle")
         ]
         for candidate in candidates {
             if let bundle = Bundle(url: candidate ?? URL(fileURLWithPath: "/")),

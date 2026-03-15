@@ -1,5 +1,5 @@
-import SwiftUI
 import HoottyCore
+import SwiftUI
 
 struct SplitNodeView: View {
     @Bindable var node: SplitNode
@@ -14,7 +14,7 @@ struct SplitNodeView: View {
 
     var body: some View {
         switch node.content {
-        case .leaf(let pane):
+        case let .leaf(pane):
             PaneContentView(
                 pane: pane,
                 isFocused: pane.id == focusedPaneID,
@@ -26,7 +26,7 @@ struct SplitNodeView: View {
                 onSave: onSave
             )
 
-        case .split(let direction, let first, let second):
+        case let .split(direction, first, second):
             splitContent(direction: direction, first: first, second: second)
         }
     }

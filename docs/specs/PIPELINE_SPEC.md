@@ -46,7 +46,7 @@ A kanban-style pipeline system where jobs progress through ordered stages. Each 
               ▼                            ▼
 ┌──────────────────────┐    ┌──────────────────────────────┐
 │  FILE STORAGE        │    │  DAEMON (optional)           │
-│  .pipeline/          │    │  Real-time events + auto-    │
+│  .hootty/pipeline/          │    │  Real-time events + auto-    │
 │  pipeline.yaml       │◄──│  execution via Unix socket    │
 │  stages/*/*.md       │    │                              │
 │  .state.json         │    │  Watches files, drives       │
@@ -67,10 +67,10 @@ A kanban-style pipeline system where jobs progress through ordered stages. Each 
 
 ### Directory Structure
 
-A repo can have multiple pipelines. Each pipeline is a subdirectory of `.pipeline/` with its own config and stages.
+A repo can have multiple pipelines. Each pipeline is a subdirectory of `.hootty/pipeline/` with its own config and stages.
 
 ```
-.pipeline/
+.hootty/pipeline/
 ├── config.yaml                    # Repo-level config (default pipeline, shared settings)
 ├── memory.md                      # Shared project context (prepended in claim --format context)
 ├── .state.json                    # Runtime state for all pipelines (not git-tracked)
@@ -102,7 +102,7 @@ A repo can have multiple pipelines. Each pipeline is a subdirectory of `.pipelin
 
 Stage directories are siblings of `pipeline.yaml` inside each pipeline folder. The directory names match the stage `name` field (lowercased, hyphenated).
 
-**Single pipeline shorthand**: If a repo only needs one pipeline, `pipeline init` creates it as `.pipeline/default/`. The CLI treats `default` as the implicit pipeline when `--pipeline` is omitted.
+**Single pipeline shorthand**: If a repo only needs one pipeline, `pipeline init` creates it as `.hootty/pipeline/default/`. The CLI treats `default` as the implicit pipeline when `--pipeline` is omitted.
 
 ### config.yaml (Repo-Level)
 
@@ -200,7 +200,7 @@ Every `pipeline claim`, `pipeline advance`, `pipeline release`, `pipeline move`,
 
 ### .state.json (Runtime, Not Git-Tracked)
 
-Lives at `.pipeline/.state.json`. Tracks runtime state for all pipelines in the repo.
+Lives at `.hootty/pipeline/.state.json`. Tracks runtime state for all pipelines in the repo.
 
 ```json
 {
@@ -246,7 +246,7 @@ Everything goes through the CLI. No special protocols — any agent or script th
 
 ```bash
 # Board management
-pipeline init                          # Create .pipeline/default/ (single pipeline)
+pipeline init                          # Create .hootty/pipeline/default/ (single pipeline)
 pipeline init feature --template review # Create named pipeline with template
 pipeline init bugs --template simple   # Create another pipeline
 pipeline status                        # Show default pipeline board
@@ -280,7 +280,7 @@ pipeline daemon stop                   # Stop daemon
 pipeline daemon status                 # Check daemon state
 ```
 
-**Without daemon**: CLI reads/writes `.pipeline/` files directly. No real-time events, no execution engine — purely a file manipulation tool.
+**Without daemon**: CLI reads/writes `.hootty/pipeline/` files directly. No real-time events, no execution engine — purely a file manipulation tool.
 
 **With daemon**: CLI sends commands over Unix socket. Gets real-time feedback.
 
@@ -316,7 +316,7 @@ On session start, the hook shows Claude the board state. Output:
 To pick up a task: `pipeline claim` or `pipeline claim <job-slug>`
 ```
 
-If no `.pipeline/` exists or no jobs are queued, outputs nothing. Claude does **not** auto-claim a job. The user explicitly asks Claude to pick up work:
+If no `.hootty/pipeline/` exists or no jobs are queued, outputs nothing. Claude does **not** auto-claim a job. The user explicitly asks Claude to pick up work:
 
 ```
 User: "pick up the next pipeline task"
@@ -343,7 +343,7 @@ pipeline release                       # Drop current claim
 The daemon listens on a Unix socket for real-time UI updates. This is how Hootty's sidebar stays in sync.
 
 ```
-.pipeline/pipeline.sock
+.hootty/pipeline/pipeline.sock
 ```
 
 **Events emitted (daemon → clients):**
@@ -371,7 +371,7 @@ Hootty connects over this socket for real-time sidebar updates. Multiple clients
 
 For the simplest setup: no daemon, no socket. Just files.
 
-- A client watches `.pipeline/stages/` for filesystem events
+- A client watches `.hootty/pipeline/stages/` for filesystem events
 - Moving a file between directories = moving a job between stages
 - Writing a new `.md` file = adding a job
 - Reading `pipeline.yaml` = getting stage config
@@ -418,7 +418,7 @@ Two paths: self-driven (CLI calls) and daemon-driven (auto-injection).
 
 ### Session ↔ Task Association: The Claim Model
 
-The pipeline lives in the repo (`.pipeline/`). A session associates with a specific job by **claiming** it — like pulling a card off a kanban board.
+The pipeline lives in the repo (`.hootty/pipeline/`). A session associates with a specific job by **claiming** it — like pulling a card off a kanban board.
 
 ```bash
 $ pipeline claim
@@ -431,7 +431,7 @@ Refactor the auth module to use async/await...
 1. `$PIPELINE_SESSION` env var (explicit, set by user or wrapper script)
 2. `$CLAUDE_SESSION_ID` (set by Claude Code)
 3. Terminal PID (`$PPID` or parent process ID)
-4. Auto-generated UUID (written to `.pipeline/.sessions/<id>`)
+4. Auto-generated UUID (written to `.hootty/pipeline/.sessions/<id>`)
 
 **Claim priority order** (what `pipeline claim` grabs):
 1. `interrupted` jobs first (already in-flight, need attention)
@@ -499,12 +499,12 @@ When `settings.pause_on_error` is enabled:
 ## Data Model
 
 ```
-Repo (directory: .pipeline/)
+Repo (directory: .hootty/pipeline/)
 ├── defaultPipeline: String      — from config.yaml
 ├── pipelines: [Pipeline]        — one per subdirectory
 └── memory: String               — shared memory.md content
 
-Pipeline (directory: .pipeline/<name>/)
+Pipeline (directory: .hootty/pipeline/<name>/)
 ├── name: String                 — directory name
 ├── stages: [Stage]              — ordered, from pipeline.yaml
 ├── paused: Bool                 — from .state.json
@@ -517,7 +517,7 @@ Stage (from pipeline.yaml)
 ├── type: automated | manual
 └── command: String?             — prompt override (nil = use job body)
 
-Job (file: .pipeline/<pipeline>/<stage>/<nnn>-<slug>.md)
+Job (file: .hootty/pipeline/<pipeline>/<stage>/<nnn>-<slug>.md)
 ├── slug: String                 — derived from filename
 ├── title: String                — from frontmatter
 ├── priority: String?            — from frontmatter
@@ -553,8 +553,8 @@ A separate bar below the pane bar, only visible when the pane is connected to a 
 
 | State | Pipeline bar |
 |-------|-------------|
-| No `.pipeline/` in repo | Hidden |
-| `.pipeline/` exists, no claim | Hidden |
+| No `.hootty/pipeline/` in repo | Hidden |
+| `.hootty/pipeline/` exists, no claim | Hidden |
 | Job claimed | Shown |
 | Job released / completed | Hides (with brief fade) |
 
@@ -595,11 +595,11 @@ The bar only appears when this session has an active claim. No pipeline → no b
 
 ### How Hootty Detects Pipeline Connection
 
-Hootty watches for `.pipeline/` at each pane's **canonical repo root** (`Pane.repoRoot`, resolved via `GitWorktreeManager.canonicalRepoRoot`). This works identically whether the pane is in the main repo or a worktree.
+Hootty watches for `.hootty/pipeline/` at each pane's **canonical repo root** (`Pane.repoRoot`, resolved via `GitWorktreeManager.canonicalRepoRoot`). This works identically whether the pane is in the main repo or a worktree.
 
 ```
 Terminal opens in repo (or worktree)
-  └─ Hootty resolves canonicalRepoRoot → checks: does .pipeline/ exist?
+  └─ Hootty resolves canonicalRepoRoot → checks: does .hootty/pipeline/ exist?
      ├─ No  → nothing (no pipeline bar, no overhead)
      └─ Yes → watch .state.json with FSEvents (at canonical root)
 
@@ -618,7 +618,7 @@ User/Claude runs `pipeline release` or job completes
   └─ .state.json claim removed → pipeline bar fades out
 ```
 
-**No daemon required for pipeline bar**: This is pure file watching. Reads `.pipeline/` files at the canonical root — no daemon or socket needed. One FSEvents watcher per canonical repo root (shared across all worktree panes for that repo).
+**No daemon required for pipeline bar**: This is pure file watching. Reads `.hootty/pipeline/` files at the canonical root — no daemon or socket needed. One FSEvents watcher per canonical repo root (shared across all worktree panes for that repo).
 
 ### View Switcher
 
@@ -710,7 +710,7 @@ When "Pipelines" is selected, the entire content area becomes the kanban board. 
 
 **Pipeline selector**: If the repo has multiple pipelines, a dropdown or horizontal tab bar at the top lets you switch between them. Badge shows total active/interrupted jobs per pipeline.
 
-**Repo scope**: The board shows pipelines from the focused pane's repo. A repo indicator in the header shows which repo is displayed. If panes span multiple repos with `.pipeline/` directories, a repo picker dropdown lets the user switch. Empty state with setup instructions if no pipelines exist.
+**Repo scope**: The board shows pipelines from the focused pane's repo. A repo indicator in the header shows which repo is displayed. If panes span multiple repos with `.hootty/pipeline/` directories, a repo picker dropdown lets the user switch. Empty state with setup instructions if no pipelines exist.
 
 ### Terminals ↔ Pipelines Navigation
 
@@ -748,7 +748,7 @@ For fully hands-off automation, Hootty can set a pane as the injection target: r
 
 One hook. Injects awareness, not a claim. Claude does the rest via Bash.
 
-If no `.pipeline/` exists in the repo, the command outputs nothing and the `|| true` ensures the hook succeeds silently.
+If no `.hootty/pipeline/` exists in the repo, the command outputs nothing and the `|| true` ensures the hook succeeds silently.
 
 ### Connection Flow
 
@@ -756,7 +756,7 @@ Terminals aren't associated with pipeline jobs by default. The connection is exp
 
 ```
 1. Terminal enters a repo
-   └─ Hootty detects .pipeline/ → shows muted pipeline indicator in pane bar
+   └─ Hootty detects .hootty/pipeline/ → shows muted pipeline indicator in pane bar
 
 2. User starts Claude Code
    └─ session_start hook injects board awareness:
@@ -899,13 +899,13 @@ Multiple sessions claim different jobs from the same pipeline. **Each parallel s
 
 Each job may touch overlapping files. Without isolation, two Claude sessions editing the same file create conflicts in the working tree. Git worktrees give each session its own working copy on its own branch.
 
-#### `.pipeline/` Resolution: Always Canonical Root
+#### `.hootty/pipeline/` Resolution: Always Canonical Root
 
-The pipeline CLI **always** operates on `.pipeline/` at the **canonical repo root** (main worktree), never the worktree's local copy. This is critical — each worktree branch has its own `.pipeline/` snapshot, but pipeline state must be shared.
+The pipeline CLI **always** operates on `.hootty/pipeline/` at the **canonical repo root** (main worktree), never the worktree's local copy. This is critical — each worktree branch has its own `.hootty/pipeline/` snapshot, but pipeline state must be shared.
 
 ```
 Main repo (~/repos/myproject/)
-├── .pipeline/                    ← CLI reads/writes HERE, always
+├── .hootty/pipeline/                    ← CLI reads/writes HERE, always
 │   ├── .state.json               ← shared claims across all sessions
 │   ├── feature/
 │   │   ├── pipeline.yaml
@@ -914,10 +914,10 @@ Main repo (~/repos/myproject/)
 │   └── ...
 ├── .claude/worktrees/
 │   ├── pipeline/001-auth/        ← worktree for job 001
-│   │   ├── .pipeline/            ← IGNORED by CLI (stale branch copy)
+│   │   ├── .hootty/pipeline/            ← IGNORED by CLI (stale branch copy)
 │   │   └── Sources/...           ← code changes happen here
 │   └── pipeline/002-fix/         ← worktree for job 002
-│       ├── .pipeline/            ← IGNORED by CLI
+│       ├── .hootty/pipeline/            ← IGNORED by CLI
 │       └── Sources/...
 └── Sources/...
 ```
@@ -938,7 +938,7 @@ Refactor the auth module to use async/await...
 ```
 
 Steps:
-1. Claims next available job from the canonical `.pipeline/`
+1. Claims next available job from the canonical `.hootty/pipeline/`
 2. Creates a git worktree + branch: `.claude/worktrees/pipeline/<slug>` (matches Hootty's existing worktree convention)
 3. Outputs the worktree path for the caller to `cd` into
 4. Outputs the job prompt
@@ -947,20 +947,20 @@ Steps:
 
 Hootty already has `GitWorktreeManager` with `canonicalRepoRoot(for:)` and `resolveWorktreePath(repoPath:branch:)`. The pipeline integration uses these directly:
 
-**Pipeline bar detection**: Uses `canonicalRepoRoot` (via `Pane.repoRoot`) to find `.pipeline/`, not `Pane.workingDirectory`. A pane in a worktree at `.claude/worktrees/pipeline/001-auth/` sees the same pipeline state as a pane in the main repo.
+**Pipeline bar detection**: Uses `canonicalRepoRoot` (via `Pane.repoRoot`) to find `.hootty/pipeline/`, not `Pane.workingDirectory`. A pane in a worktree at `.claude/worktrees/pipeline/001-auth/` sees the same pipeline state as a pane in the main repo.
 
-**Board view**: Always shows `.pipeline/` from `canonicalRepoRoot` of the focused pane. Same board whether you're in the main repo or any worktree.
+**Board view**: Always shows `.hootty/pipeline/` from `canonicalRepoRoot` of the focused pane. Same board whether you're in the main repo or any worktree.
 
 **"Claim in Worktree" board action**: Right-click a job card → "Claim in Worktree":
 1. Calls `GitWorktreeManager.resolveWorktreePath(repoPath:, branch: "pipeline/<slug>")`
 2. Opens a new pane in the worktree directory (existing `splitFocusedPane(workingDirectory:)`)
 3. Registers parent surface for the new pane (inherits ghostty config)
 4. Runs `pipeline claim --job <slug>` in the new pane
-5. Pipeline bar appears, referencing canonical root's `.pipeline/`
+5. Pipeline bar appears, referencing canonical root's `.hootty/pipeline/`
 
 **Worktree cleanup**: When a job moves to Done and its branch is merged, the worktree can be removed. `pipeline archive` could optionally clean up worktrees for archived jobs. Hootty's sidebar already shows worktrees — a "Clean up worktree" action on completed job cards.
 
-**FSEvents scope**: Hootty watches `.pipeline/` at `canonicalRepoRoot`, not per-worktree. One watcher per repo, regardless of how many worktree panes exist.
+**FSEvents scope**: Hootty watches `.hootty/pipeline/` at `canonicalRepoRoot`, not per-worktree. One watcher per repo, regardless of how many worktree panes exist.
 
 #### Manual Worktree Setup (Without Hootty)
 
@@ -992,10 +992,10 @@ settings:
 
 The CLI is a standalone binary (Swift or Rust). It can operate in two modes:
 
-1. **Direct mode** (no daemon): reads/writes `.pipeline/` files directly
+1. **Direct mode** (no daemon): reads/writes `.hootty/pipeline/` files directly
 2. **Client mode** (daemon running): sends commands over Unix socket
 
-The CLI auto-detects: if `.pipeline/pipeline.sock` exists in the repo and is live, use client mode. Otherwise, direct mode.
+The CLI auto-detects: if `.hootty/pipeline/pipeline.sock` exists in the repo and is live, use client mode. Otherwise, direct mode.
 
 ### Core Commands
 
@@ -1045,10 +1045,10 @@ pipeline inject-target [--pane <id>] Set injection target (Hootty auto-execution
 ## Templates
 
 ```
-pipeline init --template simple             # creates .pipeline/default/
-pipeline init feature --template review     # creates .pipeline/feature/
-pipeline init bugs --template simple        # creates .pipeline/bugs/
-pipeline init release --template custom     # creates .pipeline/release/
+pipeline init --template simple             # creates .hootty/pipeline/default/
+pipeline init feature --template review     # creates .hootty/pipeline/feature/
+pipeline init bugs --template simple        # creates .hootty/pipeline/bugs/
+pipeline init release --template custom     # creates .hootty/pipeline/release/
 ```
 
 | Template | Stages |
@@ -1063,7 +1063,7 @@ pipeline init release --template custom     # creates .pipeline/release/
 ### What Gets Committed
 
 ```
-.pipeline/
+.hootty/pipeline/
 ├── config.yaml          ✓ commit (repo-level config)
 ├── memory.md            ✓ commit (shared context)
 ├── feature/             ✓ commit (pipeline + jobs)
@@ -1083,7 +1083,7 @@ pipeline init release --template custom     # creates .pipeline/release/
 ### Session Resume
 
 On daemon restart:
-1. Scan `.pipeline/*/pipeline.yaml` to discover all pipelines + their stages
+1. Scan `.hootty/pipeline/*/pipeline.yaml` to discover all pipelines + their stages
 2. Scan each pipeline's stage directories for job files
 3. Read `.state.json` if exists — reset any `active` jobs to `interrupted`, clear claims
 4. Wait for sessions to reconnect
@@ -1093,7 +1093,7 @@ On daemon restart:
 
 ### Phase 1: File Format + CLI (standalone)
 - [ ] Define file format: `config.yaml`, `pipeline.yaml`, job markdown spec, `.state.json`
-- [ ] Multi-pipeline directory structure (`.pipeline/<name>/`)
+- [ ] Multi-pipeline directory structure (`.hootty/pipeline/<name>/`)
 - [ ] `pipeline` CLI: `init`, `delete`, `status`, `add`, `claim`, `advance`, `release`, `move`, `remove`, `archive`, `log`, `whoami`, `reap` (direct mode only)
 - [ ] `pipeline stage` subcommands: `add`, `remove`, `move`
 - [ ] Session identity resolution (`$PIPELINE_SESSION`, `$CLAUDE_SESSION_ID`, `$PPID`)
@@ -1112,7 +1112,7 @@ On daemon restart:
 - [ ] Unix socket server: accept commands, emit events
 - [ ] Execution engine: idle detection, auto-advance, error interrupts
 - [ ] `pipeline inject-target` for Hootty pane auto-execution
-- [ ] File watching: sync `.pipeline/` changes into daemon state
+- [ ] File watching: sync `.hootty/pipeline/` changes into daemon state
 
 ### Phase 3: Claude Code Hooks
 - [ ] `pipeline status --format context` for session_start hook (awareness, not auto-claim)
@@ -1123,7 +1123,7 @@ On daemon restart:
 ### Phase 4: Hootty UI
 - [ ] Title bar view switcher: Terminals | Pipelines
 - [ ] Pipeline bar (per-pane, below pane bar, shown when claimed)
-- [ ] FSEvents watcher for `.pipeline/` directory
+- [ ] FSEvents watcher for `.hootty/pipeline/` directory
 - [ ] Claim-to-pane matching (claudeSessionID, PID, $PIPELINE_SESSION)
 - [ ] Kanban board view: stage columns, job cards, drag-and-drop (forward + backward)
 - [ ] Inline card creation: `[+ Add]` → type title → Enter → stub file
@@ -1188,12 +1188,12 @@ When `.state.json` doesn't exist (fresh `git clone`, first use), the CLI creates
 These are acknowledged but deferred to implementation time or future phases:
 
 - **Corrupt YAML/JSON recovery**: If `pipeline.yaml` or `.state.json` is malformed, the CLI errors with a parse error and line number. No auto-recovery. User must fix manually. `.state.json` can be safely deleted (regenerated from filesystem on next CLI call).
-- **Git merge conflicts**: `.pipeline/` files are plain text and merge normally. Log entries may conflict (both branches appended). Job files moved to different stages on different branches cause delete/add conflicts. No special merge driver — resolve like any git conflict.
+- **Git merge conflicts**: `.hootty/pipeline/` files are plain text and merge normally. Log entries may conflict (both branches appended). Job files moved to different stages on different branches cause delete/add conflicts. No special merge driver — resolve like any git conflict.
 - **`memory.md` / job file size**: No built-in size limits. If files grow large and consume Claude's context window, the user should trim them. Future: `--max-context` flag on `pipeline claim`.
 - **PID recycling**: `kill -0` may find a recycled PID from an unrelated process, preventing stale claim reaping. Rare in practice. `pipeline claim --force` is the escape hatch.
-- **Multiple daemons**: Each repo with `.pipeline/` gets its own daemon process (one daemon per repo). Socket at `.pipeline/pipeline.sock`. No cross-repo daemon.
+- **Multiple daemons**: Each repo with `.hootty/pipeline/` gets its own daemon process (one daemon per repo). Socket at `.hootty/pipeline/pipeline.sock`. No cross-repo daemon.
 - **Custom template saving**: No mechanism to save a `pipeline.yaml` as a reusable template in Phase 1. Copy the file manually. Templates marketplace is Phase 5.
-- **`.pipeline/` in worktrees**: Each worktree branch has its own `.pipeline/` snapshot, but the CLI always resolves to the canonical repo root's `.pipeline/` via `git rev-parse --git-common-dir`. The worktree's local `.pipeline/` copy is stale and ignored. Hootty uses `GitWorktreeManager.canonicalRepoRoot(for:)` for the same resolution.
+- **`.hootty/pipeline/` in worktrees**: Each worktree branch has its own `.hootty/pipeline/` snapshot, but the CLI always resolves to the canonical repo root's `.hootty/pipeline/` via `git rev-parse --git-common-dir`. The worktree's local `.hootty/pipeline/` copy is stale and ignored. Hootty uses `GitWorktreeManager.canonicalRepoRoot(for:)` for the same resolution.
 
 ## Open Questions
 

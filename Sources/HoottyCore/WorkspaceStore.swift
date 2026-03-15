@@ -28,9 +28,9 @@ public final class WorkspaceStore {
     public init() {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         #if DEBUG
-        let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
+            let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
         #else
-        let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
+            let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
         #endif
         self.fileURL = dir.appendingPathComponent("workspaces.json")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

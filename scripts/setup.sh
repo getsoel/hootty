@@ -29,6 +29,19 @@ if [ ${#MISSING[@]} -gt 0 ]; then
     exit 1
 fi
 
+# Check optional tools
+OPTIONAL_MISSING=()
+if ! command -v swiftformat &>/dev/null; then
+    OPTIONAL_MISSING+=("swiftformat")
+fi
+if ! command -v swiftlint &>/dev/null; then
+    OPTIONAL_MISSING+=("swiftlint")
+fi
+if [ ${#OPTIONAL_MISSING[@]} -gt 0 ]; then
+    echo ""
+    echo "Optional (recommended): brew install ${OPTIONAL_MISSING[*]}"
+fi
+
 # --- Determine ghostty SHA for caching ---
 GHOSTTY_SHA="$(git -C "$GHOSTTY_DIR" rev-parse HEAD)"
 SHA_CACHE="$CACHE_DIR/$GHOSTTY_SHA"

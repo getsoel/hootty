@@ -1,46 +1,46 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct ThemeManagerTests {
+struct ThemeManagerTests {
     private func tempFileURL() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-test-\(UUID().uuidString)")
             .appendingPathComponent("config")
     }
 
-    private func makeTempThemesDir() -> URL {
+    private func makeTempThemesDir() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-test-themes-\(UUID().uuidString)")
-        try! FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         // Write fallback theme so ThemeManager can parse it
-        try! ThemeCatalog.fallbackThemeContent.write(
+        try ThemeCatalog.fallbackThemeContent.write(
             to: dir.appendingPathComponent(ThemeCatalog.fallbackThemeName),
             atomically: true, encoding: .utf8
         )
         return dir
     }
 
-    @Test func defaultThemeIsCatppuccinMocha() {
+    @Test func defaultThemeIsCatppuccinMocha() throws {
         let configFile = ConfigFile(fileURL: tempFileURL())
-        let catalog = ThemeCatalog(themesDirectory: makeTempThemesDir())
+        let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         #expect(manager.selectedThemeName == "Catppuccin Mocha")
     }
 
-    @Test func setResolvedThemeUpdatesTheme() {
+    @Test func setResolvedThemeUpdatesTheme() throws {
         let configFile = ConfigFile(fileURL: tempFileURL())
-        let catalog = ThemeCatalog(themesDirectory: makeTempThemesDir())
+        let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
-        let otherTheme = TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
+        let otherTheme = try #require(TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent))
         manager.setResolvedTheme(otherTheme)
         #expect(manager.theme == otherTheme)
     }
 
-    @Test func selectedThemeNamePersistsToConfigFile() {
+    @Test func selectedThemeNamePersistsToConfigFile() throws {
         let url = tempFileURL()
         let configFile = ConfigFile(fileURL: url)
-        let catalog = ThemeCatalog(themesDirectory: makeTempThemesDir())
+        let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         manager.selectedThemeName = "Dracula"
 
@@ -48,10 +48,10 @@ import Foundation
         #expect(configFile2.get("theme") == "Dracula")
     }
 
-    @Test func selectedThemeNameLoadsFromConfigFile() {
-        let dir = makeTempThemesDir()
+    @Test func selectedThemeNameLoadsFromConfigFile() throws {
+        let dir = try makeTempThemesDir()
         // Write a second theme
-        try! ThemeCatalog.fallbackThemeContent.write(
+        try ThemeCatalog.fallbackThemeContent.write(
             to: dir.appendingPathComponent("Dracula"),
             atomically: true, encoding: .utf8
         )
@@ -67,9 +67,9 @@ import Foundation
         #expect(manager.selectedThemeName == "Dracula")
     }
 
-    @Test func changingThemeNameDoesNotAutoUpdateTheme() {
+    @Test func changingThemeNameDoesNotAutoUpdateTheme() throws {
         let configFile = ConfigFile(fileURL: tempFileURL())
-        let catalog = ThemeCatalog(themesDirectory: makeTempThemesDir())
+        let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         let initialTheme = manager.theme
         manager.selectedThemeName = "Something Else"
@@ -89,16 +89,16 @@ import Foundation
         #expect(ThemeManager.migrateThemeName("Tokyo Night") == "Tokyo Night")
     }
 
-    @Test func migratesOldConfigOnInit() {
+    @Test func migratesOldConfigOnInit() throws {
         let url = tempFileURL()
         let configFile = ConfigFile(fileURL: url)
         configFile.set("theme", value: "catppuccin-latte")
         configFile.save()
 
         let configFile2 = ConfigFile(fileURL: url)
-        let dir = makeTempThemesDir()
+        let dir = try makeTempThemesDir()
         // Write Catppuccin Latte theme file
-        try! ThemeCatalog.fallbackThemeContent.write(
+        try ThemeCatalog.fallbackThemeContent.write(
             to: dir.appendingPathComponent("Catppuccin Latte"),
             atomically: true, encoding: .utf8
         )

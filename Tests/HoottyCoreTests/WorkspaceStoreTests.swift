@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct WorkspaceStoreTests {
+struct WorkspaceStoreTests {
     @Test func loadMissingFileReturnsNil() {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-nonexistent-\(UUID().uuidString)")
@@ -21,7 +21,7 @@ import Foundation
         )
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
 
-        try "not json".data(using: .utf8)!.write(to: url)
+        try Data("not json".utf8).write(to: url)
         let store = WorkspaceStore(fileURL: url)
         #expect(store.load() == nil)
     }
@@ -29,8 +29,8 @@ import Foundation
     @Test func snapshotWithoutSidebarFieldsDecodesAsNil() throws {
         // Simulates loading an older workspaces.json that lacks sidebar fields
         let ws = Workspace(name: "Old")
-        let json: [String: Any] = [
-            "workspaces": [try JSONSerialization.jsonObject(with: JSONEncoder().encode(ws))],
+        let json: [String: Any] = try [
+            "workspaces": [JSONSerialization.jsonObject(with: JSONEncoder().encode(ws))],
             "selectedWorkspaceID": ws.id.uuidString
         ]
         let data = try JSONSerialization.data(withJSONObject: json)

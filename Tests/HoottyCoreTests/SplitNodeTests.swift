@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct SplitNodeTests {
+struct SplitNodeTests {
     @Test func splitUnknownPaneReturnsFalse() {
         let pane = Pane(name: "Test")
         let node = SplitNode(pane: pane)
@@ -21,7 +21,7 @@ import Foundation
 
     // MARK: - paneRects
 
-    @Test func paneRectsHorizontalSplit() {
+    @Test func paneRectsHorizontalSplit() throws {
         let pane1 = Pane(name: "P1")
         let pane2 = Pane(name: "P2")
         let node = SplitNode(
@@ -32,8 +32,8 @@ import Foundation
         )
         let rects = node.paneRects()
         #expect(rects.count == 2)
-        let r1 = rects[pane1.id]!
-        let r2 = rects[pane2.id]!
+        let r1 = try #require(rects[pane1.id])
+        let r2 = try #require(rects[pane2.id])
         #expect(abs(r1.minX) < 0.001)
         #expect(abs(r1.width - 0.5) < 0.001)
         #expect(abs(r1.height - 1.0) < 0.001)
@@ -42,7 +42,7 @@ import Foundation
         #expect(abs(r2.height - 1.0) < 0.001)
     }
 
-    @Test func paneRectsVerticalSplit() {
+    @Test func paneRectsVerticalSplit() throws {
         let pane1 = Pane(name: "P1")
         let pane2 = Pane(name: "P2")
         let node = SplitNode(
@@ -53,8 +53,8 @@ import Foundation
         )
         let rects = node.paneRects()
         #expect(rects.count == 2)
-        let r1 = rects[pane1.id]!
-        let r2 = rects[pane2.id]!
+        let r1 = try #require(rects[pane1.id])
+        let r2 = try #require(rects[pane2.id])
         #expect(abs(r1.minY) < 0.001)
         #expect(abs(r1.height - 0.5) < 0.001)
         #expect(abs(r1.width - 1.0) < 0.001)
@@ -63,7 +63,7 @@ import Foundation
         #expect(abs(r2.width - 1.0) < 0.001)
     }
 
-    @Test func paneRectsCustomRatio() {
+    @Test func paneRectsCustomRatio() throws {
         let pane1 = Pane(name: "P1")
         let pane2 = Pane(name: "P2")
         let node = SplitNode(
@@ -73,8 +73,8 @@ import Foundation
             ratio: 0.3
         )
         let rects = node.paneRects()
-        let r1 = rects[pane1.id]!
-        let r2 = rects[pane2.id]!
+        let r1 = try #require(rects[pane1.id])
+        let r2 = try #require(rects[pane2.id])
         #expect(abs(r1.width - 0.3) < 0.001)
         #expect(abs(r2.minX - 0.3) < 0.001)
         #expect(abs(r2.width - 0.7) < 0.001)
@@ -147,7 +147,7 @@ import Foundation
         )
         node.equalizeSplits()
         #expect(abs(node.splitRatio - 0.5) < 0.001)
-        if case .split(_, _, let second) = node.content {
+        if case let .split(_, _, second) = node.content {
             #expect(abs(second.splitRatio - 0.5) < 0.001)
         }
     }
@@ -238,7 +238,7 @@ import Foundation
         #expect(node.sameDirectionChainLeafCount(direction: .horizontal) == 2)
     }
 
-    @Test func equalizeSameDirectionChainThreeLeaves() {
+    @Test func equalizeSameDirectionChainThreeLeaves() throws {
         // H(P1, H(P2, P3)) — equalize should give each 1/3
         let p1 = Pane(name: "P1")
         let p2 = Pane(name: "P2")
@@ -254,12 +254,12 @@ import Foundation
         )
         node.equalizeSameDirectionChain(direction: .horizontal)
         let rects = node.paneRects()
-        #expect(abs(rects[p1.id]!.width - 1.0/3.0) < 0.001)
-        #expect(abs(rects[p2.id]!.width - 1.0/3.0) < 0.001)
-        #expect(abs(rects[p3.id]!.width - 1.0/3.0) < 0.001)
+        #expect(try abs(#require(rects[p1.id]?.width) - 1.0 / 3.0) < 0.001)
+        #expect(try abs(#require(rects[p2.id]?.width) - 1.0 / 3.0) < 0.001)
+        #expect(try abs(#require(rects[p3.id]?.width) - 1.0 / 3.0) < 0.001)
     }
 
-    @Test func equalizeSameDirectionChainFourLeaves() {
+    @Test func equalizeSameDirectionChainFourLeaves() throws {
         // H(P1, H(P2, H(P3, P4))) — equalize should give each 1/4
         let p1 = Pane(name: "P1")
         let p2 = Pane(name: "P2")
@@ -281,7 +281,7 @@ import Foundation
         node.equalizeSameDirectionChain(direction: .horizontal)
         let rects = node.paneRects()
         for pane in [p1, p2, p3, p4] {
-            #expect(abs(rects[pane.id]!.width - 0.25) < 0.001)
+            #expect(try abs(#require(rects[pane.id]?.width) - 0.25) < 0.001)
         }
     }
 

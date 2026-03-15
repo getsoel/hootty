@@ -1,8 +1,8 @@
-import Testing
 import Foundation
+import Testing
 @testable import HoottyCore
 
-@Suite struct ConfigFileTests {
+struct ConfigFileTests {
     private func tempDir() -> URL {
         FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-test-\(UUID().uuidString)")
@@ -122,7 +122,7 @@ import Foundation
         #expect(config3.get("hootty-bell-sound") == nil)
     }
 
-    @Test func savePreservesComments() {
+    @Test func savePreservesComments() throws {
         let url = tempFileURL()
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -140,7 +140,7 @@ import Foundation
         config.set("theme", value: "catppuccin-frappe")
         config.save()
 
-        let raw = try! String(contentsOf: url, encoding: .utf8)
+        let raw = try String(contentsOf: url, encoding: .utf8)
         #expect(raw.contains("# Ghostty settings"))
         #expect(raw.contains("# Hootty settings"))
         #expect(raw.contains("theme = catppuccin-frappe"))
@@ -217,7 +217,7 @@ import Foundation
         #expect(content.contains("font-family = Apple Symbols"))
     }
 
-    @Test func savePreservesRepeatableKeysNotChanged() {
+    @Test func savePreservesRepeatableKeysNotChanged() throws {
         let url = tempFileURL()
         let dir = url.deletingLastPathComponent()
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -234,19 +234,19 @@ import Foundation
         config.set("theme", value: "catppuccin-frappe")
         config.save()
 
-        let saved = try! String(contentsOf: url, encoding: .utf8)
+        let saved = try String(contentsOf: url, encoding: .utf8)
         #expect(saved.contains("theme = catppuccin-frappe"))
         #expect(saved.contains("font-family = JetBrains Mono"))
         #expect(saved.contains("font-family = Apple Symbols"))
         #expect(saved.contains("hootty-bell-sound = Ping"))
     }
 
-    @Test func ensureExistsWritesDefaultContentWithFontFamily() {
+    @Test func ensureExistsWritesDefaultContentWithFontFamily() throws {
         let url = tempFileURL()
         let config = ConfigFile(fileURL: url)
         config.ensureExists()
 
-        let raw = try! String(contentsOf: url, encoding: .utf8)
+        let raw = try String(contentsOf: url, encoding: .utf8)
         #expect(raw.contains("font-family = Menlo"))
         #expect(raw.contains("font-family = Apple Symbols"))
         #expect(raw.contains("theme = Catppuccin Mocha"))

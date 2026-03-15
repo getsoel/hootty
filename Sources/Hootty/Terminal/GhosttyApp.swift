@@ -138,7 +138,7 @@ final class GhosttyApp {
 
         // Log any config diagnostics (warnings/errors from ghostty)
         let diagCount = ghostty_config_diagnostics_count(cfg)
-        for i in 0..<diagCount {
+        for i in 0 ..< diagCount {
             let diag = ghostty_config_get_diagnostic(cfg, i)
             if let msgPtr = diag.message {
                 let msg = String(cString: msgPtr)
@@ -251,7 +251,7 @@ final class GhosttyApp {
         var runtimeCfg = ghostty_runtime_config_s(
             userdata: Unmanaged.passUnretained(self).toOpaque(),
             supports_selection_clipboard: false,
-            wakeup_cb: { userdata in
+            wakeup_cb: { _ in
                 // Wakeup-driven tick: ghostty calls this when it needs processing
                 DispatchQueue.main.async {
                     GhosttyApp.shared.tick()

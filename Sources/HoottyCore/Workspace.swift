@@ -9,6 +9,7 @@ public struct SidebarSection: Identifiable {
         guard let branch else { return "__ungrouped__" }
         return "\(repoRoot ?? "__norepo__")|\(branch)"
     }
+
     public let repoRoot: String?
     public let repoDisplayName: String?
     public let branch: String?
@@ -311,7 +312,7 @@ public final class Workspace: Identifiable {
         let chain = rootNode.ancestorChain(for: paneID)
         var highestSameDir: SplitNode?
         for entry in chain.reversed() {
-            if case .split(let dir, _, _) = entry.node.content, dir == direction {
+            if case let .split(dir, _, _) = entry.node.content, dir == direction {
                 highestSameDir = entry.node
             } else {
                 break
@@ -378,23 +379,22 @@ extension Workspace: Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
         // Migration: try new headBranches dict first, fall back to old headBranch string
-        let branches: [String: String]
-        if let dict = try container.decodeIfPresent([String: String].self, forKey: .headBranches) {
-            branches = dict
+        let branches: [String: String] = if let dict = try container.decodeIfPresent([String: String].self, forKey: .headBranches) {
+            dict
         } else if let oldBranch = try container.decodeIfPresent(String.self, forKey: .headBranch),
                   let repoPath = try container.decodeIfPresent(String.self, forKey: .repoPath) {
-            branches = [repoPath: oldBranch]
+            [repoPath: oldBranch]
         } else {
-            branches = [:]
+            [:]
         }
 
-        self.init(
-            id: try container.decode(UUID.self, forKey: .id),
-            name: try container.decode(String.self, forKey: .name),
-            repoPath: try container.decodeIfPresent(String.self, forKey: .repoPath),
+        try self.init(
+            id: container.decode(UUID.self, forKey: .id),
+            name: container.decode(String.self, forKey: .name),
+            repoPath: container.decodeIfPresent(String.self, forKey: .repoPath),
             headBranches: branches,
-            rootNode: try container.decode(SplitNode.self, forKey: .rootNode),
-            focusedPaneID: try container.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
+            rootNode: container.decode(SplitNode.self, forKey: .rootNode),
+            focusedPaneID: container.decodeIfPresent(UUID.self, forKey: .focusedPaneID)
         )
     }
 
