@@ -40,11 +40,20 @@ struct HoottyApp: App {
         }
 
         _commandRegistry = State(initialValue: CommandRegistry())
+
+        let watcher = GitHEADWatcher()
+        watcher.setOnChange { [model] repoRoot in
+            GitWorktreeManager.invalidateBranchCache(forPathsUnder: repoRoot)
+            model.refreshBranchesForRepo(repoRoot)
+        }
+        _headWatcher = State(initialValue: watcher)
+
         registerCommands()
     }
 
     @State private var appModel: AppModel
     @State private var commandRegistry: CommandRegistry
+    @State private var headWatcher = GitHEADWatcher()
 
     // MARK: - Command Registration
 
@@ -132,6 +141,15 @@ struct HoottyApp: App {
         GhosttyApp.shared.commandRegistry = commandRegistry
     }
 
+    private static func cleanupHeadWatcher(_ watcher: GitHEADWatcher, repoRoot: String, appModel: AppModel) {
+        let hasRemainingPanes = appModel.workspaces.contains { workspace in
+            workspace.allPanes.contains { $0.repoRoot == repoRoot }
+        }
+        if !hasRemainingPanes {
+            watcher.stopWatching(repoRoot: repoRoot)
+        }
+    }
+
     private static func splitFocusedPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
         guard let workspace = appModel.selectedWorkspace else { return }
         let parentSurface = GhosttyApp.shared.focusedSurface
@@ -147,7 +165,18 @@ struct HoottyApp: App {
         WindowGroup {
             ContentView(appModel: appModel, commandRegistry: commandRegistry)
                 .frame(minWidth: 700, minHeight: 400)
-                .onAppear {
+                .onAppear { [headWatcher] in
+                    // Bootstrap HEAD watchers for persisted repos
+                    for workspace in appModel.workspaces {
+                        for pane in workspace.allPanes {
+                            if let repoRoot = pane.repoRoot,
+                               !headWatcher.watchedRepoRoots.contains(repoRoot),
+                               let gitDir = GitWorktreeManager.gitCommonDir(for: pane.workingDirectory) {
+                                headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
+                            }
+                        }
+                    }
+
                     if GhosttyApp.shared.onNewTab == nil {
                         NotificationCenter.default.addObserver(
                             forName: NSApplication.willTerminateNotification,
@@ -190,29 +219,45 @@ struct HoottyApp: App {
                             appModel.saveWorkspaces()
                         }
                     }
-                    GhosttyApp.shared.onCloseSurface = { [appModel] paneID in
+                    GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher] paneID in
+                        let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
                         GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                         guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
                         workspace.removePane(id: paneID)
                         appModel.saveWorkspaces()
+                        // Clean up watcher if no panes remain in this repo
+                        if let root = repoRoot {
+                            Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                        }
                     }
                     GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
                         appModel.handleTitleChange(paneID, title: title)
                     }
-                    GhosttyApp.shared.onPwdChanged = { [appModel] paneID, pwd in
+                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher] paneID, pwd in
                         appModel.handlePwdChanged(paneID, pwd: pwd)
+                        // Register HEAD watcher for newly discovered repos
+                        if let (_, pane) = appModel.findPane(id: paneID),
+                           let repoRoot = pane.repoRoot,
+                           !headWatcher.watchedRepoRoots.contains(repoRoot),
+                           let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
+                            headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
+                        }
                     }
                     GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
                         if exitCode > 128 {
                             Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
                         }
                     }
-                    GhosttyApp.shared.onCloseTab = { [appModel] in
+                    GhosttyApp.shared.onCloseTab = { [appModel, headWatcher] in
                         guard let workspace = appModel.selectedWorkspace,
                               let focusedPaneID = workspace.focusedPaneID else { return }
+                        let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
                         GhosttyApp.shared.removeCachedSurfaceView(for: focusedPaneID)
                         workspace.removePane(id: focusedPaneID)
                         appModel.saveWorkspaces()
+                        if let root = repoRoot {
+                            Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                        }
                     }
                 }
         }

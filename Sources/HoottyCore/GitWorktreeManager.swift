@@ -85,6 +85,26 @@ public enum GitWorktreeManager {
         isWorktreeCache.removeAll()
     }
 
+    /// Clear only branch cache entries whose key starts with the given repo root.
+    /// Used when `.git/HEAD` changes to force re-query of branches for that repo.
+    public static func invalidateBranchCache(forPathsUnder repoRoot: String) {
+        let prefix = repoRoot.hasSuffix("/") ? repoRoot : repoRoot + "/"
+        branchCache = branchCache.filter { key, _ in
+            key != repoRoot && !key.hasPrefix(prefix)
+        }
+    }
+
+    /// Returns the `.git` common directory path for a working directory.
+    /// For main checkouts this is `<repo>/.git`; for worktrees it points to the main `.git` dir.
+    public static func gitCommonDir(for path: String) -> String? {
+        guard let commonDir = run(["git", "-C", path, "rev-parse", "--git-common-dir"]) else {
+            return nil
+        }
+        let resolved = (commonDir as NSString).standardizingPath
+        let gitURL = URL(fileURLWithPath: resolved, relativeTo: URL(fileURLWithPath: path))
+        return gitURL.standardizedFileURL.path
+    }
+
     // MARK: - Cached Queries
 
     /// Detect repo root from a directory path.

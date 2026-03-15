@@ -160,6 +160,28 @@ public final class AppModel {
         return body(workspace, pane)
     }
 
+    /// Re-query branch for all panes in the given canonical repo root.
+    /// Called when `.git/HEAD` changes (branch switch without pwd change).
+    public func refreshBranchesForRepo(_ canonicalRepoRoot: String) {
+        var changed = false
+        for workspace in workspaces {
+            for pane in workspace.allPanes where pane.repoRoot == canonicalRepoRoot {
+                let newBranch = GitWorktreeManager.currentBranch(for: pane.workingDirectory)
+                if pane.branch != newBranch {
+                    pane.branch = newBranch
+                    changed = true
+                }
+                // Update headBranches for main checkout panes (not worktrees)
+                if pane.worktreePath == nil, let branch = newBranch,
+                   workspace.headBranches[canonicalRepoRoot] != branch {
+                    workspace.headBranches[canonicalRepoRoot] = branch
+                    changed = true
+                }
+            }
+        }
+        if changed { debouncedSave() }
+    }
+
     public func resetWorkspaces() {
         workspaceStore.deleteStorage()
         workspaces = []
