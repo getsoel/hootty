@@ -213,12 +213,16 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if let workspace = selectedWorkspace {
+        if appModel.detailMode == .templates {
+            TemplateEditorView(tokens: tokens)
+        } else if let workspace = selectedWorkspace {
             switch appModel.detailMode {
             case .terminals:
                 terminalsDetail(workspace: workspace)
             case .board:
                 boardDetail(workspace: workspace)
+            case .templates:
+                EmptyView()
             }
         } else {
             Text("Select or create a workspace")

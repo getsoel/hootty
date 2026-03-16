@@ -22,6 +22,7 @@ public final class AppModel {
     public enum DetailMode {
         case terminals
         case board
+        case templates
     }
 
     public var modalState: ModalState = .none
