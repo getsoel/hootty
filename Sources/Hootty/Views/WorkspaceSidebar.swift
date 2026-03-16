@@ -5,13 +5,11 @@ import UniformTypeIdentifiers
 private enum SidebarTab: String, CaseIterable {
     case terminals = "Terminals"
     case board = "Board"
-    case templates = "Templates"
 
     init(_ detailMode: AppModel.DetailMode) {
         switch detailMode {
         case .terminals: self = .terminals
         case .board: self = .board
-        case .templates: self = .templates
         }
     }
 
@@ -19,7 +17,6 @@ private enum SidebarTab: String, CaseIterable {
         switch self {
         case .terminals: .terminals
         case .board: .board
-        case .templates: .templates
         }
     }
 }

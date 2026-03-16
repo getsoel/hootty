@@ -22,11 +22,22 @@ public final class AppModel {
     public enum DetailMode {
         case terminals
         case board
+    }
+
+    public enum AppMode {
+        case workspaces
+        case pipelines
+    }
+
+    public enum PipelineMode {
+        case boards
         case templates
     }
 
     public var modalState: ModalState = .none
     public var detailMode: DetailMode = .terminals
+    public var appMode: AppMode = .workspaces
+    public var pipelineMode: PipelineMode = .boards
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
 
@@ -242,5 +253,26 @@ public final class AppModel {
               let idx = workspaces.firstIndex(where: { $0.id == current }) else { return }
         let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
         selectedWorkspaceID = workspaces[prevIdx].id
+    }
+
+    /// Refresh pipeline state for all panes in a specific repo root.
+    public func refreshPipeline(repoRoot: String) {
+        let panes = pipelinePanes(forRepoRoot: repoRoot)
+        pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
+    }
+
+    /// Run `hootty pipeline archive` for a pipeline in the background.
+    public func archivePipeline(name: String, repoRoot: String) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["hootty", "pipeline", "archive", name]
+            process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
+            try? process.run()
+            process.waitUntilExit()
+            DispatchQueue.main.async { [weak self] in
+                self?.refreshPipeline(repoRoot: repoRoot)
+            }
+        }
     }
 }

@@ -34,80 +34,23 @@ struct ContentView: View {
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let sidebarW = appModel.sidebarVisible ? effectiveSidebarWidth : 0
-            let dividerW: CGFloat = appModel.sidebarVisible ? 1 : 0
-            let detailX = sidebarW + dividerW
-            let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
-
-            ZStack(alignment: .topLeading) {
-                // Sidebar
-                if appModel.sidebarVisible {
-                    sidebar
-                        .frame(width: sidebarW, height: geometry.size.height)
-
-                    // Visible 1px divider line
-                    Rectangle()
-                        .fill(Color(tokens.border))
-                        .frame(width: 1, height: geometry.size.height)
-                        .offset(x: sidebarW)
-
-                    // Invisible wide drag handle overlaying the divider
-                    Color.clear
-                        .frame(width: 16, height: geometry.size.height)
-                        .contentShape(Rectangle())
-                        .offset(x: sidebarW - 7.5)
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                DispatchQueue.main.async {
-                                    NSCursor.resizeLeftRight.set()
-                                }
-                            case .ended:
-                                DispatchQueue.main.async {
-                                    NSCursor.arrow.set()
-                                }
-                            }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .updating($dragOffset) { value, state, _ in
-                                    state = value.translation.width
-                                }
-                                .onEnded { value in
-                                    let newWidth = appModel.sidebarWidth + value.translation.width
-                                    appModel.sidebarWidth = min(
-                                        max(newWidth, AppModel.sidebarMinWidth),
-                                        AppModel.sidebarMaxWidth
-                                    )
-                                    appModel.debouncedSave()
-                                }
-                        )
-                }
-
-                // Detail area
-                detailView
-                    .frame(
-                        width: max(0, fullWidth - detailX),
-                        height: geometry.size.height
-                    )
-                    .offset(x: detailX)
-            }
-            .frame(width: fullWidth, alignment: .topLeading)
-            .clipped()
+        VStack(spacing: 0) {
+            titleBar
+            mainContent
         }
+        .ignoresSafeArea(edges: .top)
         .background(Color(tokens.surface), ignoresSafeAreaEdges: [])
         .background(Color(tokens.background))
-        .safeAreaInset(edge: .top, spacing: 0) {
-            Rectangle()
-                .fill(Color(tokens.border))
-                .frame(height: 1)
-        }
         .background(
             WindowAccessor { window in
                 window.isOpaque = true
                 window.backgroundColor = tokens.background
                 window.appearance = NSAppearance(named: theme.isLight ? .aqua : .darkAqua)
+
+                // Vertically center traffic lights in the 38pt title bar.
+                // Use Auto Layout constraints on each button — persists across
+                // window move/resize/fullscreen unlike setFrameOrigin.
+                Self.repositionTrafficLights(in: window)
             }
         )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
@@ -211,18 +154,137 @@ struct ContentView: View {
         )
     }
 
+    // MARK: - Title Bar
+
+    private var titleBar: some View {
+        HStack(spacing: 0) {
+            // Leave space for traffic lights
+            Color.clear.frame(width: 78)
+
+            appModePicker
+
+            Spacer()
+        }
+        .frame(height: 38)
+        .frame(maxWidth: .infinity)
+        .background(Color(tokens.tabBarBackground))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color(tokens.border)).frame(height: 1)
+        }
+    }
+
+    private var appModePicker: some View {
+        HStack(spacing: 2) {
+            appModeLabel(mode: .workspaces, title: "Workspaces")
+            appModeLabel(mode: .pipelines, title: "Pipelines")
+        }
+        .padding(2)
+        .background(
+            Capsule()
+                .fill(Color(tokens.surfaceHighlight).opacity(0.3))
+        )
+    }
+
+    private func appModeLabel(mode: AppModel.AppMode, title: String) -> some View {
+        let isActive = appModel.appMode == mode
+        return Text(title)
+            .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
+            .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.xs + 1)
+            .background(
+                Capsule()
+                    .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
+            )
+            .contentShape(Capsule())
+            .onTapGesture { appModel.appMode = mode }
+    }
+
+    // MARK: - Main Content
+
+    @ViewBuilder
+    private var mainContent: some View {
+        switch appModel.appMode {
+        case .workspaces:
+            workspacesContent
+        case .pipelines:
+            PipelinesView(appModel: appModel, tokens: tokens)
+        }
+    }
+
+    private var workspacesContent: some View {
+        GeometryReader { geometry in
+            let sidebarW = appModel.sidebarVisible ? effectiveSidebarWidth : 0
+            let dividerW: CGFloat = appModel.sidebarVisible ? 1 : 0
+            let detailX = sidebarW + dividerW
+            let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
+
+            ZStack(alignment: .topLeading) {
+                // Sidebar
+                if appModel.sidebarVisible {
+                    sidebar
+                        .frame(width: sidebarW, height: geometry.size.height)
+
+                    // Visible 1px divider line
+                    Rectangle()
+                        .fill(Color(tokens.border))
+                        .frame(width: 1, height: geometry.size.height)
+                        .offset(x: sidebarW)
+
+                    // Invisible wide drag handle overlaying the divider
+                    Color.clear
+                        .frame(width: 16, height: geometry.size.height)
+                        .contentShape(Rectangle())
+                        .offset(x: sidebarW - 7.5)
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                DispatchQueue.main.async {
+                                    NSCursor.resizeLeftRight.set()
+                                }
+                            case .ended:
+                                DispatchQueue.main.async {
+                                    NSCursor.arrow.set()
+                                }
+                            }
+                        }
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .updating($dragOffset) { value, state, _ in
+                                    state = value.translation.width
+                                }
+                                .onEnded { value in
+                                    let newWidth = appModel.sidebarWidth + value.translation.width
+                                    appModel.sidebarWidth = min(
+                                        max(newWidth, AppModel.sidebarMinWidth),
+                                        AppModel.sidebarMaxWidth
+                                    )
+                                    appModel.debouncedSave()
+                                }
+                        )
+                }
+
+                // Detail area
+                detailView
+                    .frame(
+                        width: max(0, fullWidth - detailX),
+                        height: geometry.size.height
+                    )
+                    .offset(x: detailX)
+            }
+            .frame(width: fullWidth, alignment: .topLeading)
+            .clipped()
+        }
+    }
+
     @ViewBuilder
     private var detailView: some View {
-        if appModel.detailMode == .templates {
-            TemplateEditorView(tokens: tokens)
-        } else if let workspace = selectedWorkspace {
+        if let workspace = selectedWorkspace {
             switch appModel.detailMode {
             case .terminals:
                 terminalsDetail(workspace: workspace)
             case .board:
                 boardDetail(workspace: workspace)
-            case .templates:
-                EmptyView()
             }
         } else {
             Text("Select or create a workspace")
@@ -266,7 +328,7 @@ struct ContentView: View {
                 appModel.detailMode = .board
             },
             onPipelineRefresh: { repoRoot in
-                refreshPipeline(repoRoot: repoRoot)
+                appModel.refreshPipeline(repoRoot: repoRoot)
             }
         )
         .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
@@ -297,25 +359,25 @@ struct ContentView: View {
                         highlightedJobSlug: appModel.pipelineModel.highlightedJobSlug,
                         onTogglePause: {
                             if appModel.pipelineModel.togglePause(repoRoot: repoRoot, pipelineName: board.pipelineName) {
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onMoveJob: { slug, from, to in
                             if appModel.pipelineModel.moveJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, fromStageIndex: from, toStageIndex: to, stages: board.stages) {
                                 _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Moved to \(board.stages[safe: to]?.name ?? "unknown")")
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onAddJob: { title, stageIndex in
                             if let slug = appModel.pipelineModel.addJob(repoRoot: repoRoot, pipelineName: board.pipelineName, title: title, stages: board.stages, toStageIndex: stageIndex) {
                                 _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Created")
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onRemoveJob: { slug in
                             _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Removed")
                             if appModel.pipelineModel.removeJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug) {
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onClickClaimed: { sessionKey in
@@ -329,29 +391,29 @@ struct ContentView: View {
                         },
                         onUpdateTitle: { slug, newTitle in
                             if appModel.pipelineModel.updateJobTitle(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, newTitle: newTitle) {
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onAddStage: { name, type, afterIndex in
                             if appModel.pipelineModel.addStage(repoRoot: repoRoot, pipelineName: board.pipelineName, stageName: name, type: type, afterIndex: afterIndex) {
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onRemoveStage: { stageIndex in
                             if appModel.pipelineModel.removeStage(repoRoot: repoRoot, pipelineName: board.pipelineName, stageIndex: stageIndex) {
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onChangeStageType: { stageIndex, newType in
                             if appModel.pipelineModel.changeStageType(repoRoot: repoRoot, pipelineName: board.pipelineName, stageIndex: stageIndex, newType: newType) {
-                                refreshPipeline(repoRoot: repoRoot)
+                                appModel.refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onClaimInWorktree: { slug in
                             claimInWorktree(slug: slug, repoRoot: repoRoot, workspace: workspace)
                         },
                         onArchive: {
-                            runPipelineArchive(pipelineName: board.pipelineName, repoRoot: repoRoot)
+                            appModel.archivePipeline(name: board.pipelineName, repoRoot: repoRoot)
                         }
                     )
                     .task(id: appModel.pipelineModel.highlightedJobSlug) {
@@ -447,7 +509,7 @@ struct ContentView: View {
                     let stages = availableTemplates.first(where: { $0.name == selectedTemplateName })?.stages
                         ?? PipelineTemplate.review.stages
                     if appModel.pipelineModel.createPipeline(repoRoot: repoRoot, pipelineName: slug, displayName: name, stages: stages) {
-                        refreshPipeline(repoRoot: repoRoot)
+                        appModel.refreshPipeline(repoRoot: repoRoot)
                         selectedPipelineName = slug
                     }
                     showCreatePipeline = false
@@ -528,7 +590,7 @@ struct ContentView: View {
                 if let name = pipelineToDelete, let repoRoot {
                     if appModel.pipelineModel.deletePipeline(repoRoot: repoRoot, pipelineName: name) {
                         if selectedPipelineName == name { selectedPipelineName = nil }
-                        refreshPipeline(repoRoot: repoRoot)
+                        appModel.refreshPipeline(repoRoot: repoRoot)
                     }
                 }
                 pipelineToDelete = nil
@@ -615,11 +677,6 @@ struct ContentView: View {
         }
     }
 
-    private func refreshPipeline(repoRoot: String) {
-        let panes = appModel.pipelinePanes(forRepoRoot: repoRoot)
-        appModel.pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
-    }
-
     private func navigateToClaimedPane(sessionKey: String, workspace: Workspace) {
         // Find the pane that has this session key
         for pane in workspace.allPanes {
@@ -667,22 +724,7 @@ struct ContentView: View {
                     appModel.detailMode = .terminals
                     appModel.saveWorkspaces()
                 }
-                refreshPipeline(repoRoot: repoRoot)
-            }
-        }
-    }
-
-    private func runPipelineArchive(pipelineName: String, repoRoot: String) {
-        // Run `hootty pipeline archive <name>` in the repo root
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["hootty", "pipeline", "archive", pipelineName]
-            process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
-            try? process.run()
-            process.waitUntilExit()
-            DispatchQueue.main.async {
-                refreshPipeline(repoRoot: repoRoot)
+                appModel.refreshPipeline(repoRoot: repoRoot)
             }
         }
     }
@@ -693,6 +735,56 @@ struct ContentView: View {
             appModel.themeManager.setResolvedTheme(resolved)
         } else if let fallback {
             appModel.themeManager.setResolvedTheme(fallback)
+        }
+    }
+
+    // MARK: - Traffic Light Positioning
+
+    private static let trafficLightConstraintID = "hootty-traffic-light"
+    private static let titleBarHeight: CGFloat = 38
+
+    /// Reposition traffic light buttons to vertically center in the 38pt title bar.
+    /// Uses Auto Layout constraints which persist across window move/resize/fullscreen.
+    private static func repositionTrafficLights(in window: NSWindow) {
+        guard let close = window.standardWindowButton(.closeButton),
+              let minimize = window.standardWindowButton(.miniaturizeButton),
+              let zoom = window.standardWindowButton(.zoomButton),
+              let titlebarView = close.superview else { return }
+
+        // Only apply once per window
+        if titlebarView.constraints.contains(where: { $0.identifier == trafficLightConstraintID }) {
+            return
+        }
+
+        // Expand the titlebar container to match our bar height
+        if let titlebarContainer = titlebarView.superview {
+            let heightConstraint = titlebarContainer.heightAnchor.constraint(equalToConstant: titleBarHeight)
+            heightConstraint.identifier = trafficLightConstraintID
+            heightConstraint.isActive = true
+        }
+
+        let buttonHeight = close.frame.height
+        let offsetTop = (titleBarHeight - buttonHeight) / 2
+        let leftInset: CGFloat = 12
+        let buttonSpacing: CGFloat = 20
+
+        for (index, button) in [close, minimize, zoom].enumerated() {
+            button.translatesAutoresizingMaskIntoConstraints = false
+
+            // Remove system autoresizing constraints on this button
+            let existing = titlebarView.constraints.filter {
+                $0.firstItem === button || $0.secondItem === button
+            }
+            NSLayoutConstraint.deactivate(existing)
+
+            let top = button.topAnchor.constraint(equalTo: titlebarView.topAnchor, constant: offsetTop)
+            top.identifier = trafficLightConstraintID
+            let leading = button.leadingAnchor.constraint(
+                equalTo: titlebarView.leadingAnchor,
+                constant: leftInset + CGFloat(index) * buttonSpacing
+            )
+            leading.identifier = trafficLightConstraintID
+            NSLayoutConstraint.activate([top, leading])
         }
     }
 }
