@@ -14,11 +14,22 @@ public final class PipelineModel {
     /// Set of repo roots known to have `.hootty/pipeline/` directories.
     public private(set) var watchedRepoRoots: Set<String> = []
 
+    /// Callback fired when a pane's claim status transitions to interrupted.
+    public var onPaneInterrupted: ((UUID) -> Void)?
+
+    /// The job slug to highlight on the board (set during cross-view navigation, cleared after display).
+    public var highlightedJobSlug: String?
+
     public init() {}
 
     /// Get the claim info for a specific pane, if any.
     public func claimInfo(for paneID: UUID) -> PipelineClaimInfo? {
         claimsByPane[paneID]
+    }
+
+    /// Total count of jobs needing human attention across all pipelines in a repo.
+    public func attentionCount(for repoRoot: String) -> Int {
+        boardData(for: repoRoot).reduce(0) { $0 + $1.jobsNeedingAttention }
     }
 
     /// Get board data for a specific repo root.
@@ -36,6 +47,9 @@ public final class PipelineModel {
     /// Refresh pipeline state for all panes in a specific repo root.
     /// Called by the watcher when `.state.json` changes.
     public func refresh(repoRoot: String, panes: [(id: UUID, sessionIDs: [String])]) {
+        // Snapshot previous claims for detecting status transitions
+        let previousClaims = claimsByPane
+
         guard let stateFile = PipelineReader.readStateFile(repoRoot: repoRoot) else {
             // State file gone or unreadable — clear all claims for panes in this repo
             for (paneID, _) in panes {
@@ -104,19 +118,46 @@ public final class PipelineModel {
                 )
             }
 
+            // Read archived jobs
+            let archivedEntries = PipelineReader.readArchivedJobs(repoRoot: repoRoot, pipelineName: pipelineName)
+            let archivedInfos = archivedEntries.map { job in
+                PipelineJobInfo(
+                    slug: job.slug,
+                    title: job.title,
+                    stageIndex: -1,
+                    stageName: "Archive",
+                    status: .completed,
+                    claimedBy: nil,
+                    priority: job.priority,
+                    labels: job.labels
+                )
+            }
+
             boards.append(PipelineBoardData(
                 pipelineName: pipelineName,
                 displayName: config.name,
                 stages: config.stages,
                 jobs: jobInfos,
-                isPaused: runtime.paused
+                isPaused: runtime.paused,
+                archivedJobs: archivedInfos
             ))
         }
         boardDataByRepo[repoRoot] = boards
 
         // Clear claims for panes in this repo that are no longer claimed
-        for (paneID, _) in panes where !claimedPaneIDs.contains(paneID) {
-            claimsByPane.removeValue(forKey: paneID)
+        // and detect interrupted transitions for attention
+        for (paneID, _) in panes {
+            if claimedPaneIDs.contains(paneID) {
+                // Check for status transition to interrupted
+                if let oldClaim = previousClaims[paneID],
+                   let newClaim = claimsByPane[paneID],
+                   oldClaim.status != .interrupted,
+                   newClaim.status == .interrupted {
+                    onPaneInterrupted?(paneID)
+                }
+            } else {
+                claimsByPane.removeValue(forKey: paneID)
+            }
         }
     }
 
@@ -163,5 +204,40 @@ public final class PipelineModel {
             }
         }
         return false
+    }
+
+    /// Update a job's title in its frontmatter.
+    public func updateJobTitle(repoRoot: String, pipelineName: String, jobSlug: String, stages: [PipelineStageDef], newTitle: String) -> Bool {
+        PipelineWriter.updateJobTitle(repoRoot: repoRoot, pipelineName: pipelineName, jobSlug: jobSlug, stages: stages, newTitle: newTitle)
+    }
+
+    /// Append a log entry to a job file.
+    public func appendLogEntry(repoRoot: String, pipelineName: String, jobSlug: String, stages: [PipelineStageDef], message: String) -> Bool {
+        PipelineWriter.appendLogEntry(repoRoot: repoRoot, pipelineName: pipelineName, jobSlug: jobSlug, stages: stages, message: message)
+    }
+
+    /// Create a new pipeline from a template.
+    public func createPipeline(repoRoot: String, pipelineName: String, displayName: String, stages: [PipelineStageDef]) -> Bool {
+        PipelineWriter.createPipeline(repoRoot: repoRoot, pipelineName: pipelineName, displayName: displayName, stages: stages)
+    }
+
+    /// Delete a pipeline entirely.
+    public func deletePipeline(repoRoot: String, pipelineName: String) -> Bool {
+        PipelineWriter.deletePipeline(repoRoot: repoRoot, pipelineName: pipelineName)
+    }
+
+    /// Add a stage to a pipeline.
+    public func addStage(repoRoot: String, pipelineName: String, stageName: String, type: PipelineStageDef.StageType, afterIndex: Int?) -> Bool {
+        PipelineWriter.addStage(repoRoot: repoRoot, pipelineName: pipelineName, stageName: stageName, type: type, afterIndex: afterIndex)
+    }
+
+    /// Remove a stage from a pipeline (moves jobs to previous stage).
+    public func removeStage(repoRoot: String, pipelineName: String, stageIndex: Int) -> Bool {
+        PipelineWriter.removeStage(repoRoot: repoRoot, pipelineName: pipelineName, stageIndex: stageIndex)
+    }
+
+    /// Change a stage's type (automated/manual).
+    public func changeStageType(repoRoot: String, pipelineName: String, stageIndex: Int, newType: PipelineStageDef.StageType) -> Bool {
+        PipelineWriter.changeStageType(repoRoot: repoRoot, pipelineName: pipelineName, stageIndex: stageIndex, newType: newType)
     }
 }

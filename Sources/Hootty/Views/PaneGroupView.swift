@@ -12,6 +12,8 @@ struct PaneContentView: View {
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
     let onSave: () -> Void
+    var onSwitchToBoard: ((String?) -> Void)?
+    var onPipelineRefresh: ((String) -> Void)?
     @State private var isDropTarget = false
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
     @Environment(\.sidebarCursorPaneID) private var sidebarCursorPaneID
@@ -33,7 +35,30 @@ struct PaneContentView: View {
             )
 
             if let claim = pipelineModel.claimInfo(for: pane.id) {
-                PipelineBarView(claimInfo: claim, tokens: tokens)
+                PipelineBarView(
+                    claimInfo: claim,
+                    tokens: tokens,
+                    onTogglePause: {
+                        guard let repoRoot = pane.repoRoot else { return }
+                        if pipelineModel.togglePause(repoRoot: repoRoot, pipelineName: claim.pipelineName) {
+                            onPipelineRefresh?(repoRoot)
+                        }
+                    },
+                    onClickPipelineName: {
+                        onSwitchToBoard?(claim.pipelineName)
+                    },
+                    onAdvance: {
+                        guard let repoRoot = pane.repoRoot else { return }
+                        let nextIndex = claim.currentStageIndex + 1
+                        if pipelineModel.moveJob(repoRoot: repoRoot, pipelineName: claim.pipelineName, jobSlug: claim.jobSlug, fromStageIndex: claim.currentStageIndex, toStageIndex: nextIndex, stages: claim.stages) {
+                            onPipelineRefresh?(repoRoot)
+                        }
+                    },
+                    onLoadJobBody: { slug in
+                        guard let repoRoot = pane.repoRoot else { return nil }
+                        return PipelineReader.readJobBody(repoRoot: repoRoot, pipelineName: claim.pipelineName, stages: claim.stages, jobSlug: slug)
+                    }
+                )
             }
 
             TerminalPaneView(pane: pane, isFocused: isFocused, onFocusPane: onFocusPane)

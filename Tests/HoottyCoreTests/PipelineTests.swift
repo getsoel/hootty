@@ -581,4 +581,302 @@ struct PipelineModelTests {
         )
         #expect(model.claimInfo(for: paneID) == nil)
     }
+
+    @Test func attentionCountTracksManualStageJobs() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        let backlogDir = pipelineDir.appendingPathComponent("backlog")
+        let implementDir = pipelineDir.appendingPathComponent("implement")
+        try FileManager.default.createDirectory(at: backlogDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: implementDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let yaml = """
+        name: "Test"
+
+        stages:
+          - name: Backlog
+            type: manual
+          - name: Implement
+            type: automated
+        """
+        try yaml.write(to: pipelineDir.appendingPathComponent("pipeline.yaml"), atomically: true, encoding: .utf8)
+
+        // Unclaimed job in manual stage → needs attention
+        try "---\ntitle: Waiting\n---\n".write(to: backlogDir.appendingPathComponent("001-waiting.md"), atomically: true, encoding: .utf8)
+        // Active job in automated stage → no attention
+        try "---\ntitle: Working\n---\n".write(to: implementDir.appendingPathComponent("002-working.md"), atomically: true, encoding: .utf8)
+
+        let paneID = UUID()
+        let stateJSON = """
+        {
+          "pipelines": {
+            "default": {
+              "claims": { "\(paneID.uuidString)": "002-working" },
+              "job_statuses": { "002-working": "active" },
+              "paused": false
+            }
+          }
+        }
+        """
+        try stateJSON.write(to: tempDir.appendingPathComponent(".hootty/pipeline/.state.json"), atomically: true, encoding: .utf8)
+
+        let model = PipelineModel()
+        model.refresh(repoRoot: tempDir.path, panes: [(id: paneID, sessionIDs: [paneID.uuidString])])
+
+        #expect(model.attentionCount(for: tempDir.path) == 1)
+    }
+
+    @Test func interruptedTransitionFiresCallback() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        let backlogDir = pipelineDir.appendingPathComponent("backlog")
+        try FileManager.default.createDirectory(at: backlogDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let yaml = "name: \"Test\"\n\nstages:\n  - name: Backlog\n    type: manual\n"
+        try yaml.write(to: pipelineDir.appendingPathComponent("pipeline.yaml"), atomically: true, encoding: .utf8)
+        try "---\ntitle: Job\n---\n".write(to: backlogDir.appendingPathComponent("001-job.md"), atomically: true, encoding: .utf8)
+
+        let paneID = UUID()
+        let model = PipelineModel()
+        var interruptedPaneID: UUID?
+        model.onPaneInterrupted = { id in interruptedPaneID = id }
+
+        // First refresh: active
+        let activeJSON = """
+        { "pipelines": { "default": { "claims": { "\(paneID.uuidString)": "001-job" }, "job_statuses": { "001-job": "active" }, "paused": false } } }
+        """
+        try activeJSON.write(to: tempDir.appendingPathComponent(".hootty/pipeline/.state.json"), atomically: true, encoding: .utf8)
+        model.refresh(repoRoot: tempDir.path, panes: [(id: paneID, sessionIDs: [paneID.uuidString])])
+        #expect(interruptedPaneID == nil)
+
+        // Second refresh: interrupted
+        let interruptedJSON = """
+        { "pipelines": { "default": { "claims": { "\(paneID.uuidString)": "001-job" }, "job_statuses": { "001-job": "interrupted" }, "paused": false } } }
+        """
+        try interruptedJSON.write(to: tempDir.appendingPathComponent(".hootty/pipeline/.state.json"), atomically: true, encoding: .utf8)
+        model.refresh(repoRoot: tempDir.path, panes: [(id: paneID, sessionIDs: [paneID.uuidString])])
+        #expect(interruptedPaneID == paneID)
+    }
+}
+
+// MARK: - PipelineWriter Extended Tests
+
+struct PipelineWriterExtendedTests {
+    @Test func appendsLogEntry() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let stageDir = tempDir.appendingPathComponent(".hootty/pipeline/default/backlog")
+        try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "---\ntitle: Test Job\n---\n\nSome body.\n".write(
+            to: stageDir.appendingPathComponent("001-test-job.md"), atomically: true, encoding: .utf8
+        )
+
+        let stages = [PipelineStageDef(name: "Backlog", type: .manual)]
+        let result = PipelineWriter.appendLogEntry(
+            repoRoot: tempDir.path, pipelineName: "default",
+            jobSlug: "001-test-job", stages: stages, message: "Test log entry"
+        )
+        #expect(result == true)
+
+        let content = try String(contentsOf: stageDir.appendingPathComponent("001-test-job.md"), encoding: .utf8)
+        #expect(content.contains("## Log"))
+        #expect(content.contains("Test log entry"))
+    }
+
+    @Test func updatesJobTitle() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let stageDir = tempDir.appendingPathComponent(".hootty/pipeline/default/backlog")
+        try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "---\ntitle: Old Title\npriority: high\n---\n\nBody.\n".write(
+            to: stageDir.appendingPathComponent("001-test.md"), atomically: true, encoding: .utf8
+        )
+
+        let stages = [PipelineStageDef(name: "Backlog", type: .manual)]
+        let result = PipelineWriter.updateJobTitle(
+            repoRoot: tempDir.path, pipelineName: "default",
+            jobSlug: "001-test", stages: stages, newTitle: "New Title"
+        )
+        #expect(result == true)
+
+        let content = try String(contentsOf: stageDir.appendingPathComponent("001-test.md"), encoding: .utf8)
+        #expect(content.contains("title: New Title"))
+        #expect(!content.contains("Old Title"))
+        #expect(content.contains("priority: high"))
+    }
+
+    @Test func createsPipelineWithStages() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineBase = tempDir.appendingPathComponent(".hootty/pipeline")
+        try FileManager.default.createDirectory(at: pipelineBase, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let stages = PipelineTemplate.review.stages
+        let result = PipelineWriter.createPipeline(
+            repoRoot: tempDir.path, pipelineName: "feature",
+            displayName: "Feature Pipeline", stages: stages
+        )
+        #expect(result == true)
+
+        let config = PipelineReader.readPipelineConfig(repoRoot: tempDir.path, pipelineName: "feature")
+        #expect(config?.name == "Feature Pipeline")
+        #expect(config?.stages.count == 4)
+
+        // Stage directories exist
+        let fm = FileManager.default
+        let pipelineDir = pipelineBase.appendingPathComponent("feature")
+        #expect(fm.fileExists(atPath: pipelineDir.appendingPathComponent("backlog").path))
+        #expect(fm.fileExists(atPath: pipelineDir.appendingPathComponent("implement").path))
+        #expect(fm.fileExists(atPath: pipelineDir.appendingPathComponent("review").path))
+        #expect(fm.fileExists(atPath: pipelineDir.appendingPathComponent("done").path))
+
+        // State file has entry
+        let state = PipelineReader.readStateFile(repoRoot: tempDir.path)
+        #expect(state?.pipelines["feature"] != nil)
+    }
+
+    @Test func deletesPipeline() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineBase = tempDir.appendingPathComponent(".hootty/pipeline")
+        try FileManager.default.createDirectory(at: pipelineBase, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let stages = PipelineTemplate.simple.stages
+        _ = PipelineWriter.createPipeline(repoRoot: tempDir.path, pipelineName: "todelete", displayName: "Delete Me", stages: stages)
+
+        let result = PipelineWriter.deletePipeline(repoRoot: tempDir.path, pipelineName: "todelete")
+        #expect(result == true)
+
+        let fm = FileManager.default
+        #expect(!fm.fileExists(atPath: pipelineBase.appendingPathComponent("todelete").path))
+    }
+
+    @Test func addsStage() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineBase = tempDir.appendingPathComponent(".hootty/pipeline")
+        try FileManager.default.createDirectory(at: pipelineBase, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        _ = PipelineWriter.createPipeline(repoRoot: tempDir.path, pipelineName: "default", displayName: "Test", stages: PipelineTemplate.simple.stages)
+
+        let result = PipelineWriter.addStage(repoRoot: tempDir.path, pipelineName: "default", stageName: "Review", type: .manual, afterIndex: 1)
+        #expect(result == true)
+
+        let config = PipelineReader.readPipelineConfig(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(config?.stages.count == 4)
+        #expect(config?.stages[2].name == "Review")
+        #expect(config?.stages[2].type == .manual)
+    }
+
+    @Test func removesStageAndMovesJobs() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineBase = tempDir.appendingPathComponent(".hootty/pipeline")
+        try FileManager.default.createDirectory(at: pipelineBase, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        _ = PipelineWriter.createPipeline(repoRoot: tempDir.path, pipelineName: "default", displayName: "Test", stages: PipelineTemplate.review.stages)
+
+        // Add a job to Implement stage
+        let implementDir = pipelineBase.appendingPathComponent("default/implement")
+        try "---\ntitle: A Job\n---\n".write(to: implementDir.appendingPathComponent("001-a-job.md"), atomically: true, encoding: .utf8)
+
+        // Remove Implement stage (index 1) → jobs move to Backlog (index 0)
+        let result = PipelineWriter.removeStage(repoRoot: tempDir.path, pipelineName: "default", stageIndex: 1)
+        #expect(result == true)
+
+        let config = PipelineReader.readPipelineConfig(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(config?.stages.count == 3)
+        #expect(config?.stages.map(\.name) == ["Backlog", "Review", "Done"])
+
+        // Job should be in backlog now
+        let backlogFiles = try FileManager.default.contentsOfDirectory(atPath: pipelineBase.appendingPathComponent("default/backlog").path)
+        #expect(backlogFiles.contains("001-a-job.md"))
+    }
+
+    @Test func changesStageType() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineBase = tempDir.appendingPathComponent(".hootty/pipeline")
+        try FileManager.default.createDirectory(at: pipelineBase, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        _ = PipelineWriter.createPipeline(repoRoot: tempDir.path, pipelineName: "default", displayName: "Test", stages: PipelineTemplate.simple.stages)
+
+        let result = PipelineWriter.changeStageType(repoRoot: tempDir.path, pipelineName: "default", stageIndex: 1, newType: .manual)
+        #expect(result == true)
+
+        let config = PipelineReader.readPipelineConfig(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(config?.stages[1].type == .manual)
+    }
+}
+
+// MARK: - PipelineReader Extended Tests
+
+struct PipelineReaderExtendedTests {
+    @Test func readsFullJobContent() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let stageDir = tempDir.appendingPathComponent(".hootty/pipeline/default/backlog")
+        try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let content = """
+        ---
+        title: Full Content Job
+        ---
+
+        The prompt body.
+
+        ## Research
+
+        Found some stuff.
+
+        ## Log
+
+        - Entry 1
+        """
+        try content.write(to: stageDir.appendingPathComponent("001-full.md"), atomically: true, encoding: .utf8)
+
+        let stages = [PipelineStageDef(name: "Backlog", type: .manual)]
+        let result = PipelineReader.readFullJobContent(repoRoot: tempDir.path, pipelineName: "default", stages: stages, jobSlug: "001-full")
+
+        #expect(result != nil)
+        #expect(result?.contains("## Research") == true)
+        #expect(result?.contains("## Log") == true)
+        #expect(result?.contains("The prompt body.") == true)
+    }
+}
+
+// MARK: - PipelineState Tests (Templates & Attention)
+
+struct PipelineTemplateTests {
+    @Test func allTemplatesHaveStages() {
+        for template in PipelineTemplate.allCases {
+            #expect(!template.stages.isEmpty)
+            #expect(!template.displayName.isEmpty)
+        }
+    }
+
+    @Test func boardDataComputesAttentionCount() {
+        let stages = [
+            PipelineStageDef(name: "Backlog", type: .manual),
+            PipelineStageDef(name: "Implement", type: .automated),
+            PipelineStageDef(name: "Review", type: .manual)
+        ]
+
+        let jobs = [
+            PipelineJobInfo(slug: "001", title: "A", stageIndex: 0, stageName: "Backlog", status: nil, claimedBy: nil),
+            PipelineJobInfo(slug: "002", title: "B", stageIndex: 1, stageName: "Implement", status: .active, claimedBy: "sess"),
+            PipelineJobInfo(slug: "003", title: "C", stageIndex: 2, stageName: "Review", status: .interrupted, claimedBy: nil)
+        ]
+
+        let board = PipelineBoardData(pipelineName: "test", displayName: "Test", stages: stages, jobs: jobs, isPaused: false)
+
+        // 001 in manual stage with nil status → needs attention
+        // 002 in automated stage → no attention
+        // 003 in manual stage with interrupted status → needs attention
+        #expect(board.jobsNeedingAttention == 2)
+    }
 }

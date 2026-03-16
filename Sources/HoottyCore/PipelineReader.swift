@@ -29,36 +29,33 @@ public enum PipelineReader {
         return parsePipelineYAML(content)
     }
 
-    /// Find which stage directory contains a job file matching the given slug.
-    public static func findJobStage(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> Int? {
+    /// Find the file path for a job by scanning stage directories.
+    /// Returns (filePath, stageIndex) or nil if not found.
+    public static func findJobFilePath(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> (path: String, stageIndex: Int)? {
         let fm = FileManager.default
         let pipelineDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)")
 
         for (index, stage) in stages.enumerated() {
             let stageDir = (pipelineDir as NSString).appendingPathComponent(stage.name.lowercased())
             guard let files = try? fm.contentsOfDirectory(atPath: stageDir) else { continue }
-            if files.contains(where: { $0.hasPrefix(jobSlug) && $0.hasSuffix(".md") }) {
-                return index
+            if let fileName = files.first(where: { $0.hasPrefix(jobSlug) && $0.hasSuffix(".md") }) {
+                return (path: (stageDir as NSString).appendingPathComponent(fileName), stageIndex: index)
             }
         }
         return nil
     }
 
+    /// Find which stage directory contains a job file matching the given slug.
+    public static func findJobStage(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> Int? {
+        findJobFilePath(repoRoot: repoRoot, pipelineName: pipelineName, stages: stages, jobSlug: jobSlug)?.stageIndex
+    }
+
     /// Read the `title` field from a job markdown file's YAML frontmatter.
     public static func readJobTitle(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> String? {
-        let fm = FileManager.default
-        let pipelineDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)")
-
-        for stage in stages {
-            let stageDir = (pipelineDir as NSString).appendingPathComponent(stage.name.lowercased())
-            guard let files = try? fm.contentsOfDirectory(atPath: stageDir) else { continue }
-            guard let fileName = files.first(where: { $0.hasPrefix(jobSlug) && $0.hasSuffix(".md") }) else { continue }
-            let filePath = (stageDir as NSString).appendingPathComponent(fileName)
-            guard let data = fm.contents(atPath: filePath),
-                  let content = String(data: data, encoding: .utf8) else { continue }
-            return parseFrontmatterTitle(content)
-        }
-        return nil
+        guard let result = findJobFilePath(repoRoot: repoRoot, pipelineName: pipelineName, stages: stages, jobSlug: jobSlug),
+              let data = FileManager.default.contents(atPath: result.path),
+              let content = String(data: data, encoding: .utf8) else { return nil }
+        return parseFrontmatterTitle(content)
     }
 
     /// Search all pipeline claims for a session key matching any of the provided identifiers.
@@ -108,21 +105,34 @@ public enum PipelineReader {
         return results
     }
 
+    /// Read the full raw content of a job file (for detail view with ## sections).
+    public static func readFullJobContent(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> String? {
+        guard let result = findJobFilePath(repoRoot: repoRoot, pipelineName: pipelineName, stages: stages, jobSlug: jobSlug),
+              let data = FileManager.default.contents(atPath: result.path),
+              let content = String(data: data, encoding: .utf8) else { return nil }
+        return content
+    }
+
     /// Read the markdown body (after frontmatter) of a job file.
     public static func readJobBody(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> String? {
-        let fm = FileManager.default
-        let pipelineDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)")
+        guard let content = readFullJobContent(repoRoot: repoRoot, pipelineName: pipelineName, stages: stages, jobSlug: jobSlug) else { return nil }
+        return extractBodyAfterFrontmatter(content)
+    }
 
-        for stage in stages {
-            let stageDir = (pipelineDir as NSString).appendingPathComponent(stage.name.lowercased())
-            guard let files = try? fm.contentsOfDirectory(atPath: stageDir) else { continue }
-            guard let fileName = files.first(where: { $0.hasPrefix(jobSlug) && $0.hasSuffix(".md") }) else { continue }
-            let filePath = (stageDir as NSString).appendingPathComponent(fileName)
-            guard let data = fm.contents(atPath: filePath),
-                  let content = String(data: data, encoding: .utf8) else { continue }
-            return extractBodyAfterFrontmatter(content)
+    /// Read archived jobs from the archive/ directory of a pipeline.
+    public static func readArchivedJobs(repoRoot: String, pipelineName: String) -> [JobEntry] {
+        let fm = FileManager.default
+        let archiveDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)/archive")
+        guard let files = try? fm.contentsOfDirectory(atPath: archiveDir) else { return [] }
+
+        var results: [JobEntry] = []
+        for file in files.sorted().reversed() where file.hasSuffix(".md") {
+            let slug = String(file.dropLast(3))
+            let filePath = (archiveDir as NSString).appendingPathComponent(file)
+            let meta = parseFrontmatterFromFile(filePath)
+            results.append(JobEntry(slug: slug, title: meta?.title ?? slug, stageIndex: -1, priority: meta?.priority, labels: meta?.labels ?? []))
         }
-        return nil
+        return results
     }
 
     /// List all pipeline directories in the repo (for multi-pipeline support).

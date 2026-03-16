@@ -8,6 +8,11 @@ struct ContentView: View {
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorPaneID: UUID?
     @State private var selectedPipelineName: String?
+    @State private var showCreatePipeline = false
+    @State private var newPipelineName: String = ""
+    @State private var newPipelineTemplate: PipelineTemplate = .review
+    @State private var showDeleteConfirmation = false
+    @State private var pipelineToDelete: String?
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -200,7 +205,8 @@ struct ContentView: View {
             sidebarHasFocus: $appModel.sidebarHasFocus,
             sidebarCursorPaneID: $sidebarCursorPaneID,
             sidebarWidth: effectiveSidebarWidth,
-            showWorktreeActions: $appModel.showWorktreeActions
+            showWorktreeActions: $appModel.showWorktreeActions,
+            pipelineAttentionCount: currentPipelineAttentionCount
         )
     }
 
@@ -249,7 +255,14 @@ struct ContentView: View {
                 workspace.swapPanes(sourceID, targetID)
                 appModel.saveWorkspaces()
             },
-            onSave: { appModel.saveWorkspaces() }
+            onSave: { appModel.saveWorkspaces() },
+            onSwitchToBoard: { pipelineName in
+                selectedPipelineName = pipelineName
+                appModel.detailMode = .board
+            },
+            onPipelineRefresh: { repoRoot in
+                refreshPipeline(repoRoot: repoRoot)
+            }
         )
         .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
         .environment(\.sidebarCursorPaneID, sidebarCursorPaneID)
@@ -262,23 +275,12 @@ struct ContentView: View {
         let boards = currentBoardData(workspace: workspace)
         let repoRoot = currentRepoRoot(workspace: workspace)
         if boards.isEmpty {
-            VStack(spacing: Spacing.md) {
-                Image(systemName: "square.grid.3x3.topleft.filled")
-                    .font(.system(size: 32))
-                    .foregroundStyle(Color(tokens.textMuted).opacity(0.4))
-                Text("No pipelines")
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(tokens.textMuted))
-                Text("Add .hootty/pipeline/ to a repo")
-                    .font(.system(size: TypeScale.captionSize))
-                    .foregroundStyle(Color(tokens.textMuted).opacity(0.6))
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            boardEmptyState(workspace: workspace)
         } else {
             VStack(spacing: 0) {
                 // Pipeline selector (only if multiple pipelines)
                 if boards.count > 1 {
-                    pipelineSelector(boards: boards)
+                    pipelineSelector(boards: boards, repoRoot: repoRoot)
                 }
 
                 // Selected board
@@ -287,6 +289,7 @@ struct ContentView: View {
                     PipelineBoardView(
                         boardData: board,
                         tokens: tokens,
+                        highlightedJobSlug: appModel.pipelineModel.highlightedJobSlug,
                         onTogglePause: {
                             if appModel.pipelineModel.togglePause(repoRoot: repoRoot, pipelineName: board.pipelineName) {
                                 refreshPipeline(repoRoot: repoRoot)
@@ -294,15 +297,18 @@ struct ContentView: View {
                         },
                         onMoveJob: { slug, from, to in
                             if appModel.pipelineModel.moveJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, fromStageIndex: from, toStageIndex: to, stages: board.stages) {
+                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, message: "Moved to \(board.stages[safe: to]?.name ?? "unknown")")
                                 refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onAddJob: { title, stageIndex in
-                            if appModel.pipelineModel.addJob(repoRoot: repoRoot, pipelineName: board.pipelineName, title: title, stages: board.stages, toStageIndex: stageIndex) != nil {
+                            if let slug = appModel.pipelineModel.addJob(repoRoot: repoRoot, pipelineName: board.pipelineName, title: title, stages: board.stages, toStageIndex: stageIndex) {
+                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, message: "Created")
                                 refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onRemoveJob: { slug in
+                            _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, message: "Removed")
                             if appModel.pipelineModel.removeJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages) {
                                 refreshPipeline(repoRoot: repoRoot)
                             }
@@ -312,45 +318,192 @@ struct ContentView: View {
                         },
                         onLoadJobBody: { slug in
                             PipelineReader.readJobBody(repoRoot: repoRoot, pipelineName: board.pipelineName, stages: board.stages, jobSlug: slug)
+                        },
+                        onLoadFullContent: { slug in
+                            PipelineReader.readFullJobContent(repoRoot: repoRoot, pipelineName: board.pipelineName, stages: board.stages, jobSlug: slug)
+                        },
+                        onUpdateTitle: { slug, newTitle in
+                            if appModel.pipelineModel.updateJobTitle(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, newTitle: newTitle) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onAddStage: { name, type, afterIndex in
+                            if appModel.pipelineModel.addStage(repoRoot: repoRoot, pipelineName: board.pipelineName, stageName: name, type: type, afterIndex: afterIndex) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onRemoveStage: { stageIndex in
+                            if appModel.pipelineModel.removeStage(repoRoot: repoRoot, pipelineName: board.pipelineName, stageIndex: stageIndex) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onChangeStageType: { stageIndex, newType in
+                            if appModel.pipelineModel.changeStageType(repoRoot: repoRoot, pipelineName: board.pipelineName, stageIndex: stageIndex, newType: newType) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onClaimInWorktree: { slug in
+                            claimInWorktree(slug: slug, repoRoot: repoRoot, workspace: workspace)
+                        },
+                        onArchive: {
+                            runPipelineArchive(pipelineName: board.pipelineName, repoRoot: repoRoot)
                         }
                     )
+                    .task(id: appModel.pipelineModel.highlightedJobSlug) {
+                        guard appModel.pipelineModel.highlightedJobSlug != nil else { return }
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        if !Task.isCancelled {
+                            appModel.pipelineModel.highlightedJobSlug = nil
+                        }
+                    }
                 }
             }
             .background(Color(tokens.background))
         }
     }
 
-    private func pipelineSelector(boards: [PipelineBoardData]) -> some View {
+    // MARK: - Board Empty State
+
+    private func boardEmptyState(workspace: Workspace) -> some View {
+        VStack(spacing: Spacing.lg) {
+            Image(systemName: "square.grid.3x3.topleft.filled")
+                .font(.system(size: 32))
+                .foregroundStyle(Color(tokens.textMuted).opacity(0.4))
+            Text("No pipelines")
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(tokens.textMuted))
+            Text("Create a pipeline to organize work into stages")
+                .font(.system(size: TypeScale.captionSize))
+                .foregroundStyle(Color(tokens.textMuted).opacity(0.6))
+
+            if let repoRoot = currentRepoRoot(workspace: workspace) {
+                Button("Create Pipeline") {
+                    newPipelineName = "default"
+                    newPipelineTemplate = .review
+                    showCreatePipeline = true
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: TypeScale.captionSize, weight: .medium))
+                .foregroundStyle(Color(tokens.textAccent))
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.sm)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color(tokens.textAccent).opacity(0.1))
+                )
+                .sheet(isPresented: $showCreatePipeline) {
+                    createPipelineSheet(repoRoot: repoRoot)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func createPipelineSheet(repoRoot: String) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            Text("Create Pipeline")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color(tokens.text))
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Name")
+                    .font(.system(size: TypeScale.captionSize))
+                    .foregroundStyle(Color(tokens.textMuted))
+                TextField("Pipeline name", text: $newPipelineName)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(tokens.text))
+                    .padding(Spacing.sm)
+                    .background(RoundedRectangle(cornerRadius: 4).fill(Color(tokens.surfaceHighlight).opacity(0.3)))
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(tokens.border), lineWidth: 1))
+            }
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Template")
+                    .font(.system(size: TypeScale.captionSize))
+                    .foregroundStyle(Color(tokens.textMuted))
+                ForEach(PipelineTemplate.allCases, id: \.rawValue) { template in
+                    templateRow(template: template)
+                }
+            }
+
+            HStack {
+                Spacer()
+                Button("Cancel") { showCreatePipeline = false }
+                    .buttonStyle(.plain)
+                    .font(.system(size: TypeScale.captionSize))
+                    .foregroundStyle(Color(tokens.textMuted))
+
+                Button("Create") {
+                    let name = newPipelineName.trimmingCharacters(in: .whitespaces)
+                    guard !name.isEmpty else { return }
+                    let slug = name.lowercased().replacingOccurrences(of: " ", with: "-")
+                    if appModel.pipelineModel.createPipeline(repoRoot: repoRoot, pipelineName: slug, displayName: name, stages: newPipelineTemplate.stages) {
+                        refreshPipeline(repoRoot: repoRoot)
+                        selectedPipelineName = slug
+                    }
+                    showCreatePipeline = false
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: TypeScale.captionSize, weight: .medium))
+                .foregroundStyle(Color(tokens.textAccent))
+            }
+        }
+        .padding(Spacing.xl)
+        .frame(width: 360)
+        .background(Color(tokens.surface))
+    }
+
+    private func templateRow(template: PipelineTemplate) -> some View {
+        let isSelected = newPipelineTemplate == template
+        return Button {
+            newPipelineTemplate = template
+        } label: {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(isSelected ? tokens.textAccent : tokens.textMuted))
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(template.displayName)
+                        .font(.system(size: TypeScale.captionSize, weight: .medium))
+                        .foregroundStyle(Color(tokens.text))
+                    Text(template.stages.map(\.name).joined(separator: " → "))
+                        .font(.system(size: TypeScale.smallSize))
+                        .foregroundStyle(Color(tokens.textMuted))
+                }
+                Spacer()
+            }
+            .padding(Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isSelected ? Color(tokens.elementSelected) : Color.clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func pipelineSelector(boards: [PipelineBoardData], repoRoot: String?) -> some View {
         HStack(spacing: 2) {
             ForEach(boards) { board in
                 let isActive = resolveActiveBoard(boards: boards)?.pipelineName == board.pipelineName
                 Button {
                     selectedPipelineName = board.pipelineName
                 } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Text(board.displayName)
-                            .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
-                            .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
-
-                        let activeCount = board.jobs.filter { $0.status == .active || $0.status == .interrupted }.count
-                        if activeCount > 0 {
-                            Text("\(activeCount)")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(Color(tokens.textAccent))
-                                .padding(.horizontal, Spacing.xs + 1)
-                                .background(
-                                    Capsule().fill(Color(tokens.textAccent).opacity(0.15))
-                                )
-                        }
-                    }
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.sm)
-                    .background(
-                        Capsule()
-                            .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
-                    )
+                    pipelineSelectorLabel(board: board, isActive: isActive)
                 }
                 .buttonStyle(.plain)
+                .contextMenu {
+                    Button("Delete Pipeline", role: .destructive) {
+                        pipelineToDelete = board.pipelineName
+                        showDeleteConfirmation = true
+                    }
+                }
+            }
+
+            if let repoRoot {
+                pipelineAddButton(repoRoot: repoRoot)
             }
         }
         .padding(Spacing.sm)
@@ -360,6 +513,64 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color(tokens.border)).frame(height: 1)
         }
+        .alert("Delete Pipeline?", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { pipelineToDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let name = pipelineToDelete, let repoRoot {
+                    if appModel.pipelineModel.deletePipeline(repoRoot: repoRoot, pipelineName: name) {
+                        if selectedPipelineName == name { selectedPipelineName = nil }
+                        refreshPipeline(repoRoot: repoRoot)
+                    }
+                }
+                pipelineToDelete = nil
+            }
+        } message: {
+            Text("This will permanently delete the pipeline and all its jobs.")
+        }
+    }
+
+    private func pipelineSelectorLabel(board: PipelineBoardData, isActive: Bool) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Text(board.displayName)
+                .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
+                .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
+
+            let activeCount = board.jobs.filter { $0.status == .active || $0.status == .interrupted }.count
+            if activeCount > 0 {
+                Text("\(activeCount)")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundStyle(Color(tokens.textAccent))
+                    .padding(.horizontal, Spacing.xs + 1)
+                    .background(
+                        Capsule().fill(Color(tokens.textAccent).opacity(0.15))
+                    )
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(
+            Capsule()
+                .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
+        )
+    }
+
+    private func pipelineAddButton(repoRoot: String) -> some View {
+        Button {
+            newPipelineName = ""
+            newPipelineTemplate = .review
+            showCreatePipeline = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: TypeScale.smallSize))
+                .foregroundStyle(Color(tokens.textMuted))
+                .frame(width: 24, height: 24)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .help("Create new pipeline")
+        .sheet(isPresented: $showCreatePipeline) {
+            createPipelineSheet(repoRoot: repoRoot)
+        }
     }
 
     private func resolveActiveBoard(boards: [PipelineBoardData]) -> PipelineBoardData? {
@@ -368,6 +579,12 @@ struct ContentView: View {
             return board
         }
         return boards.first
+    }
+
+    private var currentPipelineAttentionCount: Int {
+        guard let workspace = selectedWorkspace,
+              let repoRoot = currentRepoRoot(workspace: workspace) else { return 0 }
+        return appModel.pipelineModel.attentionCount(for: repoRoot)
     }
 
     private func currentBoardData(workspace: Workspace) -> [PipelineBoardData] {
@@ -392,6 +609,61 @@ struct ContentView: View {
                 appModel.detailMode = .terminals
                 workspace.focusPane(id: pane.id)
                 return
+            }
+        }
+    }
+
+    private func claimInWorktree(slug: String, repoRoot: String, workspace: Workspace) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["pipeline", "claim", "--job", slug, "--worktree"]
+            process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
+            let pipe = Pipe()
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+
+            guard (try? process.run()) != nil else { return }
+
+            // Read stdout before waitUntilExit to avoid pipe buffer deadlock
+            let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+
+            let output = String(data: outputData, encoding: .utf8) ?? ""
+
+            DispatchQueue.main.async {
+                let worktreePath = output.components(separatedBy: .newlines)
+                    .first { $0.contains("Working directory:") }
+                    .flatMap { line in
+                        let parts = line.components(separatedBy: ":")
+                        return parts.count > 1 ? parts.dropFirst().joined(separator: ":").trimmingCharacters(in: .whitespaces) : nil
+                    }
+                let targetDir = worktreePath ?? repoRoot
+
+                let parentSurface = GhosttyApp.shared.focusedSurface
+                if let newPane = workspace.splitFocusedPane(direction: .horizontal, workingDirectory: targetDir) {
+                    if let parentSurface {
+                        GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                    }
+                    appModel.detailMode = .terminals
+                    appModel.saveWorkspaces()
+                }
+                refreshPipeline(repoRoot: repoRoot)
+            }
+        }
+    }
+
+    private func runPipelineArchive(pipelineName: String, repoRoot: String) {
+        // Run `pipeline archive <name>` in the repo root
+        DispatchQueue.global(qos: .userInitiated).async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["pipeline", "archive", pipelineName]
+            process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
+            try? process.run()
+            process.waitUntilExit()
+            DispatchQueue.main.async {
+                refreshPipeline(repoRoot: repoRoot)
             }
         }
     }

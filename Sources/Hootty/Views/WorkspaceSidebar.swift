@@ -48,6 +48,7 @@ struct WorkspaceSidebar: View {
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
     @Binding var showWorktreeActions: Bool
+    var pipelineAttentionCount: Int = 0
     @State private var hoveredHeaderButton: String?
     @State private var hoveredWorktreeAction: String?
 
@@ -177,17 +178,7 @@ struct WorkspaceSidebar: View {
         let activeTab = SidebarTab(detailMode)
         return HStack(spacing: 2) {
             ForEach(SidebarTab.allCases, id: \.self) { tab in
-                Text(tab.rawValue)
-                    .font(.system(size: TypeScale.captionSize, weight: activeTab == tab ? .medium : .regular))
-                    .foregroundStyle(Color(activeTab == tab ? tokens.text : tokens.textMuted))
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.xs + 1)
-                    .background(
-                        Capsule()
-                            .fill(activeTab == tab ? Color(tokens.elementSelected) : Color.clear)
-                    )
-                    .contentShape(Capsule())
-                    .onTapGesture { detailMode = tab.detailMode }
+                sidebarTabLabel(tab: tab, isActive: activeTab == tab)
             }
         }
         .padding(2)
@@ -195,6 +186,31 @@ struct WorkspaceSidebar: View {
             Capsule()
                 .fill(Color(tokens.surfaceHighlight).opacity(0.3))
         )
+    }
+
+    private func sidebarTabLabel(tab: SidebarTab, isActive: Bool) -> some View {
+        HStack(spacing: Spacing.xs) {
+            Text(tab.rawValue)
+                .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
+                .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
+
+            if tab == .board, pipelineAttentionCount > 0, !isActive {
+                Text("\(pipelineAttentionCount)")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(Color(tokens.statusWarning))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color(tokens.statusWarning).opacity(0.2)))
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.xs + 1)
+        .background(
+            Capsule()
+                .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
+        )
+        .contentShape(Capsule())
+        .onTapGesture { detailMode = tab.detailMode }
     }
 
     private var workspaceList: some View {

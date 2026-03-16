@@ -91,8 +91,19 @@ public struct PipelineBoardData: Identifiable, Sendable {
     public let isPaused: Bool
     /// Jobs grouped by stage index, in stage order. Pre-computed at init time.
     public let jobsByStage: [[PipelineJobInfo]]
+    /// Archived jobs (from archive/ directory).
+    public let archivedJobs: [PipelineJobInfo]
 
-    public init(pipelineName: String, displayName: String, stages: [PipelineStageDef], jobs: [PipelineJobInfo], isPaused: Bool) {
+    /// Count of jobs needing human attention (in manual stages, not completed).
+    public var jobsNeedingAttention: Int {
+        jobs.filter { job in
+            guard job.stageIndex < stages.count else { return false }
+            let stage = stages[job.stageIndex]
+            return stage.type == .manual && (job.status == .interrupted || job.status == nil)
+        }.count
+    }
+
+    public init(pipelineName: String, displayName: String, stages: [PipelineStageDef], jobs: [PipelineJobInfo], isPaused: Bool, archivedJobs: [PipelineJobInfo] = []) {
         self.id = pipelineName
         self.pipelineName = pipelineName
         self.displayName = displayName
@@ -101,6 +112,50 @@ public struct PipelineBoardData: Identifiable, Sendable {
         self.isPaused = isPaused
         self.jobsByStage = stages.indices.map { stageIdx in
             jobs.filter { $0.stageIndex == stageIdx }
+        }
+        self.archivedJobs = archivedJobs
+    }
+}
+
+// MARK: - Pipeline Templates
+
+public enum PipelineTemplate: String, CaseIterable, Sendable {
+    case simple
+    case review
+    case fullCI = "full-ci"
+
+    public var displayName: String {
+        switch self {
+        case .simple: "Simple"
+        case .review: "Review"
+        case .fullCI: "Full CI"
+        }
+    }
+
+    public var stages: [PipelineStageDef] {
+        switch self {
+        case .simple:
+            [
+                PipelineStageDef(name: "Backlog", type: .manual),
+                PipelineStageDef(name: "Run", type: .automated),
+                PipelineStageDef(name: "Done", type: .manual)
+            ]
+        case .review:
+            [
+                PipelineStageDef(name: "Backlog", type: .manual),
+                PipelineStageDef(name: "Implement", type: .automated),
+                PipelineStageDef(name: "Review", type: .manual),
+                PipelineStageDef(name: "Done", type: .manual)
+            ]
+        case .fullCI:
+            [
+                PipelineStageDef(name: "Backlog", type: .manual),
+                PipelineStageDef(name: "Implement", type: .automated),
+                PipelineStageDef(name: "Review", type: .manual),
+                PipelineStageDef(name: "Test", type: .automated, command: "Write tests for the changes you just made"),
+                PipelineStageDef(name: "Commit", type: .automated, command: "/commit"),
+                PipelineStageDef(name: "Done", type: .manual)
+            ]
         }
     }
 }
