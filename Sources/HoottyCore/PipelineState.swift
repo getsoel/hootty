@@ -1,56 +1,30 @@
 import Foundation
+import PipelineKit
 
-// MARK: - Pipeline Config (from pipeline.yaml)
+// MARK: - Typealiases for PipelineKit types (re-exported for Hootty target)
 
-public struct PipelineStageDef: Sendable {
-    public let name: String
-    public let type: StageType
-    public let command: String?
+/// Backward-compatible alias: use `PipelineKit.Stage` everywhere.
+public typealias PipelineStageDef = PipelineKit.Stage
 
-    public enum StageType: String, Sendable {
-        case automated
-        case manual
+public extension PipelineKit.Stage {
+    /// Allow `PipelineStageDef.StageType` to resolve to `PipelineKit.StageType`.
+    typealias StageType = PipelineKit.StageType
+}
+
+public typealias JobStatus = PipelineKit.JobStatus
+public typealias PipelineTemplate = PipelineKit.PipelineTemplate
+
+public extension PipelineKit.PipelineTemplate {
+    var displayName: String {
+        switch self {
+        case .simple: "Simple"
+        case .review: "Review"
+        case .fullCi: "Full CI"
+        }
     }
 
-    public init(name: String, type: StageType, command: String? = nil) {
-        self.name = name
-        self.type = type
-        self.command = command
-    }
-}
-
-public struct PipelineConfig: Sendable {
-    public let name: String
-    public let stages: [PipelineStageDef]
-
-    public init(name: String, stages: [PipelineStageDef]) {
-        self.name = name
-        self.stages = stages
-    }
-}
-
-// MARK: - Pipeline Runtime State (from .state.json)
-
-public struct PipelineRuntimeState: Codable, Sendable {
-    public let claims: [String: String]
-    public let job_statuses: [String: String]
-    public let paused: Bool
-}
-
-public struct PipelineStateFile: Codable, Sendable {
-    public let pipelines: [String: PipelineRuntimeState]
-}
-
-// MARK: - Job Status
-
-public enum JobStatus: String, Sendable {
-    case active
-    case interrupted
-    case completed
-
-    public init?(rawString: String?) {
-        guard let rawString else { return nil }
-        self.init(rawValue: rawString)
+    var stages: [PipelineKit.Stage] {
+        config.stages
     }
 }
 
@@ -63,12 +37,12 @@ public struct PipelineJobInfo: Identifiable, Sendable {
     public let title: String
     public let stageIndex: Int
     public let stageName: String
-    public let status: JobStatus? // nil = unclaimed
+    public let status: PipelineKit.JobStatus? // nil = unclaimed
     public let claimedBy: String? // session key if claimed
     public let priority: String? // "low", "medium", "high", "critical"
     public let labels: [String]
 
-    public init(slug: String, title: String, stageIndex: Int, stageName: String, status: JobStatus?, claimedBy: String?, priority: String? = nil, labels: [String] = []) {
+    public init(slug: String, title: String, stageIndex: Int, stageName: String, status: PipelineKit.JobStatus?, claimedBy: String?, priority: String? = nil, labels: [String] = []) {
         self.id = slug
         self.slug = slug
         self.title = title
@@ -86,7 +60,7 @@ public struct PipelineBoardData: Identifiable, Sendable {
     public let id: String // pipelineName
     public let pipelineName: String
     public let displayName: String
-    public let stages: [PipelineStageDef]
+    public let stages: [PipelineKit.Stage]
     public let jobs: [PipelineJobInfo]
     public let isPaused: Bool
     /// Jobs grouped by stage index, in stage order. Pre-computed at init time.
@@ -99,11 +73,11 @@ public struct PipelineBoardData: Identifiable, Sendable {
         jobs.filter { job in
             guard job.stageIndex < stages.count else { return false }
             let stage = stages[job.stageIndex]
-            return stage.type == .manual && (job.status == .interrupted || job.status == nil)
+            return stage.type == .manual && (job.status == .interrupted || job.status == nil || job.status == .queued)
         }.count
     }
 
-    public init(pipelineName: String, displayName: String, stages: [PipelineStageDef], jobs: [PipelineJobInfo], isPaused: Bool, archivedJobs: [PipelineJobInfo] = []) {
+    public init(pipelineName: String, displayName: String, stages: [PipelineKit.Stage], jobs: [PipelineJobInfo], isPaused: Bool, archivedJobs: [PipelineJobInfo] = []) {
         self.id = pipelineName
         self.pipelineName = pipelineName
         self.displayName = displayName
@@ -117,49 +91,6 @@ public struct PipelineBoardData: Identifiable, Sendable {
     }
 }
 
-// MARK: - Pipeline Templates
-
-public enum PipelineTemplate: String, CaseIterable, Sendable {
-    case simple
-    case review
-    case fullCI = "full-ci"
-
-    public var displayName: String {
-        switch self {
-        case .simple: "Simple"
-        case .review: "Review"
-        case .fullCI: "Full CI"
-        }
-    }
-
-    public var stages: [PipelineStageDef] {
-        switch self {
-        case .simple:
-            [
-                PipelineStageDef(name: "Backlog", type: .manual),
-                PipelineStageDef(name: "Run", type: .automated),
-                PipelineStageDef(name: "Done", type: .manual)
-            ]
-        case .review:
-            [
-                PipelineStageDef(name: "Backlog", type: .manual),
-                PipelineStageDef(name: "Implement", type: .automated),
-                PipelineStageDef(name: "Review", type: .manual),
-                PipelineStageDef(name: "Done", type: .manual)
-            ]
-        case .fullCI:
-            [
-                PipelineStageDef(name: "Backlog", type: .manual),
-                PipelineStageDef(name: "Implement", type: .automated),
-                PipelineStageDef(name: "Review", type: .manual),
-                PipelineStageDef(name: "Test", type: .automated, command: "Write tests for the changes you just made"),
-                PipelineStageDef(name: "Commit", type: .automated, command: "/commit"),
-                PipelineStageDef(name: "Done", type: .manual)
-            ]
-        }
-    }
-}
-
 // MARK: - Resolved Claim Info (for display)
 
 public struct PipelineClaimInfo: Sendable {
@@ -168,11 +99,11 @@ public struct PipelineClaimInfo: Sendable {
     public let jobSlug: String
     public let jobTitle: String
     public let currentStageIndex: Int
-    public let stages: [PipelineStageDef]
-    public let status: JobStatus
+    public let stages: [PipelineKit.Stage]
+    public let status: PipelineKit.JobStatus
     public let isPaused: Bool
 
-    public init(pipelineName: String, pipelineDisplayName: String, jobSlug: String, jobTitle: String, currentStageIndex: Int, stages: [PipelineStageDef], status: JobStatus, isPaused: Bool) {
+    public init(pipelineName: String, pipelineDisplayName: String, jobSlug: String, jobTitle: String, currentStageIndex: Int, stages: [PipelineKit.Stage], status: PipelineKit.JobStatus, isPaused: Bool) {
         self.pipelineName = pipelineName
         self.pipelineDisplayName = pipelineDisplayName
         self.jobSlug = jobSlug

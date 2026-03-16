@@ -30,7 +30,7 @@ final class PipelineWatcher {
         guard entries[repoRoot] == nil else { return }
         var entry = WatchEntry()
 
-        let pipelineDir = (repoRoot as NSString).appendingPathComponent(PipelineReader.directoryPath)
+        let pipelineDir = (repoRoot as NSString).appendingPathComponent(PipelineModel.directoryPath)
         let stateFilePath = (pipelineDir as NSString).appendingPathComponent(".state.json")
 
         // Watch the directory for file creation/deletion

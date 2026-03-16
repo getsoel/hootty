@@ -297,19 +297,19 @@ struct ContentView: View {
                         },
                         onMoveJob: { slug, from, to in
                             if appModel.pipelineModel.moveJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, fromStageIndex: from, toStageIndex: to, stages: board.stages) {
-                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, message: "Moved to \(board.stages[safe: to]?.name ?? "unknown")")
+                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Moved to \(board.stages[safe: to]?.name ?? "unknown")")
                                 refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onAddJob: { title, stageIndex in
                             if let slug = appModel.pipelineModel.addJob(repoRoot: repoRoot, pipelineName: board.pipelineName, title: title, stages: board.stages, toStageIndex: stageIndex) {
-                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, message: "Created")
+                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Created")
                                 refreshPipeline(repoRoot: repoRoot)
                             }
                         },
                         onRemoveJob: { slug in
-                            _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, message: "Removed")
-                            if appModel.pipelineModel.removeJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages) {
+                            _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Removed")
+                            if appModel.pipelineModel.removeJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug) {
                                 refreshPipeline(repoRoot: repoRoot)
                             }
                         },
@@ -317,13 +317,13 @@ struct ContentView: View {
                             navigateToClaimedPane(sessionKey: sessionKey, workspace: workspace)
                         },
                         onLoadJobBody: { slug in
-                            PipelineReader.readJobBody(repoRoot: repoRoot, pipelineName: board.pipelineName, stages: board.stages, jobSlug: slug)
+                            appModel.pipelineModel.readJobBody(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug)
                         },
                         onLoadFullContent: { slug in
-                            PipelineReader.readFullJobContent(repoRoot: repoRoot, pipelineName: board.pipelineName, stages: board.stages, jobSlug: slug)
+                            appModel.pipelineModel.readFullJobContent(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug)
                         },
                         onUpdateTitle: { slug, newTitle in
-                            if appModel.pipelineModel.updateJobTitle(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages, newTitle: newTitle) {
+                            if appModel.pipelineModel.updateJobTitle(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, newTitle: newTitle) {
                                 refreshPipeline(repoRoot: repoRoot)
                             }
                         },

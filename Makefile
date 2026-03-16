@@ -1,4 +1,4 @@
-.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint
+.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint pipeline-cli
 
 APP_NAME := Hootty
 INSTALL_DIR := /Applications
@@ -6,10 +6,13 @@ DERIVED_DATA := .build/DerivedData
 DEBUG_PRODUCTS := $(DERIVED_DATA)/Build/Products/Debug
 RELEASE_PRODUCTS := $(DERIVED_DATA)/Build/Products/Release
 RELEASE_APP_BUNDLE := .build/release/$(APP_NAME).app
-
 XCODEBUILD := xcodebuild -scheme $(APP_NAME) -destination 'platform=macOS' -derivedDataPath $(DERIVED_DATA)
 
-build:
+pipeline-cli:
+	swift build -c release --product PipelineCLI --arch arm64
+	cp .build/release/PipelineCLI Sources/Hootty/Resources/bin/pipeline
+
+build: pipeline-cli
 	$(XCODEBUILD) -configuration Debug build
 
 test:
@@ -29,7 +32,7 @@ clean:
 	rm -rf $(DERIVED_DATA)
 	rm -rf $(HOME)/.cache/hootty/ghosttykit
 
-release: clean
+release: clean pipeline-cli
 	$(XCODEBUILD) -configuration Release build
 	rm -rf "$(RELEASE_APP_BUNDLE)"
 	mkdir -p "$(RELEASE_APP_BUNDLE)/Contents/MacOS"

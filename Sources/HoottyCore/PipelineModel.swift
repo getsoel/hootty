@@ -1,10 +1,14 @@
 import Foundation
+import PipelineKit
 
 /// Observable model holding resolved pipeline claim info for each pane.
 /// Updated by the PipelineWatcher whenever `.hootty/pipeline/.state.json` changes.
 @MainActor
 @Observable
 public final class PipelineModel {
+    /// Relative path from repo root to the pipeline directory.
+    public static let directoryPath = ".hootty/pipeline"
+
     /// Resolved claim info per pane ID. Nil means no active claim for that pane.
     public private(set) var claimsByPane: [UUID: PipelineClaimInfo] = [:]
 
@@ -20,7 +24,28 @@ public final class PipelineModel {
     /// The job slug to highlight on the board (set during cross-view navigation, cleared after display).
     public var highlightedJobSlug: String?
 
+    /// Cached PipelineStorage instances per repo root (internal bookkeeping, no UI relevance).
+    @ObservationIgnored private var storageByRepo: [String: PipelineStorage] = [:]
+
     public init() {}
+
+    /// Get or create a PipelineStorage for a repo root.
+    private func storage(for repoRoot: String) -> PipelineStorage {
+        if let existing = storageByRepo[repoRoot] {
+            return existing
+        }
+        let rootPath = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
+        let storage = PipelineStorage(rootPath: rootPath)
+        storageByRepo[repoRoot] = storage
+        return storage
+    }
+
+    /// Check whether a pipeline directory exists at the given repo root.
+    public nonisolated static func hasPipeline(repoRoot: String) -> Bool {
+        var isDir: ObjCBool = false
+        let path = (repoRoot as NSString).appendingPathComponent(directoryPath)
+        return FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue
+    }
 
     /// Get the claim info for a specific pane, if any.
     public func claimInfo(for paneID: UUID) -> PipelineClaimInfo? {
@@ -44,17 +69,23 @@ public final class PipelineModel {
         watchedRepoRoots.insert(repoRoot).inserted
     }
 
+    // MARK: - Refresh
+
     /// Refresh pipeline state for all panes in a specific repo root.
     /// Called by the watcher when `.state.json` changes.
     public func refresh(repoRoot: String, panes: [(id: UUID, sessionIDs: [String])]) {
+        let storage = storage(for: repoRoot)
+
         // Snapshot previous claims for detecting status transitions
         let previousClaims = claimsByPane
 
-        guard let stateFile = PipelineReader.readStateFile(repoRoot: repoRoot) else {
-            // State file gone or unreadable — clear all claims for panes in this repo
+        let stateFile = storage.pipelineState()
+        guard !stateFile.pipelines.isEmpty else {
+            // State file gone or empty — clear all claims for panes in this repo
             for (paneID, _) in panes {
                 claimsByPane.removeValue(forKey: paneID)
             }
+            boardDataByRepo[repoRoot] = []
             return
         }
 
@@ -72,12 +103,20 @@ public final class PipelineModel {
         // Single pass: read each pipeline config once, build both claims and board data
         var boards: [PipelineBoardData] = []
         for (pipelineName, runtime) in stateFile.pipelines {
-            guard let config = PipelineReader.readPipelineConfig(repoRoot: repoRoot, pipelineName: pipelineName) else { continue }
+            guard let config = try? storage.pipelineConfig(name: pipelineName) else { continue }
 
-            // Read all jobs once — reused for both claim resolution and board data
-            let allJobs = PipelineReader.readAllJobs(repoRoot: repoRoot, pipelineName: pipelineName, stages: config.stages)
-            let jobLookup: [String: PipelineReader.JobEntry] = allJobs.reduce(into: [:]) { dict, job in
-                dict[job.slug] = job
+            // Read all jobs once (pass config to avoid re-reading pipeline.yaml)
+            let allJobEntries = (try? storage.allJobs(pipeline: pipelineName, config: config)) ?? []
+
+            // Build stage index lookup: directoryName → index
+            let stageIndexByDir: [String: Int] = config.stages.enumerated().reduce(into: [:]) { dict, pair in
+                dict[pair.element.directoryName] = pair.offset
+            }
+
+            // Build job lookup by slug
+            let jobLookup: [String: (stageIndex: Int, job: PipelineKit.Job)] = allJobEntries.reduce(into: [:]) { dict, entry in
+                let stageIndex = stageIndexByDir[entry.stage] ?? 0
+                dict[entry.job.slug] = (stageIndex: stageIndex, job: entry.job)
             }
 
             // Resolve claims for panes
@@ -86,13 +125,13 @@ public final class PipelineModel {
                 claimedPaneIDs.insert(paneID)
 
                 let entry = jobLookup[jobSlug]
-                let status = JobStatus(rawString: runtime.job_statuses[jobSlug]) ?? .active
+                let status = runtime.jobStatuses[jobSlug] ?? .active
 
                 claimsByPane[paneID] = PipelineClaimInfo(
                     pipelineName: pipelineName,
                     pipelineDisplayName: config.name,
                     jobSlug: jobSlug,
-                    jobTitle: entry?.title ?? jobSlug,
+                    jobTitle: entry?.job.title ?? jobSlug,
                     currentStageIndex: entry?.stageIndex ?? 0,
                     stages: config.stages,
                     status: status,
@@ -105,22 +144,24 @@ public final class PipelineModel {
                 dict[pair.value] = pair.key
             }
 
-            let jobInfos = allJobs.map { job in
-                PipelineJobInfo(
-                    slug: job.slug,
-                    title: job.title,
-                    stageIndex: job.stageIndex,
-                    stageName: config.stages[job.stageIndex].name,
-                    status: JobStatus(rawString: runtime.job_statuses[job.slug]),
-                    claimedBy: claimByJob[job.slug],
-                    priority: job.priority,
-                    labels: job.labels
+            let jobInfos = allJobEntries.map { entry in
+                let stageIndex = stageIndexByDir[entry.stage] ?? 0
+                let stageName = stageIndex < config.stages.count ? config.stages[stageIndex].name : entry.stage
+                return PipelineJobInfo(
+                    slug: entry.job.slug,
+                    title: entry.job.title,
+                    stageIndex: stageIndex,
+                    stageName: stageName,
+                    status: runtime.jobStatuses[entry.job.slug],
+                    claimedBy: claimByJob[entry.job.slug],
+                    priority: entry.job.priority,
+                    labels: entry.job.labels
                 )
             }
 
             // Read archived jobs
-            let archivedEntries = PipelineReader.readArchivedJobs(repoRoot: repoRoot, pipelineName: pipelineName)
-            let archivedInfos = archivedEntries.map { job in
+            let archivedJobs = (try? storage.jobsInStage(pipeline: pipelineName, stage: "archive")) ?? []
+            let archivedInfos = archivedJobs.map { job in
                 PipelineJobInfo(
                     slug: job.slug,
                     title: job.title,
@@ -161,83 +202,253 @@ public final class PipelineModel {
         }
     }
 
+    // MARK: - Read Methods (for views)
+
+    /// Read the markdown body (after frontmatter) of a job file.
+    public func readJobBody(repoRoot: String, pipelineName: String, jobSlug: String) -> String? {
+        let storage = storage(for: repoRoot)
+        guard let result = try? storage.findJob(pipeline: pipelineName, slug: jobSlug) else { return nil }
+        let body = result.job.fullBody
+        return body.isEmpty ? nil : body
+    }
+
+    /// Read the full raw content of a job file (for detail view with ## sections).
+    public func readFullJobContent(repoRoot: String, pipelineName: String, jobSlug: String) -> String? {
+        let storage = storage(for: repoRoot)
+        guard let result = try? storage.findJob(pipeline: pipelineName, slug: jobSlug) else { return nil }
+        let path = storage.jobFilePath(pipeline: pipelineName, stage: result.stage, filename: result.job.filename)
+        guard let data = FileManager.default.contents(atPath: path.path),
+              let content = String(data: data, encoding: .utf8) else { return nil }
+        return content
+    }
+
     // MARK: - Mutations
 
     /// Move a job from one stage directory to another.
-    public func moveJob(repoRoot: String, pipelineName: String, jobSlug: String, fromStageIndex: Int, toStageIndex: Int, stages: [PipelineStageDef]) -> Bool {
+    public func moveJob(repoRoot: String, pipelineName: String, jobSlug: String, fromStageIndex: Int, toStageIndex: Int, stages: [PipelineKit.Stage]) -> Bool {
         guard fromStageIndex != toStageIndex,
               fromStageIndex >= 0, fromStageIndex < stages.count,
               toStageIndex >= 0, toStageIndex < stages.count else { return false }
-        return PipelineWriter.moveJob(
-            repoRoot: repoRoot,
-            pipelineName: pipelineName,
-            jobSlug: jobSlug,
-            fromStageDir: stages[fromStageIndex].name.lowercased(),
-            toStageDir: stages[toStageIndex].name.lowercased()
-        )
+
+        let storage = storage(for: repoRoot)
+        guard let result = try? storage.findJob(pipeline: pipelineName, slug: jobSlug) else { return false }
+
+        do {
+            try storage.moveJobFile(
+                pipeline: pipelineName,
+                filename: result.job.filename,
+                fromStage: stages[fromStageIndex].directoryName,
+                toStage: stages[toStageIndex].directoryName
+            )
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Add a new job to a stage (defaults to first stage).
-    public func addJob(repoRoot: String, pipelineName: String, title: String, stages: [PipelineStageDef], toStageIndex: Int = 0) -> String? {
+    public func addJob(repoRoot: String, pipelineName: String, title: String, stages: [PipelineKit.Stage], toStageIndex: Int = 0) -> String? {
         guard toStageIndex >= 0, toStageIndex < stages.count else { return nil }
-        let nextNum = PipelineReader.nextJobNumber(repoRoot: repoRoot, pipelineName: pipelineName, stages: stages)
-        return PipelineWriter.addJob(
-            repoRoot: repoRoot,
-            pipelineName: pipelineName,
+
+        let storage = storage(for: repoRoot)
+        guard let nextNum = try? storage.nextJobNumber(pipeline: pipelineName) else { return nil }
+
+        let slugBody = PipelineKit.deriveSlug(from: title)
+        let slug = String(format: "%03d-%@", nextNum, slugBody)
+        let filename = "\(slug).md"
+
+        let content = PipelineKit.serializeJob(
             title: title,
-            stageDir: stages[toStageIndex].name.lowercased(),
-            number: nextNum
+            priority: nil,
+            labels: [],
+            created: ISO8601DateFormatter().string(from: Date()),
+            body: ""
         )
+
+        do {
+            try storage.writeJob(
+                pipeline: pipelineName,
+                stage: stages[toStageIndex].directoryName,
+                filename: filename,
+                content: content
+            )
+            return slug
+        } catch {
+            return nil
+        }
     }
 
     /// Toggle pause state for a pipeline.
     public func togglePause(repoRoot: String, pipelineName: String) -> Bool {
-        PipelineWriter.togglePause(repoRoot: repoRoot, pipelineName: pipelineName)
+        let storage = storage(for: repoRoot)
+        do {
+            try storage.withStateLock {
+                var state = storage.pipelineState()
+                var entry = state.pipelines[pipelineName] ?? PipelineKit.PipelineStateEntry()
+                entry.paused.toggle()
+                state.pipelines[pipelineName] = entry
+                try storage.savePipelineState(state)
+            }
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Remove a job file from its current stage directory.
-    public func removeJob(repoRoot: String, pipelineName: String, jobSlug: String, stages: [PipelineStageDef]) -> Bool {
-        for stage in stages {
-            let stageDir = stage.name.lowercased()
-            if PipelineWriter.removeJob(repoRoot: repoRoot, pipelineName: pipelineName, jobSlug: jobSlug, stageDir: stageDir) {
-                return true
-            }
+    public func removeJob(repoRoot: String, pipelineName: String, jobSlug: String) -> Bool {
+        let storage = storage(for: repoRoot)
+        guard let result = try? storage.findJob(pipeline: pipelineName, slug: jobSlug) else { return false }
+
+        do {
+            try storage.deleteJobFile(pipeline: pipelineName, stage: result.stage, filename: result.job.filename)
+            return true
+        } catch {
+            return false
         }
-        return false
     }
 
     /// Update a job's title in its frontmatter.
-    public func updateJobTitle(repoRoot: String, pipelineName: String, jobSlug: String, stages: [PipelineStageDef], newTitle: String) -> Bool {
-        PipelineWriter.updateJobTitle(repoRoot: repoRoot, pipelineName: pipelineName, jobSlug: jobSlug, stages: stages, newTitle: newTitle)
+    public func updateJobTitle(repoRoot: String, pipelineName: String, jobSlug: String, newTitle: String) -> Bool {
+        let storage = storage(for: repoRoot)
+        guard let result = try? storage.findJob(pipeline: pipelineName, slug: jobSlug) else { return false }
+
+        let path = storage.jobFilePath(pipeline: pipelineName, stage: result.stage, filename: result.job.filename)
+        guard let data = FileManager.default.contents(atPath: path.path),
+              let content = String(data: data, encoding: .utf8) else { return false }
+
+        let lines = content.components(separatedBy: .newlines)
+        var inFrontmatter = false
+        var newLines: [String] = []
+        for line in lines {
+            if line.trimmingCharacters(in: .whitespaces) == "---" {
+                inFrontmatter.toggle()
+                newLines.append(line)
+                continue
+            }
+            if inFrontmatter, line.trimmingCharacters(in: .whitespaces).hasPrefix("title:") {
+                newLines.append("title: \(newTitle)")
+            } else {
+                newLines.append(line)
+            }
+        }
+        let updated = newLines.joined(separator: "\n")
+        return FileManager.default.createFile(atPath: path.path, contents: updated.data(using: .utf8))
     }
 
     /// Append a log entry to a job file.
-    public func appendLogEntry(repoRoot: String, pipelineName: String, jobSlug: String, stages: [PipelineStageDef], message: String) -> Bool {
-        PipelineWriter.appendLogEntry(repoRoot: repoRoot, pipelineName: pipelineName, jobSlug: jobSlug, stages: stages, message: message)
+    public func appendLogEntry(repoRoot: String, pipelineName: String, jobSlug: String, message: String) -> Bool {
+        let storage = storage(for: repoRoot)
+        guard let result = try? storage.findJob(pipeline: pipelineName, slug: jobSlug) else { return false }
+
+        do {
+            try storage.appendLog(pipeline: pipelineName, stage: result.stage, filename: result.job.filename, message: message)
+            return true
+        } catch {
+            return false
+        }
     }
 
-    /// Create a new pipeline from a template.
-    public func createPipeline(repoRoot: String, pipelineName: String, displayName: String, stages: [PipelineStageDef]) -> Bool {
-        PipelineWriter.createPipeline(repoRoot: repoRoot, pipelineName: pipelineName, displayName: displayName, stages: stages)
+    /// Create a new pipeline from stages.
+    public func createPipeline(repoRoot: String, pipelineName: String, displayName: String, stages: [PipelineKit.Stage]) -> Bool {
+        let storage = storage(for: repoRoot)
+        let config = PipelineKit.PipelineConfig(name: displayName, stages: stages)
+
+        do {
+            try storage.createPipeline(name: pipelineName, config: config)
+            // Ensure state entry
+            try storage.withStateLock {
+                var state = storage.pipelineState()
+                if state.pipelines[pipelineName] == nil {
+                    state.pipelines[pipelineName] = PipelineKit.PipelineStateEntry()
+                }
+                try storage.savePipelineState(state)
+            }
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Delete a pipeline entirely.
     public func deletePipeline(repoRoot: String, pipelineName: String) -> Bool {
-        PipelineWriter.deletePipeline(repoRoot: repoRoot, pipelineName: pipelineName)
+        let storage = storage(for: repoRoot)
+        do {
+            try storage.deletePipeline(name: pipelineName)
+            // Remove state entry
+            try storage.withStateLock {
+                var state = storage.pipelineState()
+                state.pipelines.removeValue(forKey: pipelineName)
+                try storage.savePipelineState(state)
+            }
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Add a stage to a pipeline.
-    public func addStage(repoRoot: String, pipelineName: String, stageName: String, type: PipelineStageDef.StageType, afterIndex: Int?) -> Bool {
-        PipelineWriter.addStage(repoRoot: repoRoot, pipelineName: pipelineName, stageName: stageName, type: type, afterIndex: afterIndex)
+    public func addStage(repoRoot: String, pipelineName: String, stageName: String, type: PipelineKit.StageType, afterIndex: Int?) -> Bool {
+        let storage = storage(for: repoRoot)
+        guard var config = try? storage.pipelineConfig(name: pipelineName) else { return false }
+
+        let newStage = PipelineKit.Stage(name: stageName, type: type)
+        let insertIndex = (afterIndex ?? config.stages.count - 1) + 1
+        config.stages.insert(newStage, at: min(insertIndex, config.stages.count))
+
+        do {
+            try storage.savePipelineConfig(name: pipelineName, config: config)
+            let stageDir = storage.jobFilePath(pipeline: pipelineName, stage: newStage.directoryName, filename: "").deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Remove a stage from a pipeline (moves jobs to previous stage).
     public func removeStage(repoRoot: String, pipelineName: String, stageIndex: Int) -> Bool {
-        PipelineWriter.removeStage(repoRoot: repoRoot, pipelineName: pipelineName, stageIndex: stageIndex)
+        let storage = storage(for: repoRoot)
+        guard var config = try? storage.pipelineConfig(name: pipelineName) else { return false }
+        guard stageIndex >= 0, stageIndex < config.stages.count, config.stages.count > 1 else { return false }
+
+        let removedStage = config.stages[stageIndex]
+        let targetIndex = max(0, stageIndex - 1)
+        let targetStage = config.stages[stageIndex == 0 ? 1 : targetIndex]
+
+        // Move jobs from removed stage to target using PipelineStorage methods
+        let jobs = (try? storage.jobsInStage(pipeline: pipelineName, stage: removedStage.directoryName)) ?? []
+        for job in jobs {
+            try? storage.moveJobFile(pipeline: pipelineName, filename: job.filename, fromStage: removedStage.directoryName, toStage: targetStage.directoryName)
+        }
+
+        // Remove the now-empty stage directory
+        let removedDir = storage.jobFilePath(pipeline: pipelineName, stage: removedStage.directoryName, filename: "").deletingLastPathComponent()
+        try? FileManager.default.removeItem(at: removedDir)
+
+        config.stages.remove(at: stageIndex)
+
+        do {
+            try storage.savePipelineConfig(name: pipelineName, config: config)
+            return true
+        } catch {
+            return false
+        }
     }
 
     /// Change a stage's type (automated/manual).
-    public func changeStageType(repoRoot: String, pipelineName: String, stageIndex: Int, newType: PipelineStageDef.StageType) -> Bool {
-        PipelineWriter.changeStageType(repoRoot: repoRoot, pipelineName: pipelineName, stageIndex: stageIndex, newType: newType)
+    public func changeStageType(repoRoot: String, pipelineName: String, stageIndex: Int, newType: PipelineKit.StageType) -> Bool {
+        let storage = storage(for: repoRoot)
+        guard var config = try? storage.pipelineConfig(name: pipelineName) else { return false }
+        guard stageIndex >= 0, stageIndex < config.stages.count else { return false }
+
+        config.stages[stageIndex].type = newType
+
+        do {
+            try storage.savePipelineConfig(name: pipelineName, config: config)
+            return true
+        } catch {
+            return false
+        }
     }
 }

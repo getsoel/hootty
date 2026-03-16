@@ -186,7 +186,7 @@ struct HoottyApp: App {
                     for workspace in appModel.workspaces {
                         for pane in workspace.allPanes {
                             if let repoRoot = pane.repoRoot,
-                               PipelineReader.hasPipeline(repoRoot: repoRoot),
+                               PipelineModel.hasPipeline(repoRoot: repoRoot),
                                appModel.pipelineModel.registerRepoRoot(repoRoot) {
                                 pipelineWatcher.startWatching(repoRoot: repoRoot)
                             }
@@ -261,7 +261,7 @@ struct HoottyApp: App {
                         // Register pipeline watcher for repos with .hootty/pipeline/
                         if let (_, pane) = appModel.findPane(id: paneID),
                            let repoRoot = pane.repoRoot,
-                           PipelineReader.hasPipeline(repoRoot: repoRoot),
+                           PipelineModel.hasPipeline(repoRoot: repoRoot),
                            appModel.pipelineModel.registerRepoRoot(repoRoot) {
                             pipelineWatcher.startWatching(repoRoot: repoRoot)
                         }

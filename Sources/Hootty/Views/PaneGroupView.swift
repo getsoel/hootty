@@ -56,7 +56,7 @@ struct PaneContentView: View {
                     },
                     onLoadJobBody: { slug in
                         guard let repoRoot = pane.repoRoot else { return nil }
-                        return PipelineReader.readJobBody(repoRoot: repoRoot, pipelineName: claim.pipelineName, stages: claim.stages, jobSlug: slug)
+                        return pipelineModel.readJobBody(repoRoot: repoRoot, pipelineName: claim.pipelineName, jobSlug: slug)
                     }
                 )
             }

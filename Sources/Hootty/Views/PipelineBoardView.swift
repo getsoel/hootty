@@ -568,6 +568,7 @@ struct PipelineBoardView: View {
         case .active: return Color(tokens.statusSuccess)
         case .interrupted: return Color(tokens.statusWarning)
         case .completed: return Color(tokens.textMuted)
+        case .queued: return Color(tokens.textMuted).opacity(0.6)
         }
     }
 
