@@ -3,7 +3,7 @@ set -euo pipefail
 
 echo "==> Running pre-commit checks..."
 
-# 1. Format check (optional — skipped if swiftformat not installed)
+# 1. Format check
 if command -v swiftformat &>/dev/null; then
     echo "==> swiftformat --lint"
     if ! swiftformat --lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests 2>&1; then
@@ -12,10 +12,11 @@ if command -v swiftformat &>/dev/null; then
         exit 1
     fi
 else
-    echo "==> swiftformat not found, skipping format check (brew install swiftformat)"
+    echo "COMMIT REJECTED: swiftformat not found. Install with: brew install swiftformat"
+    exit 1
 fi
 
-# 2. Lint check (optional — skipped if swiftlint not installed)
+# 2. Lint check
 if command -v swiftlint &>/dev/null; then
     echo "==> swiftlint lint --strict"
     if ! swiftlint lint --strict Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests 2>&1; then
@@ -24,7 +25,8 @@ if command -v swiftlint &>/dev/null; then
         exit 1
     fi
 else
-    echo "==> swiftlint not found, skipping lint check (brew install swiftlint)"
+    echo "COMMIT REJECTED: swiftlint not found. Install with: brew install swiftlint"
+    exit 1
 fi
 
 # 3. Build check
