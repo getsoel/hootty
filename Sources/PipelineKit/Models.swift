@@ -160,7 +160,7 @@ public enum PipelineError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .noPipelineDirectory:
-            return "No .hootty/pipeline/ directory found. Run `pipeline init` to create one."
+            return "No .hootty/pipeline/ directory found. Run `hootty pipeline init` to create one."
         case .pipelineNotFound(let name):
             return "Pipeline \"\(name)\" not found."
         case .pipelineAlreadyExists(let name):
@@ -170,15 +170,15 @@ public enum PipelineError: Error, CustomStringConvertible {
         case .stageNotFound(let name):
             return "Stage \"\(name)\" not found."
         case .alreadyClaimed(let job):
-            return "You already have a claim on \"\(job)\". Run `pipeline release` first."
+            return "You already have a claim on \"\(job)\". Run `hootty pipeline release` first."
         case .noClaim:
-            return "No active claim. Run `pipeline claim` first."
+            return "No active claim. Run `hootty pipeline claim` first."
         case .pipelinePaused:
-            return "Pipeline is paused. Run `pipeline play` to resume."
+            return "Pipeline is paused. Run `hootty pipeline play` to resume."
         case .noJobsAvailable(let pipeline):
             return "No jobs available to claim in pipeline \"\(pipeline)\"."
         case .jobMoved:
-            return "Job has moved since your last action. Run `pipeline current-job` to see current state."
+            return "Job has moved since your last action. Run `hootty pipeline current-job` to see current state."
         case .lockFailed:
             return "Failed to acquire lock on .state.json."
         case .invalidConfig(let msg):

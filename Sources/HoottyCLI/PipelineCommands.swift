@@ -1,107 +1,67 @@
 import Foundation
 import PipelineKit
 
-@main
-struct PipelineCLI {
-    static func main() {
-        do {
-            let args = Array(CommandLine.arguments.dropFirst())
-            guard let command = args.first else {
-                printUsage()
-                exit(0)
-            }
-            let remaining = Array(args.dropFirst())
+// MARK: - Pipeline Subcommand Dispatcher
 
-            switch command {
-            case "init":
-                try handleInit(remaining)
-            case "delete":
-                try handleDelete(remaining)
-            case "status":
-                try handleStatus(remaining)
-            case "add":
-                try handleAdd(remaining)
-            case "edit":
-                try handleEdit(remaining)
-            case "move":
-                try handleMove(remaining)
-            case "remove":
-                try handleRemove(remaining)
-            case "archive":
-                try handleArchive(remaining)
-            case "log":
-                try handleLog(remaining)
-            case "claim":
-                try handleClaim(remaining)
-            case "advance":
-                try handleAdvance(remaining)
-            case "release":
-                try handleRelease(remaining)
-            case "current-job":
-                try handleCurrentJob(remaining)
-            case "whoami":
-                try handleWhoami(remaining)
-            case "reap":
-                try handleReap(remaining)
-            case "play":
-                try handlePlay(remaining)
-            case "pause":
-                try handlePause(remaining)
-            case "stage":
-                try handleStage(remaining)
-            case "daemon":
-                try handleDaemon(remaining)
-            case "inject-target":
-                try handleInjectTarget(remaining)
-            case "listen":
-                try handleListen(remaining)
-            case "help", "--help", "-h":
-                printUsage()
-            case "version", "--version":
-                print("pipeline 0.1.0")
-            default:
-                printError("Unknown command: \(command)")
-                printUsage()
-                exit(1)
-            }
-        } catch let error as PipelineError {
-            printError(error.description)
-            exit(1)
-        } catch {
-            printError(error.localizedDescription)
-            exit(1)
-        }
+func handlePipelineCommand(_ args: [String]) throws {
+    guard let command = args.first else {
+        printPipelineUsage()
+        exit(0)
     }
-}
+    let remaining = Array(args.dropFirst())
 
-// MARK: - Argument Parsing
-
-struct Flags {
-    var named: [String: String] = [:]
-    var booleans: Set<String> = []
-    var positional: [String] = []
-
-    init(_ args: [String]) {
-        var i = 0
-        while i < args.count {
-            if args[i].hasPrefix("--") {
-                let flag = String(args[i].dropFirst(2))
-                if i + 1 < args.count && !args[i + 1].hasPrefix("--") {
-                    named[flag] = args[i + 1]
-                    i += 2
-                } else {
-                    booleans.insert(flag)
-                    i += 1
-                }
-            } else {
-                positional.append(args[i])
-                i += 1
-            }
-        }
+    switch command {
+    case "init":
+        try handleInit(remaining)
+    case "delete":
+        try handleDelete(remaining)
+    case "status":
+        try handleStatus(remaining)
+    case "add":
+        try handleAdd(remaining)
+    case "edit":
+        try handleEdit(remaining)
+    case "move":
+        try handleMove(remaining)
+    case "remove":
+        try handleRemove(remaining)
+    case "archive":
+        try handleArchive(remaining)
+    case "log":
+        try handleLog(remaining)
+    case "claim":
+        try handleClaim(remaining)
+    case "advance":
+        try handleAdvance(remaining)
+    case "release":
+        try handleRelease(remaining)
+    case "current-job":
+        try handleCurrentJob(remaining)
+    case "whoami":
+        try handleWhoami(remaining)
+    case "reap":
+        try handleReap(remaining)
+    case "play":
+        try handlePlay(remaining)
+    case "pause":
+        try handlePause(remaining)
+    case "stage":
+        try handleStage(remaining)
+    case "daemon":
+        try handleDaemon(remaining)
+    case "inject-target":
+        try handleInjectTarget(remaining)
+    case "listen":
+        try handleListen(remaining)
+    case "help", "--help", "-h":
+        printPipelineUsage()
+    case "version", "--version":
+        print("hootty pipeline 0.1.0")
+    default:
+        printError("Unknown pipeline command: \(command)")
+        printPipelineUsage()
+        exit(1)
     }
-
-    func has(_ name: String) -> Bool { booleans.contains(name) }
-    func get(_ name: String) -> String? { named[name] }
 }
 
 // MARK: - Engine Setup
@@ -146,7 +106,7 @@ func handleInit(_ args: [String]) throws {
 func handleDelete(_ args: [String]) throws {
     let flags = Flags(args)
     guard let name = flags.positional.first else {
-        printError("Usage: pipeline delete <name> [--yes]")
+        printError("Usage: hootty pipeline delete <name> [--yes]")
         exit(1)
     }
     if !flags.has("yes") {
@@ -194,7 +154,7 @@ func handleAdd(_ args: [String]) throws {
         pipeline = nil
         title = flags.positional[0]
     } else {
-        printError("Usage: pipeline add [<pipeline>] <title> [--body \"text\"] [--stage <stage>] [--edit]")
+        printError("Usage: hootty pipeline add [<pipeline>] <title> [--body \"text\"] [--stage <stage>] [--edit]")
         exit(1)
     }
 
@@ -223,7 +183,7 @@ func handleAdd(_ args: [String]) throws {
 func handleEdit(_ args: [String]) throws {
     let flags = Flags(args)
     guard let target = flags.positional.first else {
-        printError("Usage: pipeline edit <job-slug|memory>")
+        printError("Usage: hootty pipeline edit <job-slug|memory>")
         exit(1)
     }
 
@@ -254,7 +214,7 @@ func handleEdit(_ args: [String]) throws {
 func handleMove(_ args: [String]) throws {
     let flags = Flags(args)
     guard flags.positional.count >= 2 else {
-        printError("Usage: pipeline move <job-slug> <stage>")
+        printError("Usage: hootty pipeline move <job-slug> <stage>")
         exit(1)
     }
 
@@ -269,7 +229,7 @@ func handleMove(_ args: [String]) throws {
 func handleRemove(_ args: [String]) throws {
     let flags = Flags(args)
     guard let slug = flags.positional.first else {
-        printError("Usage: pipeline remove <job-slug>")
+        printError("Usage: hootty pipeline remove <job-slug>")
         exit(1)
     }
 
@@ -288,7 +248,7 @@ func handleArchive(_ args: [String]) throws {
 func handleLog(_ args: [String]) throws {
     let message = args.joined(separator: " ")
     guard !message.isEmpty else {
-        printError("Usage: pipeline log <message>")
+        printError("Usage: hootty pipeline log <message>")
         exit(1)
     }
 
@@ -341,7 +301,7 @@ func handleClaim(_ args: [String]) throws {
         exit(1)
 
     case .alreadyClaimed(let currentJob, _):
-        printError("You already have a claim on \"\(currentJob)\". Run `pipeline release` first.")
+        printError("You already have a claim on \"\(currentJob)\". Run `hootty pipeline release` first.")
         exit(1)
     }
 }
@@ -367,11 +327,11 @@ func handleAdvance(_ args: [String]) throws {
         print("✓ Claim released.")
 
     case .noClaim:
-        printError("No active claim. Run `pipeline claim` first.")
+        printError("No active claim. Run `hootty pipeline claim` first.")
         exit(1)
 
     case .paused:
-        printError("Pipeline is paused. Run `pipeline play` to resume.")
+        printError("Pipeline is paused. Run `hootty pipeline play` to resume.")
         exit(1)
     }
 }
@@ -424,7 +384,7 @@ func handlePause(_ args: [String]) throws {
 
 func handleStage(_ args: [String]) throws {
     guard let subcommand = args.first else {
-        printError("Usage: pipeline stage <add|remove|move> ...")
+        printError("Usage: hootty pipeline stage <add|remove|move> ...")
         exit(1)
     }
 
@@ -435,7 +395,7 @@ func handleStage(_ args: [String]) throws {
     switch subcommand {
     case "add":
         guard let name = flags.positional.first else {
-            printError("Usage: pipeline stage add <name> [--type auto|manual] [--after <stage>] [--pipeline <name>]")
+            printError("Usage: hootty pipeline stage add <name> [--type auto|manual] [--after <stage>] [--pipeline <name>]")
             exit(1)
         }
         let typeStr = flags.get("type") ?? "manual"
@@ -445,7 +405,7 @@ func handleStage(_ args: [String]) throws {
 
     case "remove":
         guard let name = flags.positional.first else {
-            printError("Usage: pipeline stage remove <name> [--pipeline <name>]")
+            printError("Usage: hootty pipeline stage remove <name> [--pipeline <name>]")
             exit(1)
         }
         try engine.removeStage(pipeline: flags.get("pipeline"), name: name)
@@ -453,7 +413,7 @@ func handleStage(_ args: [String]) throws {
 
     case "move":
         guard let name = flags.positional.first, let after = flags.get("after") else {
-            printError("Usage: pipeline stage move <name> --after <stage> [--pipeline <name>]")
+            printError("Usage: hootty pipeline stage move <name> --after <stage> [--pipeline <name>]")
             exit(1)
         }
         try engine.moveStage(pipeline: flags.get("pipeline"), name: name, after: after)
@@ -467,7 +427,7 @@ func handleStage(_ args: [String]) throws {
 
 func handleDaemon(_ args: [String]) throws {
     guard let subcommand = args.first else {
-        printError("Usage: pipeline daemon <start|stop|status|run>")
+        printError("Usage: hootty pipeline daemon <start|stop|status|run>")
         exit(1)
     }
 
@@ -485,7 +445,7 @@ func handleDaemon(_ args: [String]) throws {
         let execPath = ProcessInfo.processInfo.arguments[0]
         let process = Process()
         process.executableURL = URL(fileURLWithPath: execPath)
-        process.arguments = ["daemon", "run"]
+        process.arguments = ["pipeline", "daemon", "run"]
         process.currentDirectoryURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 
         // Redirect stdout/stderr to daemon log
@@ -593,7 +553,7 @@ func handleListen(_ args: [String]) throws {
     let storage = PipelineStorage(rootPath: rootPath)
 
     guard storage.isDaemonRunning() else {
-        printError("Daemon not running. Start it with `pipeline daemon start`.")
+        printError("Daemon not running. Start it with `hootty pipeline daemon start`.")
         exit(1)
     }
 
@@ -684,7 +644,7 @@ func createClaudeHooks() throws {
       "hooks": {
         "session_start": [
           {
-            "command": "pipeline status --format context 2>/dev/null || true",
+            "command": "hootty pipeline status --format context 2>/dev/null || true",
             "description": "Inject pipeline board awareness"
           }
         ]
@@ -695,15 +655,11 @@ func createClaudeHooks() throws {
     print("  ✓ Created .claude/hooks.json (pipeline awareness on session start)")
 }
 
-func printError(_ message: String) {
-    FileHandle.standardError.write(Data("Error: \(message)\n".utf8))
-}
-
-func printUsage() {
+func printPipelineUsage() {
     print("""
-    pipeline — CLI-driven kanban for AI agent task management
+    hootty pipeline — CLI-driven kanban for AI agent task management
 
-    Usage: pipeline <command> [options]
+    Usage: hootty pipeline <command> [options]
 
     Pipeline management:
       init [<name>] [--template simple|review|full-ci] [--hooks]  Create a pipeline

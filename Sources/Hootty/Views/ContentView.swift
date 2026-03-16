@@ -617,7 +617,7 @@ struct ContentView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["pipeline", "claim", "--job", slug, "--worktree"]
+            process.arguments = ["hootty", "pipeline", "claim", "--job", slug, "--worktree"]
             process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
             let pipe = Pipe()
             process.standardOutput = pipe
@@ -654,11 +654,11 @@ struct ContentView: View {
     }
 
     private func runPipelineArchive(pipelineName: String, repoRoot: String) {
-        // Run `pipeline archive <name>` in the repo root
+        // Run `hootty pipeline archive <name>` in the repo root
         DispatchQueue.global(qos: .userInitiated).async {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["pipeline", "archive", pipelineName]
+            process.arguments = ["hootty", "pipeline", "archive", pipelineName]
             process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
             try? process.run()
             process.waitUntilExit()

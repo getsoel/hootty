@@ -47,9 +47,9 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "PipelineCLI",
+            name: "HoottyCLI",
             dependencies: ["PipelineKit"],
-            path: "Sources/PipelineCLI"
+            path: "Sources/HoottyCLI"
         ),
         .testTarget(name: "HoottyCoreTests", dependencies: ["HoottyCore", "PipelineKit"]),
         .testTarget(name: "PipelineKitTests", dependencies: ["PipelineKit"]),

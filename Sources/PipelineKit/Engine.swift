@@ -201,11 +201,11 @@ public class PipelineEngine {
         }
 
         lines.append("### CLI quick reference")
-        lines.append("- `pipeline claim [--job <slug>]` — claim a task (auto-picks next queued if no slug)")
-        lines.append("- `pipeline release` — release your current claim")
-        lines.append("- `pipeline status` — show current board state")
-        lines.append("- `pipeline log <message>` — log progress on your active task")
-        lines.append("- `pipeline advance` — move your task to the next stage")
+        lines.append("- `hootty pipeline claim [--job <slug>]` — claim a task (auto-picks next queued if no slug)")
+        lines.append("- `hootty pipeline release` — release your current claim")
+        lines.append("- `hootty pipeline status` — show current board state")
+        lines.append("- `hootty pipeline log <message>` — log progress on your active task")
+        lines.append("- `hootty pipeline advance` — move your task to the next stage")
         return lines.joined(separator: "\n")
     }
 
@@ -1004,7 +1004,7 @@ public class PipelineEngine {
 
         lines.append("")
         lines.append("### Pipeline Instructions")
-        lines.append("When you have completed this task, run: `pipeline advance`")
+        lines.append("When you have completed this task, run: `hootty pipeline advance`")
         lines.append("This will move the job to the next stage. If the next stage is automated,")
         lines.append("its prompt will be printed — continue working on it. If manual, stop and")
         lines.append("wait for the user.")

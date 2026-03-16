@@ -9,7 +9,7 @@ A kanban-style pipeline system where jobs progress through ordered stages. Each 
 ### Design Principles
 
 1. **File-first** — Board state lives in human-readable files. Git-friendly, inspectable, editable by hand.
-2. **CLI-driven** — All operations go through the `pipeline` CLI. No special protocols — just shell commands.
+2. **CLI-driven** — All operations go through the `hootty pipeline` CLI. No special protocols — just shell commands.
 3. **Daemon-optional** — Files alone are sufficient for basic use. The daemon adds real-time events and auto-execution.
 4. **Agent-agnostic** — Any AI agent that can run shell commands (Claude Code, Codex, Copilot, Cursor) works out of the box.
 5. **Composable** — Each layer (storage, CLI, daemon, UI) can be swapped independently.
@@ -38,7 +38,7 @@ A kanban-style pipeline system where jobs progress through ordered stages. Each 
         │               │            │             │
         ▼               ▼            ▼             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                      CLI (pipeline)                         │
+│                   CLI (hootty pipeline)                      │
 │         init · status · add · advance · move · play         │
 └───────────────────────────┬─────────────────────────────────┘
                             │
@@ -102,7 +102,7 @@ A repo can have multiple pipelines. Each pipeline is a subdirectory of `.hootty/
 
 Stage directories are siblings of `pipeline.yaml` inside each pipeline folder. The directory names match the stage `name` field (lowercased, hyphenated).
 
-**Single pipeline shorthand**: If a repo only needs one pipeline, `pipeline init` creates it as `.hootty/pipeline/default/`. The CLI treats `default` as the implicit pipeline when `--pipeline` is omitted.
+**Single pipeline shorthand**: If a repo only needs one pipeline, `hootty pipeline init` creates it as `.hootty/pipeline/default/`. The CLI treats `default` as the implicit pipeline when `--pipeline` is omitted.
 
 ### config.yaml (Repo-Level)
 
@@ -158,7 +158,7 @@ Focus on `Sources/Auth/LoginService.swift` and `Sources/Auth/TokenManager.swift`
 
 The **filename** determines sort order within a stage (numeric prefix). The **directory** determines which stage a job is in — moving a file between directories moves it between stages (like vscode-agent-kanban).
 
-**Prompt boundary**: The **original prompt** is the body between frontmatter and the first `##` heading. Everything below (`## Research`, `## Notes`, `## Log`) is accumulated context. `pipeline advance` prints the stage command or original prompt. `pipeline claim --format context` injects the **full file** so the next session gets complete context.
+**Prompt boundary**: The **original prompt** is the body between frontmatter and the first `##` heading. Everything below (`## Research`, `## Notes`, `## Log`) is accumulated context. `hootty pipeline advance` prints the stage command or original prompt. `hootty pipeline claim --format context` injects the **full file** so the next session gets complete context.
 
 ### Context Carryover
 
@@ -188,15 +188,15 @@ Refactor the auth module to use async/await.
 - 2026-03-13 10:15 — Advanced to Implement
 ```
 
-`pipeline claim --format context` reads the full file — prepends `memory.md` (if present), then includes the job file with all prior stage outputs and log. Context carries forward across sessions automatically.
+`hootty pipeline claim --format context` reads the full file — prepends `memory.md` (if present), then includes the job file with all prior stage outputs and log. Context carries forward across sessions automatically.
 
 ### memory.md
 
-Shared project context prepended in every `pipeline claim --format context` output, before the job content. Contains project conventions, architecture notes, team norms. Edited by hand or `pipeline edit memory`. Not shown on board cards — it's global, not per-job.
+Shared project context prepended in every `hootty pipeline claim --format context` output, before the job content. Contains project conventions, architecture notes, team norms. Edited by hand or `hootty pipeline edit memory`. Not shown on board cards — it's global, not per-job.
 
 ### Job Logs
 
-Every `pipeline claim`, `pipeline advance`, `pipeline release`, `pipeline move`, and `pipeline log` appends a timestamped entry to the `## Log` section in the job file. This provides a complete audit trail, git-tracked alongside the job content.
+Every `hootty pipeline claim`, `hootty pipeline advance`, `hootty pipeline release`, `hootty pipeline move`, and `hootty pipeline log` appends a timestamped entry to the `## Log` section in the job file. This provides a complete audit trail, git-tracked alongside the job content.
 
 ### .state.json (Runtime, Not Git-Tracked)
 
@@ -246,38 +246,38 @@ Everything goes through the CLI. No special protocols — any agent or script th
 
 ```bash
 # Board management
-pipeline init                          # Create .hootty/pipeline/default/ (single pipeline)
-pipeline init feature --template review # Create named pipeline with template
-pipeline init bugs --template simple   # Create another pipeline
-pipeline status                        # Show default pipeline board
-pipeline status bugs                   # Show specific pipeline board
-pipeline status --all                  # Show all pipelines
-pipeline status --json                 # Machine-readable
+hootty pipeline init                          # Create .hootty/pipeline/default/ (single pipeline)
+hootty pipeline init feature --template review # Create named pipeline with template
+hootty pipeline init bugs --template simple   # Create another pipeline
+hootty pipeline status                        # Show default pipeline board
+hootty pipeline status bugs                   # Show specific pipeline board
+hootty pipeline status --all                  # Show all pipelines
+hootty pipeline status --json                 # Machine-readable
 
 # Job management (operates on default pipeline unless specified)
-pipeline add "Refactor auth module"    # Add to default pipeline's backlog
-pipeline add bugs "Login crash"        # Add to bugs pipeline's backlog
-pipeline add --stage implement "Fix"   # Add to specific stage
-pipeline move 001 review               # Move job to specific stage
+hootty pipeline add "Refactor auth module"    # Add to default pipeline's backlog
+hootty pipeline add bugs "Login crash"        # Add to bugs pipeline's backlog
+hootty pipeline add --stage implement "Fix"   # Add to specific stage
+hootty pipeline move 001 review               # Move job to specific stage
 
 # Claim & execute
-pipeline claim                         # Claim from default pipeline
-pipeline claim bugs                    # Claim from bugs pipeline
-pipeline claim --job 003-add-tests     # Claim a specific job by slug
-pipeline claim --format context        # Claim and output structured context
-pipeline advance                       # Advance claimed job (outputs next prompt)
-pipeline release                       # Release claim without advancing
-pipeline current-job                   # Show claimed job (without claiming a new one)
+hootty pipeline claim                         # Claim from default pipeline
+hootty pipeline claim bugs                    # Claim from bugs pipeline
+hootty pipeline claim --job 003-add-tests     # Claim a specific job by slug
+hootty pipeline claim --format context        # Claim and output structured context
+hootty pipeline advance                       # Advance claimed job (outputs next prompt)
+hootty pipeline release                       # Release claim without advancing
+hootty pipeline current-job                   # Show claimed job (without claiming a new one)
 
 # Engine control
-pipeline play                          # Resume default pipeline
-pipeline play bugs                     # Resume specific pipeline
-pipeline pause                         # Pause default pipeline
+hootty pipeline play                          # Resume default pipeline
+hootty pipeline play bugs                     # Resume specific pipeline
+hootty pipeline pause                         # Pause default pipeline
 
 # Daemon
-pipeline daemon start                  # Start background daemon
-pipeline daemon stop                   # Stop daemon
-pipeline daemon status                 # Check daemon state
+hootty pipeline daemon start                  # Start background daemon
+hootty pipeline daemon stop                   # Stop daemon
+hootty pipeline daemon status                 # Check daemon state
 ```
 
 **Without daemon**: CLI reads/writes `.hootty/pipeline/` files directly. No real-time events, no execution engine — purely a file manipulation tool.
@@ -295,7 +295,7 @@ Claude Code interacts with the pipeline through two mechanisms:
 {
   "hooks": {
     "session_start": [{
-      "command": "pipeline status --format context 2>/dev/null || true",
+      "command": "hootty pipeline status --format context 2>/dev/null || true",
       "description": "Inject pipeline board awareness"
     }]
   }
@@ -313,14 +313,14 @@ On session start, the hook shows Claude the board state. Output:
 - Review: (empty)
 - Done: 000-setup
 
-To pick up a task: `pipeline claim` or `pipeline claim <job-slug>`
+To pick up a task: `hootty pipeline claim` or `hootty pipeline claim <job-slug>`
 ```
 
 If no `.hootty/pipeline/` exists or no jobs are queued, outputs nothing. Claude does **not** auto-claim a job. The user explicitly asks Claude to pick up work:
 
 ```
 User: "pick up the next pipeline task"
-Claude: *runs `pipeline claim --format context`*
+Claude: *runs `hootty pipeline claim --format context`*
 → claims 001-auth-refactor, sees prompt, starts working
 
 User: "refactor the login page" (unrelated to pipeline)
@@ -330,12 +330,12 @@ Claude: *works normally, ignores pipeline context*
 Claude interacts with the pipeline via Bash — no special integration:
 
 ```bash
-pipeline claim                         # Claim next available job
-pipeline claim --job 002-fix-sidebar   # Claim specific job
-pipeline advance                       # Move to next stage (outputs next prompt)
-pipeline status --json                 # Check board state
-pipeline add bugs "Found a crash"      # Add new job to a pipeline
-pipeline release                       # Drop current claim
+hootty pipeline claim                         # Claim next available job
+hootty pipeline claim --job 002-fix-sidebar   # Claim specific job
+hootty pipeline advance                       # Move to next stage (outputs next prompt)
+hootty pipeline status --json                 # Check board state
+hootty pipeline add bugs "Found a crash"      # Add new job to a pipeline
+hootty pipeline release                       # Drop current claim
 ```
 
 ### Pattern 3: Unix Socket (Real-time Events)
@@ -384,10 +384,10 @@ This is the **fallback mode** — always works, no infrastructure. Hootty can us
 
 Two paths: self-driven (CLI calls) and daemon-driven (auto-injection).
 
-**Self-driven** (what `pipeline advance` does):
+**Self-driven** (what `hootty pipeline advance` does):
 ```
 1. Look up the job claimed by this session
-   - If no claim → error: "No active claim. Run `pipeline claim` first." (exit 1)
+   - If no claim → error: "No active claim. Run `hootty pipeline claim` first." (exit 1)
 2. If pipeline.paused → error
 3. Move job file to the next stage's directory
 4. If next stage is `automated`:
@@ -421,7 +421,7 @@ Two paths: self-driven (CLI calls) and daemon-driven (auto-injection).
 The pipeline lives in the repo (`.hootty/pipeline/`). A session associates with a specific job by **claiming** it — like pulling a card off a kanban board.
 
 ```bash
-$ pipeline claim
+$ hootty pipeline claim
 ✓ Claimed job: 001-auth-refactor (stage: Implement)
 ▶ Prompt:
 Refactor the auth module to use async/await...
@@ -433,55 +433,55 @@ Refactor the auth module to use async/await...
 3. Terminal PID (`$PPID` or parent process ID)
 4. Auto-generated UUID (written to `.hootty/pipeline/.sessions/<id>`)
 
-**Claim priority order** (what `pipeline claim` grabs):
+**Claim priority order** (what `hootty pipeline claim` grabs):
 1. `interrupted` jobs first (already in-flight, need attention)
 2. First stage with unclaimed `queued` jobs (by filename sort order)
 3. Skip jobs claimed by another live session
 
-**Stale claim cleanup**: Every `pipeline claim` and `pipeline advance` checks if existing claims have live PIDs (`kill -0 $pid`). Dead PID → auto-release. For non-PID session IDs, `pipeline reap` manually cleans up. `pipeline claim --force <job>` overrides any claim.
+**Stale claim cleanup**: Every `hootty pipeline claim` and `hootty pipeline advance` checks if existing claims have live PIDs (`kill -0 $pid`). Dead PID → auto-release. For non-PID session IDs, `hootty pipeline reap` manually cleans up. `hootty pipeline claim --force <job>` overrides any claim.
 
-**Double claim**: Error by default ("You already have a claim. Run `pipeline release` first."). One claim per pipeline allowed — so you can hold claims on `feature` and `bugs` simultaneously.
+**Double claim**: Error by default ("You already have a claim. Run `hootty pipeline release` first."). One claim per pipeline allowed — so you can hold claims on `feature` and `bugs` simultaneously.
 
 **Claim lifecycle:**
-1. `pipeline claim` — grabs next claimable job (priority order above), records `session_id → job_slug` in `.state.json`
+1. `hootty pipeline claim` — grabs next claimable job (priority order above), records `session_id → job_slug` in `.state.json`
 2. Session works on the job
-3. `pipeline advance` — moves the claimed job to next stage. If next stage is automated, the claim carries forward and the next prompt is printed. If manual, the claim is released and the job waits.
-4. `pipeline release` — explicitly unclaim without advancing (e.g., if you need to switch tasks)
+3. `hootty pipeline advance` — moves the claimed job to next stage. If next stage is automated, the claim carries forward and the next prompt is printed. If manual, the claim is released and the job waits.
+4. `hootty pipeline release` — explicitly unclaim without advancing (e.g., if you need to switch tasks)
 
 **Empty claim**: If no jobs are claimable, exits with code `1`. Human output: `No jobs available to claim in pipeline "feature".` With `--format context`, outputs empty string.
 
 **Multiple sessions, multiple jobs:**
 ```
-Terminal 1:  pipeline claim  →  gets 001-auth-refactor
-Terminal 2:  pipeline claim  →  gets 002-fix-sidebar  (001 is taken)
-Terminal 3:  pipeline claim  →  gets 003-add-tests    (001, 002 are taken)
+Terminal 1:  hootty pipeline claim  →  gets 001-auth-refactor
+Terminal 2:  hootty pipeline claim  →  gets 002-fix-sidebar  (001 is taken)
+Terminal 3:  hootty pipeline claim  →  gets 003-add-tests    (001, 002 are taken)
 ```
 
 Each terminal works independently. No coordination needed — the claim is the lock.
 
 **Explicit pick** (skip the queue):
 ```bash
-$ pipeline claim --job 003-add-tests   # claim a specific job by slug
-$ pipeline claim --stage review        # claim from a specific stage
+$ hootty pipeline claim --job 003-add-tests   # claim a specific job by slug
+$ hootty pipeline claim --stage review        # claim from a specific stage
 ```
 
 **Two execution models:**
 
 | Model | Who drives? | How prompts flow | Daemon needed? |
 |-------|------------|------------------|----------------|
-| **Self-driven** | Claude (or user) calls `pipeline claim` / `pipeline advance` | CLI output → Claude reads it | No |
+| **Self-driven** | Claude (or user) calls `hootty pipeline claim` / `hootty pipeline advance` | CLI output → Claude reads it | No |
 | **Injected** | Daemon detects idle → injects next prompt | Keystroke injection into terminal | Yes |
 
 **Self-driven** (Claude Code, manual terminal work):
-- Session claims a job via `pipeline claim`
+- Session claims a job via `hootty pipeline claim`
 - Claude/user works on it
-- `pipeline advance` moves to next stage and outputs next prompt
+- `hootty pipeline advance` moves to next stage and outputs next prompt
 - No daemon, no binding — just CLI calls
 
 **Injected** (Hootty pane automation):
 - Daemon watches for idle signal (Hootty `AttentionKind.idle`)
 - Daemon auto-claims next job and injects prompt into the terminal via `ghostty_surface_write()`
-- Requires explicit target: `pipeline inject-target --pane <uuid>`
+- Requires explicit target: `hootty pipeline inject-target --pane <uuid>`
 - Stored in `.state.json` as `injection_target`
 
 Most workflows use self-driven. Injected mode is a Hootty-specific optimization for fully hands-off automation.
@@ -494,7 +494,7 @@ When `settings.pause_on_error` is enabled:
 2. Daemon sets job status → `interrupted`
 3. Emits `error` event to all clients
 4. Job stays in current stage until user manually advances
-5. User can inspect output, fix the issue, then `pipeline advance`
+5. User can inspect output, fix the issue, then `hootty pipeline advance`
 
 ## Data Model
 
@@ -585,7 +585,7 @@ The bar only appears when this session has an active claim. No pipeline → no b
 - **Click stage dot** → if manual stage ahead, shows tooltip with stage name. If current stage is interrupted, clicking the next dot advances.
 - **Click job title** → opens the job's `.md` file in the terminal (`$EDITOR`) or shows a popover with prompt preview
 - **Click pipeline name** → switches to Pipelines view, highlights this job's card
-- **`[×]` button** → releases the claim (`pipeline release`)
+- **`[×]` button** → releases the claim (`hootty pipeline release`)
 - **Hover** → tooltip shows full job title, stage name, and time in current stage
 
 **Styling:**
@@ -603,7 +603,7 @@ Terminal opens in repo (or worktree)
      ├─ No  → nothing (no pipeline bar, no overhead)
      └─ Yes → watch .state.json with FSEvents (at canonical root)
 
-User/Claude runs `pipeline claim` in this terminal
+User/Claude runs `hootty pipeline claim` in this terminal
   └─ .state.json updates with new claim (at canonical root)
   └─ Hootty matches claim to pane:
      ├─ pane.claudeSessionID matches $CLAUDE_SESSION_ID in claim
@@ -611,10 +611,10 @@ User/Claude runs `pipeline claim` in this terminal
      └─ $PIPELINE_SESSION env var in pane's environment matches claim
   └─ Pipeline bar slides in below pane bar
 
-User/Claude runs `pipeline advance`
+User/Claude runs `hootty pipeline advance`
   └─ .state.json updates → pipeline bar updates stage dots + stage name
 
-User/Claude runs `pipeline release` or job completes
+User/Claude runs `hootty pipeline release` or job completes
   └─ .state.json claim removed → pipeline bar fades out
 ```
 
@@ -679,7 +679,7 @@ When "Pipelines" is selected, the entire content area becomes the kanban board. 
 
 **Interactions:**
 
-- **Drag card** between columns → `pipeline move` (forward or backward)
+- **Drag card** between columns → `hootty pipeline move` (forward or backward)
 - **Click card** → expands to show full prompt, notes, metadata. Edit inline.
 - **Click `[+ Add]`** at column bottom → inline card appears → type title → Enter → stub `.md` file created (auto-numbered). Click to expand and write full prompt.
 - **Double-click card title** → rename
@@ -718,7 +718,7 @@ The two views are connected:
 
 - **Pipeline bar → Board**: Click the pipeline name in a pane's pipeline bar → switches to Pipelines view, highlights that job's card
 - **Board → Terminal**: Click a claimed card's session indicator → switches to Terminals view, focuses the pane that has the claim
-- **Board → Terminal**: Right-click card → "Open in Terminal" → switches to Terminals view and runs `pipeline claim <job>` in the focused pane
+- **Board → Terminal**: Right-click card → "Open in Terminal" → switches to Terminals view and runs `hootty pipeline claim <job>` in the focused pane
 
 ### Attention Integration
 
@@ -739,7 +739,7 @@ For fully hands-off automation, Hootty can set a pane as the injection target: r
 {
   "hooks": {
     "session_start": [{
-      "command": "pipeline status --format context 2>/dev/null || true",
+      "command": "hootty pipeline status --format context 2>/dev/null || true",
       "description": "Inject pipeline board awareness"
     }]
   }
@@ -763,8 +763,8 @@ Terminals aren't associated with pipeline jobs by default. The connection is exp
       "Pipeline: feature (3 jobs queued in backlog)"
 
 3. User decides to engage (or not)
-   ├─ "pick up the next task" → Claude runs `pipeline claim`
-   ├─ "work on the auth refactor" → Claude runs `pipeline claim --job 001-auth-refactor`
+   ├─ "pick up the next task" → Claude runs `hootty pipeline claim`
+   ├─ "work on the auth refactor" → Claude runs `hootty pipeline claim --job 001-auth-refactor`
    └─ "just fix this CSS bug" → Claude works normally, ignores pipeline
 
 4. After claim:
@@ -774,7 +774,7 @@ Terminals aren't associated with pipeline jobs by default. The connection is exp
 
 ### How Claude Knows to Advance
 
-When Claude runs `pipeline claim --format context`, it gets the job prompt AND instructions:
+When Claude runs `hootty pipeline claim --format context`, it gets the job prompt AND instructions:
 
 ```
 ## Pipeline: feature
@@ -786,41 +786,41 @@ Refactor the auth module to use async/await instead of callbacks.
 Focus on `Sources/Auth/LoginService.swift` and `Sources/Auth/TokenManager.swift`.
 
 ### Pipeline Instructions
-When you have completed this task, run: `pipeline advance`
+When you have completed this task, run: `hootty pipeline advance`
 This will move the job to the next stage. If the next stage is automated,
 its prompt will be printed — continue working on it. If manual, stop and
 wait for the user.
 ```
 
-The key mechanic: **`pipeline advance` outputs the next prompt.**
+The key mechanic: **`hootty pipeline advance` outputs the next prompt.**
 
 ```bash
-$ pipeline advance
+$ hootty pipeline advance
 ✓ Job "auth-refactor" advanced: Implement → Review (manual)
 ⏸ Waiting for human review. Claim released.
 ```
 
 ```bash
-$ pipeline advance
+$ hootty pipeline advance
 ✓ Job "auth-refactor" advanced: Review → Test (automated)
 ▶ Next prompt:
 Write tests for the changes you just made.
 ```
 
 ```bash
-$ pipeline advance
+$ hootty pipeline advance
 ✓ Job "auth-refactor" advanced: Test → Commit (automated)
 ▶ Next prompt:
 /commit
 ```
 
-Claude sees the output of `pipeline advance` in its Bash tool result. If it says "Next prompt: ...", Claude continues working. If it says "Waiting for human", Claude stops. This creates a **natural loop within a single Claude session** — no external orchestration needed.
+Claude sees the output of `hootty pipeline advance` in its Bash tool result. If it says "Next prompt: ...", Claude continues working. If it says "Waiting for human", Claude stops. This creates a **natural loop within a single Claude session** — no external orchestration needed.
 
 For fully automated pipelines (no manual stages), Claude chains through all stages in one session:
 1. Hook claims job → Claude works on it
-2. Claude runs `pipeline advance` → sees next prompt → works on it
-3. Claude runs `pipeline advance` → sees next prompt → works on it
-4. Claude runs `pipeline advance` → sees "completed" → claims next job or stops
+2. Claude runs `hootty pipeline advance` → sees next prompt → works on it
+3. Claude runs `hootty pipeline advance` → sees next prompt → works on it
+4. Claude runs `hootty pipeline advance` → sees "completed" → claims next job or stops
 
 ### Stage Commands and Slash Commands
 
@@ -853,10 +853,10 @@ stages:
 The `command` field accepts:
 - **Prompts** — natural language instructions ("write tests for...")
 - **Slash commands** — `/commit`, `/review-pr`, any custom Claude Code skill
-- **Shell-style** — `make test && pipeline advance` (for non-Claude runners)
+- **Shell-style** — `make test && hootty pipeline advance` (for non-Claude runners)
 - **null** — uses the job's own prompt (the markdown body)
 
-When `pipeline advance` outputs a slash command like `/commit`, Claude sees it and executes it natively. No special handling — it's just text that Claude interprets.
+When `hootty pipeline advance` outputs a slash command like `/commit`, Claude sees it and executes it natively. No special handling — it's just text that Claude interprets.
 
 ### Prompt Variables
 
@@ -874,20 +874,20 @@ Job prompts and stage commands support `{{variable}}` placeholders resolved at e
 1. Developer creates a pipeline and adds jobs (via CLI, Hootty UI, or editing files)
 2. Developer opens Claude Code in the project
 3. `session_start` hook injects board awareness (pipelines, queued jobs)
-4. User tells Claude to pick up a task → Claude runs `pipeline claim --format context`
+4. User tells Claude to pick up a task → Claude runs `hootty pipeline claim --format context`
 5. Claude works on the job using its normal tools
-6. When done, Claude runs `pipeline advance` via Bash
-7. `pipeline advance` outputs the next stage's prompt (or "waiting for human")
+6. When done, Claude runs `hootty pipeline advance` via Bash
+7. `hootty pipeline advance` outputs the next stage's prompt (or "waiting for human")
 8. If automated → Claude sees the prompt and continues working
 9. If manual → Claude sees "waiting", claim is released, Claude stops
 10. User reviews, then tells Claude to advance or starts a new session
 11. Repeat
 
-**Parallel sessions**: Open 3 terminals, each starts Claude Code. Tell each to `pipeline claim`. Each claims a different job. Three jobs progress simultaneously.
+**Parallel sessions**: Open 3 terminals, each starts Claude Code. Tell each to `hootty pipeline claim`. Each claims a different job. Three jobs progress simultaneously.
 
 ### Why Not MCP?
 
-Claude Code can already run shell commands via Bash. `pipeline status --json` gives the same data as an MCP resource. `pipeline advance` does the same thing as an MCP tool call. MCP adds a persistent server process and protocol complexity for zero additional capability.
+Claude Code can already run shell commands via Bash. `hootty pipeline status --json` gives the same data as an MCP resource. `hootty pipeline advance` does the same thing as an MCP tool call. MCP adds a persistent server process and protocol complexity for zero additional capability.
 
 The CLI approach also means **any AI agent** that can run shell commands works — not just Claude Code with MCP support.
 
@@ -924,12 +924,12 @@ Main repo (~/repos/myproject/)
 
 The CLI resolves the canonical root using `git rev-parse --git-common-dir` (parent of the shared `.git` directory). This returns the same path whether called from the main repo or any worktree.
 
-#### `pipeline claim --worktree`
+#### `hootty pipeline claim --worktree`
 
 One command for isolated parallel work:
 
 ```bash
-$ pipeline claim --worktree
+$ hootty pipeline claim --worktree
 ✓ Created worktree: .claude/worktrees/pipeline/001-auth-refactor (branch: pipeline/001-auth-refactor)
 ✓ Claimed job: 001-auth-refactor (stage: Implement)
 ▶ Working directory: ~/repos/myproject/.claude/worktrees/pipeline/001-auth-refactor
@@ -955,10 +955,10 @@ Hootty already has `GitWorktreeManager` with `canonicalRepoRoot(for:)` and `reso
 1. Calls `GitWorktreeManager.resolveWorktreePath(repoPath:, branch: "pipeline/<slug>")`
 2. Opens a new pane in the worktree directory (existing `splitFocusedPane(workingDirectory:)`)
 3. Registers parent surface for the new pane (inherits ghostty config)
-4. Runs `pipeline claim --job <slug>` in the new pane
+4. Runs `hootty pipeline claim --job <slug>` in the new pane
 5. Pipeline bar appears, referencing canonical root's `.hootty/pipeline/`
 
-**Worktree cleanup**: When a job moves to Done and its branch is merged, the worktree can be removed. `pipeline archive` could optionally clean up worktrees for archived jobs. Hootty's sidebar already shows worktrees — a "Clean up worktree" action on completed job cards.
+**Worktree cleanup**: When a job moves to Done and its branch is merged, the worktree can be removed. `hootty pipeline archive` could optionally clean up worktrees for archived jobs. Hootty's sidebar already shows worktrees — a "Clean up worktree" action on completed job cards.
 
 **FSEvents scope**: Hootty watches `.hootty/pipeline/` at `canonicalRepoRoot`, not per-worktree. One watcher per repo, regardless of how many worktree panes exist.
 
@@ -970,8 +970,8 @@ git worktree add .claude/worktrees/pipeline/001-auth -b pipeline/001-auth-refact
 git worktree add .claude/worktrees/pipeline/002-fix -b pipeline/002-fix-sidebar
 
 # Each terminal cds into its worktree and claims
-cd .claude/worktrees/pipeline/001-auth && pipeline claim --job 001-auth-refactor
-cd .claude/worktrees/pipeline/002-fix && pipeline claim --job 002-fix-sidebar
+cd .claude/worktrees/pipeline/001-auth && hootty pipeline claim --job 001-auth-refactor
+cd .claude/worktrees/pipeline/002-fix && hootty pipeline claim --job 002-fix-sidebar
 ```
 
 #### Single Session (No Worktree)
@@ -986,7 +986,7 @@ settings:
   max_claims: 3                    # max simultaneous claimed jobs (default: unlimited)
 ```
 
-## CLI Tool: `pipeline`
+## CLI Tool: `hootty pipeline`
 
 ### Implementation
 
@@ -999,56 +999,56 @@ The CLI auto-detects: if `.hootty/pipeline/pipeline.sock` exists in the repo and
 
 ### Core Commands
 
-All commands accept an optional pipeline name as the first positional argument. If omitted, the default pipeline from `config.yaml` is used. `pipeline advance` and `pipeline release` always operate on the session's current claim (no pipeline argument needed).
+All commands accept an optional pipeline name as the first positional argument. If omitted, the default pipeline from `config.yaml` is used. `hootty pipeline advance` and `hootty pipeline release` always operate on the session's current claim (no pipeline argument needed).
 
 ```
 # Pipeline management
-pipeline init [<name>] [--template]  Create a pipeline (default: "default")
-pipeline delete <name> [--yes]       Delete a pipeline (requires confirmation)
-pipeline status [<name>] [--all]     Show board state
-pipeline play [<name>]               Resume engine
-pipeline pause [<name>]              Pause engine
+hootty pipeline init [<name>] [--template]  Create a pipeline (default: "default")
+hootty pipeline delete <name> [--yes]       Delete a pipeline (requires confirmation)
+hootty pipeline status [<name>] [--all]     Show board state
+hootty pipeline play [<name>]               Resume engine
+hootty pipeline pause [<name>]              Pause engine
 
 # Job management
-pipeline add [<name>] <title>        Add job (stub file, empty body)
-pipeline add [<name>] <title> --edit Open $EDITOR after creating stub
-pipeline add [<name>] <title> --body "text"  Create with prompt body
-pipeline edit <job>                   Open job file in $EDITOR
-pipeline edit memory                  Edit shared memory.md
-pipeline move <job> <stage>          Move job to specific stage (forward or backward)
-pipeline remove <job>                Delete a job
-pipeline archive [<name>]            Move done jobs to archive directory
-pipeline log <message>               Append note to claimed job
+hootty pipeline add [<name>] <title>        Add job (stub file, empty body)
+hootty pipeline add [<name>] <title> --edit Open $EDITOR after creating stub
+hootty pipeline add [<name>] <title> --body "text"  Create with prompt body
+hootty pipeline edit <job>                   Open job file in $EDITOR
+hootty pipeline edit memory                  Edit shared memory.md
+hootty pipeline move <job> <stage>          Move job to specific stage (forward or backward)
+hootty pipeline remove <job>                Delete a job
+hootty pipeline archive [<name>]            Move done jobs to archive directory
+hootty pipeline log <message>               Append note to claimed job
 
 # Claiming
-pipeline claim [<pipeline>]          Claim next job from pipeline (default if omitted)
-pipeline claim --job <slug>          Claim a specific job by slug (unambiguous)
-pipeline claim --stage <stage>       Claim from a specific stage
-pipeline claim --force --job <slug>  Override an existing claim
-pipeline claim --worktree            Create git worktree + branch, cd into it, then claim
-pipeline advance                     Advance claimed job (outputs next prompt)
-pipeline release                     Release claim without advancing
-pipeline current-job [--format ctx]  Show claimed job (without claiming a new one)
-pipeline reap                        Clean up claims from dead sessions
-pipeline whoami                      Show session ID and current claim
+hootty pipeline claim [<pipeline>]          Claim next job from pipeline (default if omitted)
+hootty pipeline claim --job <slug>          Claim a specific job by slug (unambiguous)
+hootty pipeline claim --stage <stage>       Claim from a specific stage
+hootty pipeline claim --force --job <slug>  Override an existing claim
+hootty pipeline claim --worktree            Create git worktree + branch, cd into it, then claim
+hootty pipeline advance                     Advance claimed job (outputs next prompt)
+hootty pipeline release                     Release claim without advancing
+hootty pipeline current-job [--format ctx]  Show claimed job (without claiming a new one)
+hootty pipeline reap                        Clean up claims from dead sessions
+hootty pipeline whoami                      Show session ID and current claim
 
 # Stage management
-pipeline stage add <name> [--type auto|manual] [--after <stage>]
-pipeline stage remove <name>         Moves jobs to previous stage
-pipeline stage move <name> --after <stage>
+hootty pipeline stage add <name> [--type auto|manual] [--after <stage>]
+hootty pipeline stage remove <name>         Moves jobs to previous stage
+hootty pipeline stage move <name> --after <stage>
 
 # Daemon
-pipeline daemon start|stop|status    Manage daemon
-pipeline inject-target [--pane <id>] Set injection target (Hootty auto-execution)
+hootty pipeline daemon start|stop|status    Manage daemon
+hootty pipeline inject-target [--pane <id>] Set injection target (Hootty auto-execution)
 ```
 
 ## Templates
 
 ```
-pipeline init --template simple             # creates .hootty/pipeline/default/
-pipeline init feature --template review     # creates .hootty/pipeline/feature/
-pipeline init bugs --template simple        # creates .hootty/pipeline/bugs/
-pipeline init release --template custom     # creates .hootty/pipeline/release/
+hootty pipeline init --template simple             # creates .hootty/pipeline/default/
+hootty pipeline init feature --template review     # creates .hootty/pipeline/feature/
+hootty pipeline init bugs --template simple        # creates .hootty/pipeline/bugs/
+hootty pipeline init release --template custom     # creates .hootty/pipeline/release/
 ```
 
 | Template | Stages |
@@ -1087,20 +1087,20 @@ On daemon restart:
 2. Scan each pipeline's stage directories for job files
 3. Read `.state.json` if exists — reset any `active` jobs to `interrupted`, clear claims
 4. Wait for sessions to reconnect
-5. User resumes with `pipeline play [<name>]`
+5. User resumes with `hootty pipeline play [<name>]`
 
 ## Implementation Plan
 
 ### Phase 1: File Format + CLI (standalone)
 - [ ] Define file format: `config.yaml`, `pipeline.yaml`, job markdown spec, `.state.json`
 - [ ] Multi-pipeline directory structure (`.hootty/pipeline/<name>/`)
-- [ ] `pipeline` CLI: `init`, `delete`, `status`, `add`, `claim`, `advance`, `release`, `move`, `remove`, `archive`, `log`, `whoami`, `reap` (direct mode only)
-- [ ] `pipeline stage` subcommands: `add`, `remove`, `move`
+- [ ] `hootty pipeline` CLI: `init`, `delete`, `status`, `add`, `claim`, `advance`, `release`, `move`, `remove`, `archive`, `log`, `whoami`, `reap` (direct mode only)
+- [ ] `hootty pipeline stage` subcommands: `add`, `remove`, `move`
 - [ ] Session identity resolution (`$PIPELINE_SESSION`, `$CLAUDE_SESSION_ID`, `$PPID`)
 - [ ] Advisory file lock (`flock`) on `.state.json` for concurrent write safety
 - [ ] Stale claim detection (PID check on claim/advance, `--force` override)
 - [ ] Claim priority order (interrupted → queued, by filename sort)
-- [ ] `pipeline claim --worktree` (create git worktree + branch for isolated parallel work)
+- [ ] `hootty pipeline claim --worktree` (create git worktree + branch for isolated parallel work)
 - [ ] Job auto-numbering (incrementing integer across all stages)
 - [ ] Job log appending (`## Log` section in job file)
 - [ ] Prompt variable resolution (built-in → frontmatter → settings → env)
@@ -1108,16 +1108,16 @@ On daemon restart:
 - [ ] Unit tests for file parsing, job movement, claim/release, stale cleanup, variable resolution
 
 ### Phase 2: Daemon + Socket
-- [ ] `pipeline daemon` process (Swift or Rust)
+- [ ] `hootty pipeline daemon` process (Swift or Rust)
 - [ ] Unix socket server: accept commands, emit events
 - [ ] Execution engine: idle detection, auto-advance, error interrupts
-- [ ] `pipeline inject-target` for Hootty pane auto-execution
+- [ ] `hootty pipeline inject-target` for Hootty pane auto-execution
 - [ ] File watching: sync `.hootty/pipeline/` changes into daemon state
 
 ### Phase 3: Claude Code Hooks
-- [ ] `pipeline status --format context` for session_start hook (awareness, not auto-claim)
-- [ ] `pipeline claim --format context` for explicit claiming
-- [ ] Hook templates / setup command (`pipeline init --hooks`)
+- [ ] `hootty pipeline status --format context` for session_start hook (awareness, not auto-claim)
+- [ ] `hootty pipeline claim --format context` for explicit claiming
+- [ ] Hook templates / setup command (`hootty pipeline init --hooks`)
 - [ ] Document Bash-based workflow (claim, advance, status, add from within Claude)
 
 ### Phase 4: Hootty UI
@@ -1155,7 +1155,7 @@ On daemon restart:
 
 ### Stage Directory Lifecycle
 
-**Stage directories are auto-created**: When `pipeline init` creates a pipeline or `pipeline stage add` adds a stage, the corresponding directory is created. If a stage is listed in `pipeline.yaml` but its directory is missing, the CLI auto-creates it on first use.
+**Stage directories are auto-created**: When `hootty pipeline init` creates a pipeline or `hootty pipeline stage add` adds a stage, the corresponding directory is created. If a stage is listed in `pipeline.yaml` but its directory is missing, the CLI auto-creates it on first use.
 
 **Orphan directories** (exist on disk but not in `pipeline.yaml`) are ignored by the CLI. Their files are invisible to the pipeline.
 
@@ -1163,17 +1163,17 @@ On daemon restart:
 
 ### Remove / Delete Guards
 
-**`pipeline remove <job>` with active claim**: Releases the claim, then deletes the file. Appends a log entry before deletion ("Removed by user"). The claiming session's next `pipeline advance` will fail with "No active claim."
+**`hootty pipeline remove <job>` with active claim**: Releases the claim, then deletes the file. Appends a log entry before deletion ("Removed by user"). The claiming session's next `hootty pipeline advance` will fail with "No active claim."
 
-**`pipeline stage remove` with claimed jobs**: Moves jobs to previous stage, preserves claims. The claiming session continues working — the job just moved to a different directory.
+**`hootty pipeline stage remove` with claimed jobs**: Moves jobs to previous stage, preserves claims. The claiming session continues working — the job just moved to a different directory.
 
 ### Advance Guards
 
-**`pipeline advance` without claim**: Error, exit code `1`: "No active claim. Run `pipeline claim` first."
+**`hootty pipeline advance` without claim**: Error, exit code `1`: "No active claim. Run `hootty pipeline claim` first."
 
-**Double advance prevention**: `pipeline advance` checks that the job is still in the expected stage before moving it. If the job has already been moved (by another process or UI drag), it errors: "Job has moved since your last action. Run `pipeline current-job` to see current state."
+**Double advance prevention**: `hootty pipeline advance` checks that the job is still in the expected stage before moving it. If the job has already been moved (by another process or UI drag), it errors: "Job has moved since your last action. Run `hootty pipeline current-job` to see current state."
 
-**`pipeline play` / `pipeline pause` without daemon**: The `paused` flag is written to `.state.json`. `pipeline advance` checks it and errors: "Pipeline is paused." `pipeline claim` also checks it and errors: "Pipeline is paused."
+**`hootty pipeline play` / `hootty pipeline pause` without daemon**: The `paused` flag is written to `.state.json`. `hootty pipeline advance` checks it and errors: "Pipeline is paused." `hootty pipeline claim` also checks it and errors: "Pipeline is paused."
 
 ### Fresh Clone / Missing State
 
@@ -1181,7 +1181,7 @@ When `.state.json` doesn't exist (fresh `git clone`, first use), the CLI creates
 
 ### `$EDITOR` Fallback
 
-`pipeline edit` tries `$EDITOR`, then `$VISUAL`, then `vi`. If none available, errors: "No editor found. Set $EDITOR."
+`hootty pipeline edit` tries `$EDITOR`, then `$VISUAL`, then `vi`. If none available, errors: "No editor found. Set $EDITOR."
 
 ## Known Limitations
 
@@ -1189,8 +1189,8 @@ These are acknowledged but deferred to implementation time or future phases:
 
 - **Corrupt YAML/JSON recovery**: If `pipeline.yaml` or `.state.json` is malformed, the CLI errors with a parse error and line number. No auto-recovery. User must fix manually. `.state.json` can be safely deleted (regenerated from filesystem on next CLI call).
 - **Git merge conflicts**: `.hootty/pipeline/` files are plain text and merge normally. Log entries may conflict (both branches appended). Job files moved to different stages on different branches cause delete/add conflicts. No special merge driver — resolve like any git conflict.
-- **`memory.md` / job file size**: No built-in size limits. If files grow large and consume Claude's context window, the user should trim them. Future: `--max-context` flag on `pipeline claim`.
-- **PID recycling**: `kill -0` may find a recycled PID from an unrelated process, preventing stale claim reaping. Rare in practice. `pipeline claim --force` is the escape hatch.
+- **`memory.md` / job file size**: No built-in size limits. If files grow large and consume Claude's context window, the user should trim them. Future: `--max-context` flag on `hootty pipeline claim`.
+- **PID recycling**: `kill -0` may find a recycled PID from an unrelated process, preventing stale claim reaping. Rare in practice. `hootty pipeline claim --force` is the escape hatch.
 - **Multiple daemons**: Each repo with `.hootty/pipeline/` gets its own daemon process (one daemon per repo). Socket at `.hootty/pipeline/pipeline.sock`. No cross-repo daemon.
 - **Custom template saving**: No mechanism to save a `pipeline.yaml` as a reusable template in Phase 1. Copy the file manually. Templates marketplace is Phase 5.
 - **`.hootty/pipeline/` in worktrees**: Each worktree branch has its own `.hootty/pipeline/` snapshot, but the CLI always resolves to the canonical repo root's `.hootty/pipeline/` via `git rev-parse --git-common-dir`. The worktree's local `.hootty/pipeline/` copy is stale and ignored. Hootty uses `GitWorktreeManager.canonicalRepoRoot(for:)` for the same resolution.
@@ -1198,7 +1198,7 @@ These are acknowledged but deferred to implementation time or future phases:
 ## Open Questions
 
 1. **CLI language** — Swift (shared code with Hootty) vs Rust (faster standalone binary, cross-platform)? Swift makes sense if the daemon shares HoottyCore models.
-2. **Daemon lifecycle** — Auto-start when CLI is used? Launchd service? Or always explicit `pipeline daemon start`?
+2. **Daemon lifecycle** — Auto-start when CLI is used? Launchd service? Or always explicit `hootty pipeline daemon start`?
 3. **Scope** — Should this be a Hootty feature, a standalone open-source tool, or both? The architecture supports either — the daemon/CLI is independent, Hootty is just a UI client.
 
 ## Resolved Gaps
