@@ -7,6 +7,7 @@ public final class AppModel {
     public let themeManager: ThemeManager
     public let soundManager: SoundManager
     public let workspaceStore: WorkspaceStore
+    public let pipelineModel: PipelineModel
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
@@ -18,7 +19,13 @@ public final class AppModel {
         case themePicker
     }
 
+    public enum DetailMode {
+        case terminals
+        case board
+    }
+
     public var modalState: ModalState = .none
+    public var detailMode: DetailMode = .terminals
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
 
@@ -28,7 +35,7 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, pipelineModel: PipelineModel? = nil) {
         let resolvedConfigFile = configFile ?? ConfigFile()
         self.configFile = resolvedConfigFile
         resolvedConfigFile.ensureExists()
@@ -36,6 +43,7 @@ public final class AppModel {
         self.themeManager = ThemeManager(configFile: resolvedConfigFile, themeCatalog: catalog)
         self.soundManager = SoundManager(configFile: resolvedConfigFile)
         self.workspaceStore = workspaceStore
+        self.pipelineModel = pipelineModel ?? PipelineModel()
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
@@ -189,6 +197,14 @@ public final class AppModel {
         sidebarVisible = true
         let workspace = addWorkspace()
         selectedWorkspaceID = workspace.id
+    }
+
+    public var showWorktreeActions: Bool {
+        get { configFile.get("hootty-show-worktree-actions") != "false" }
+        set {
+            configFile.set("hootty-show-worktree-actions", value: newValue ? nil : "false")
+            configFile.save()
+        }
     }
 
     public func toggleSidebar() {

@@ -5,15 +5,17 @@ import Foundation
 public struct PipelineStageDef: Sendable {
     public let name: String
     public let type: StageType
+    public let command: String?
 
     public enum StageType: String, Sendable {
         case automated
         case manual
     }
 
-    public init(name: String, type: StageType) {
+    public init(name: String, type: StageType, command: String? = nil) {
         self.name = name
         self.type = type
+        self.command = command
     }
 }
 

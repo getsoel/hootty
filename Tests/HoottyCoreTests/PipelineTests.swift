@@ -66,8 +66,69 @@ struct PipelineReaderTests {
         #expect(config?.stages.count == 4)
         #expect(config?.stages[0].name == "Backlog")
         #expect(config?.stages[0].type == .manual)
+        #expect(config?.stages[0].command == nil)
         #expect(config?.stages[1].name == "Implement")
         #expect(config?.stages[1].type == .automated)
+    }
+
+    @Test func parsesPipelineYAMLWithCommands() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        try FileManager.default.createDirectory(at: pipelineDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let yaml = """
+        name: "SDD Pipeline"
+
+        stages:
+          - name: Backlog
+            type: manual
+          - name: Research
+            type: automated
+            command: "Research the codebase relevant to this job."
+          - name: Implement
+            type: automated
+          - name: Commit
+            type: automated
+            command: "/commit"
+          - name: Done
+            type: manual
+        """
+        try yaml.write(to: pipelineDir.appendingPathComponent("pipeline.yaml"), atomically: true, encoding: .utf8)
+
+        let config = PipelineReader.readPipelineConfig(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(config != nil)
+        #expect(config?.name == "SDD Pipeline")
+        #expect(config?.stages.count == 5)
+        #expect(config?.stages[0].command == nil)
+        #expect(config?.stages[1].command == "Research the codebase relevant to this job.")
+        #expect(config?.stages[2].command == nil)
+        #expect(config?.stages[3].command == "/commit")
+        #expect(config?.stages[4].command == nil)
+    }
+
+    @Test func commandFieldBackwardCompatible() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        try FileManager.default.createDirectory(at: pipelineDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let yaml = """
+        name: "Legacy Pipeline"
+
+        stages:
+          - name: Backlog
+            type: manual
+          - name: Done
+            type: manual
+        """
+        try yaml.write(to: pipelineDir.appendingPathComponent("pipeline.yaml"), atomically: true, encoding: .utf8)
+
+        let config = PipelineReader.readPipelineConfig(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(config != nil)
+        #expect(config?.stages.count == 2)
+        #expect(config?.stages[0].command == nil)
+        #expect(config?.stages[1].command == nil)
     }
 
     @Test func hasPipelineDetectsDirectory() throws {

@@ -57,6 +57,10 @@ struct PipelineBoardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Column header
             HStack(spacing: Spacing.sm) {
+                Image(systemName: stage.type == .automated ? "bolt.fill" : "hand.raised.fill")
+                    .font(.system(size: TypeScale.smallSize))
+                    .foregroundStyle(Color(tokens.textMuted).opacity(0.6))
+
                 Text(stage.name)
                     .font(.system(size: TypeScale.captionSize, weight: .medium))
                     .foregroundStyle(Color(tokens.textMuted))
@@ -69,6 +73,7 @@ struct PipelineBoardView: View {
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
+            .help(stageTooltip(stage))
 
             // Job cards
             ScrollView(.vertical, showsIndicators: false) {
@@ -123,6 +128,13 @@ struct PipelineBoardView: View {
             RoundedRectangle(cornerRadius: 4)
                 .stroke(Color(tokens.border), lineWidth: 1)
         )
+    }
+
+    private func stageTooltip(_ stage: PipelineStageDef) -> String {
+        if let command = stage.command {
+            return "\(stage.name): \(command)"
+        }
+        return stage.type == .manual ? "\(stage.name): Manual" : "\(stage.name): Uses job prompt"
     }
 
     private func jobStatusColor(_ job: PipelineJobInfo) -> Color {

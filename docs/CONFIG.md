@@ -36,13 +36,14 @@ The first line sets the primary font; the second adds a fallback for symbols not
 
 1. **Choose the key name.** If ghostty owns it, use the ghostty key name. If it's Hootty-only, prefix with `hootty-`.
 2. **Read/write through ConfigFile.** Use `configFile.get("key")` and `configFile.set("key", value:)` + `configFile.save()`. Never use UserDefaults or separate files.
-3. **Inject ConfigFile via init.** Your manager/model should accept `ConfigFile` as an init parameter (see `ThemeManager`, `SoundManager`).
+3. **Choose the access pattern.** For simple boolean prefs, add a computed property directly on `AppModel` (see `showWorktreeActions`). For complex multi-setting features, create a dedicated manager class injected with `ConfigFile` via init (see `ThemeManager`, `SoundManager`).
 4. **Add a default comment** to `ConfigFile.defaultConfigContent()` if the setting should be discoverable in new config files.
 
 ## Architecture
 
 ```
 ConfigFile (@Observable, HoottyCore)
+  ├── AppModel — computed properties for simple boolean prefs (`hootty-show-worktree-actions`)
   ├── ThemeManager — reads/writes `theme`
   ├── SoundManager — reads/writes `hootty-bell-sound`, `hootty-attention-*-sound`
   └── ghosttyConfigContent() — filters out `hootty-` keys → written to cache file for ghostty

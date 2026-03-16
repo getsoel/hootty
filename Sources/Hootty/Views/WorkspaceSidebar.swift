@@ -2,10 +2,30 @@ import HoottyCore
 import SwiftUI
 import UniformTypeIdentifiers
 
+private enum SidebarTab: String, CaseIterable {
+    case terminals = "Terminals"
+    case board = "Board"
+
+    init(_ detailMode: AppModel.DetailMode) {
+        switch detailMode {
+        case .terminals: self = .terminals
+        case .board: self = .board
+        }
+    }
+
+    var detailMode: AppModel.DetailMode {
+        switch self {
+        case .terminals: .terminals
+        case .board: .board
+        }
+    }
+}
+
 struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let tokens: DesignTokens
+    @Binding var detailMode: AppModel.DetailMode
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onMoveWorkspace: (UUID, Int) -> Void
@@ -27,13 +47,14 @@ struct WorkspaceSidebar: View {
     @State private var dropTargetWorkspaceID: UUID?
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
-    @State private var showWorktreeActions: Bool = true
+    @Binding var showWorktreeActions: Bool
     @State private var hoveredHeaderButton: String?
     @State private var hoveredWorktreeAction: String?
 
     var body: some View {
         VStack(spacing: 0) {
             sidebarHeader
+
             workspaceList
 
             Spacer(minLength: 0)
@@ -86,9 +107,7 @@ struct WorkspaceSidebar: View {
 
     private var sidebarHeader: some View {
         HStack(spacing: 0) {
-            Text("Workspaces")
-                .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted))
+            sidebarTabPicker
                 .padding(.leading, Spacing.md)
 
             Spacer(minLength: 0)
@@ -152,6 +171,30 @@ struct WorkspaceSidebar: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color(tokens.border)).frame(height: 1)
         }
+    }
+
+    private var sidebarTabPicker: some View {
+        let activeTab = SidebarTab(detailMode)
+        return HStack(spacing: 2) {
+            ForEach(SidebarTab.allCases, id: \.self) { tab in
+                Text(tab.rawValue)
+                    .font(.system(size: TypeScale.captionSize, weight: activeTab == tab ? .medium : .regular))
+                    .foregroundStyle(Color(activeTab == tab ? tokens.text : tokens.textMuted))
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.xs + 1)
+                    .background(
+                        Capsule()
+                            .fill(activeTab == tab ? Color(tokens.elementSelected) : Color.clear)
+                    )
+                    .contentShape(Capsule())
+                    .onTapGesture { detailMode = tab.detailMode }
+            }
+        }
+        .padding(2)
+        .background(
+            Capsule()
+                .fill(Color(tokens.surfaceHighlight).opacity(0.3))
+        )
     }
 
     private var workspaceList: some View {

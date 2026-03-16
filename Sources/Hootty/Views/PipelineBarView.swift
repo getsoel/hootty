@@ -49,7 +49,7 @@ struct PipelineBarView: View {
 
     private var stageDots: some View {
         HStack(spacing: Spacing.sm) {
-            ForEach(Array(claimInfo.stages.enumerated()), id: \.offset) { index, _ in
+            ForEach(Array(claimInfo.stages.enumerated()), id: \.offset) { index, stage in
                 Circle()
                     .fill(dotColor(for: index))
                     .frame(width: 6, height: 6)
@@ -59,6 +59,7 @@ struct PipelineBarView: View {
                                 .stroke(Color(tokens.textMuted).opacity(0.3), lineWidth: 1)
                         }
                     }
+                    .help("\(stage.name) (\(stage.type.rawValue))")
             }
         }
     }
@@ -81,9 +82,11 @@ struct PipelineBarView: View {
     }
 
     private var stageNameLabel: some View {
-        Text(claimInfo.stages[safe: claimInfo.currentStageIndex]?.name ?? "")
+        let stage = claimInfo.stages[safe: claimInfo.currentStageIndex]
+        return Text(stage?.name ?? "")
             .font(.system(size: TypeScale.captionSize))
             .foregroundStyle(Color(tokens.textMuted))
+            .help(stage?.command ?? "")
     }
 
     private var releaseButton: some View {

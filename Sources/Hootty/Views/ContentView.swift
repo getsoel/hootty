@@ -154,6 +154,7 @@ struct ContentView: View {
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
+            detailMode: $appModel.detailMode,
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
                 appModel.selectedWorkspaceID = workspace.id
@@ -197,51 +198,96 @@ struct ContentView: View {
             onSave: { appModel.saveWorkspaces() },
             sidebarHasFocus: $appModel.sidebarHasFocus,
             sidebarCursorPaneID: $sidebarCursorPaneID,
-            sidebarWidth: effectiveSidebarWidth
+            sidebarWidth: effectiveSidebarWidth,
+            showWorktreeActions: $appModel.showWorktreeActions
         )
     }
 
     @ViewBuilder
     private var detailView: some View {
         if let workspace = selectedWorkspace {
-            SplitNodeView(
-                node: workspace.rootNode,
-                focusedPaneID: workspace.focusedPaneID,
-                tokens: tokens,
-                isInSplit: false,
-                onFocusPane: { paneID in
-                    appModel.sidebarHasFocus = false
-                    workspace.focusPane(id: paneID)
-                },
-                onSplitPane: { direction, placeBefore in
-                    let parentSurface = GhosttyApp.shared.focusedSurface
-                    if let newPane = workspace.splitFocusedPane(direction: direction, placeBefore: placeBefore) {
-                        if let parentSurface {
-                            GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
-                        }
-                        appModel.saveWorkspaces()
-                    }
-                },
-                onClosePane: { paneID in
-                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    workspace.removePane(id: paneID)
-                    appModel.saveWorkspaces()
-                },
-                onSwapPanes: { sourceID, targetID in
-                    workspace.swapPanes(sourceID, targetID)
-                    appModel.saveWorkspaces()
-                },
-                onSave: { appModel.saveWorkspaces() }
-            )
-            .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
-            .environment(\.sidebarCursorPaneID, sidebarCursorPaneID)
-            .environment(\.modalIsOpen, appModel.modalState != .none)
-            .id(workspace.id)
+            switch appModel.detailMode {
+            case .terminals:
+                terminalsDetail(workspace: workspace)
+            case .board:
+                boardDetail(workspace: workspace)
+            }
         } else {
             Text("Select or create a workspace")
                 .foregroundStyle(Color(tokens.textMuted))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+
+    private func terminalsDetail(workspace: Workspace) -> some View {
+        SplitNodeView(
+            node: workspace.rootNode,
+            focusedPaneID: workspace.focusedPaneID,
+            tokens: tokens,
+            isInSplit: false,
+            onFocusPane: { paneID in
+                appModel.sidebarHasFocus = false
+                workspace.focusPane(id: paneID)
+            },
+            onSplitPane: { direction, placeBefore in
+                let parentSurface = GhosttyApp.shared.focusedSurface
+                if let newPane = workspace.splitFocusedPane(direction: direction, placeBefore: placeBefore) {
+                    if let parentSurface {
+                        GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                    }
+                    appModel.saveWorkspaces()
+                }
+            },
+            onClosePane: { paneID in
+                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                workspace.removePane(id: paneID)
+                appModel.saveWorkspaces()
+            },
+            onSwapPanes: { sourceID, targetID in
+                workspace.swapPanes(sourceID, targetID)
+                appModel.saveWorkspaces()
+            },
+            onSave: { appModel.saveWorkspaces() }
+        )
+        .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
+        .environment(\.sidebarCursorPaneID, sidebarCursorPaneID)
+        .environment(\.modalIsOpen, appModel.modalState != .none)
+        .id(workspace.id)
+    }
+
+    @ViewBuilder
+    private func boardDetail(workspace: Workspace) -> some View {
+        let boards = currentBoardData(workspace: workspace)
+        if boards.isEmpty {
+            VStack(spacing: Spacing.md) {
+                Image(systemName: "square.grid.3x3.topleft.filled")
+                    .font(.system(size: 32))
+                    .foregroundStyle(Color(tokens.textMuted).opacity(0.4))
+                Text("No pipelines")
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(tokens.textMuted))
+                Text("Add .hootty/pipeline/ to a repo")
+                    .font(.system(size: TypeScale.captionSize))
+                    .foregroundStyle(Color(tokens.textMuted).opacity(0.6))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView(.vertical) {
+                VStack(spacing: Spacing.lg) {
+                    ForEach(boards) { board in
+                        PipelineBoardView(boardData: board, tokens: tokens)
+                    }
+                }
+                .padding(Spacing.lg)
+            }
+            .background(Color(tokens.background))
+        }
+    }
+
+    private func currentBoardData(workspace: Workspace) -> [PipelineBoardData] {
+        guard let focusedPane = workspace.focusedPane,
+              let repoRoot = focusedPane.repoRoot else { return [] }
+        return appModel.pipelineModel.boardData(for: repoRoot)
     }
 
     private func applyTheme(name: String, fallback: TerminalTheme? = nil) {

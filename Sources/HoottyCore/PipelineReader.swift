@@ -113,6 +113,7 @@ public enum PipelineReader {
         var inStages = false
         var currentStageName: String?
         var currentStageType: PipelineStageDef.StageType?
+        var currentStageCommand: String?
 
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -134,9 +135,10 @@ public enum PipelineReader {
             if inStages, !line.hasPrefix(" "), !line.hasPrefix("\t") {
                 // Flush last stage
                 if let name = currentStageName {
-                    stages.append(PipelineStageDef(name: name, type: currentStageType ?? .manual))
+                    stages.append(PipelineStageDef(name: name, type: currentStageType ?? .manual, command: currentStageCommand))
                     currentStageName = nil
                     currentStageType = nil
+                    currentStageCommand = nil
                 }
                 inStages = false
                 continue
@@ -147,19 +149,22 @@ public enum PipelineReader {
                 if trimmed.hasPrefix("- name:") {
                     // Flush previous stage
                     if let name = currentStageName {
-                        stages.append(PipelineStageDef(name: name, type: currentStageType ?? .manual))
+                        stages.append(PipelineStageDef(name: name, type: currentStageType ?? .manual, command: currentStageCommand))
                     }
                     currentStageName = extractYAMLValue(trimmed, key: "- name")
                     currentStageType = nil
+                    currentStageCommand = nil
                 } else if trimmed.hasPrefix("type:") {
                     currentStageType = PipelineStageDef.StageType(rawValue: extractYAMLValue(trimmed, key: "type")?.lowercased() ?? "manual")
+                } else if trimmed.hasPrefix("command:") {
+                    currentStageCommand = extractYAMLValue(trimmed, key: "command")
                 }
             }
         }
 
         // Flush last stage
         if let name = currentStageName {
-            stages.append(PipelineStageDef(name: name, type: currentStageType ?? .manual))
+            stages.append(PipelineStageDef(name: name, type: currentStageType ?? .manual, command: currentStageCommand))
         }
 
         guard let name = configName, !stages.isEmpty else { return nil }
