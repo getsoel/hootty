@@ -1,5 +1,5 @@
-import Foundation
 import CoreServices
+import Foundation
 
 /// FSEvents-based directory watcher for `.hootty/pipeline/` changes.
 public class FileWatcher {
@@ -44,13 +44,13 @@ public class FileWatcher {
             UInt32(kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer)
         )
 
-        guard let stream = stream else { return }
+        guard let stream else { return }
         FSEventStreamSetDispatchQueue(stream, queue)
         FSEventStreamStart(stream)
     }
 
     public func stop() {
-        if let stream = stream {
+        if let stream {
             FSEventStreamStop(stream)
             FSEventStreamInvalidate(stream)
             FSEventStreamRelease(stream)
@@ -79,14 +79,14 @@ public class FileWatcher {
     }
 }
 
-// C callback for FSEvents — must be a free function
+/// C callback for FSEvents — must be a free function
 private func fileWatcherCallback(
-    _ streamRef: ConstFSEventStreamRef,
+    _: ConstFSEventStreamRef,
     _ clientCallBackInfo: UnsafeMutableRawPointer?,
     _ numEvents: Int,
     _ eventPaths: UnsafeMutableRawPointer,
-    _ eventFlags: UnsafePointer<FSEventStreamEventFlags>,
-    _ eventIds: UnsafePointer<FSEventStreamEventId>
+    _: UnsafePointer<FSEventStreamEventFlags>,
+    _: UnsafePointer<FSEventStreamEventId>
 ) {
     guard let info = clientCallBackInfo else { return }
     let watcher = Unmanaged<FileWatcher>.fromOpaque(info).takeUnretainedValue()
@@ -94,7 +94,7 @@ private func fileWatcherCallback(
     // eventPaths is a C array of C strings (without kFSEventStreamCreateFlagUseCFTypes)
     let cPaths = eventPaths.assumingMemoryBound(to: UnsafePointer<CChar>.self)
     var paths: [String] = []
-    for i in 0..<numEvents {
+    for i in 0 ..< numEvents {
         paths.append(String(cString: cPaths[i]))
     }
 

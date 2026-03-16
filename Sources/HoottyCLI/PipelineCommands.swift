@@ -53,6 +53,8 @@ func handlePipelineCommand(_ args: [String]) throws {
         try handleInjectTarget(remaining)
     case "listen":
         try handleListen(remaining)
+    case "template":
+        try handleTemplate(remaining)
     case "help", "--help", "-h":
         printPipelineUsage()
     case "version", "--version":
@@ -65,6 +67,12 @@ func handlePipelineCommand(_ args: [String]) throws {
 }
 
 // MARK: - Engine Setup
+
+func globalTemplateStore() -> TemplateStore {
+    let store = TemplateStore(rootPath: TemplateStore.defaultDirectory)
+    store.seedDefaults()
+    return store
+}
 
 func makeEngine() throws -> PipelineEngine {
     let rootPath = try PipelineStorage.findRoot()
@@ -80,7 +88,7 @@ func makeEngineForInit() throws -> PipelineEngine {
     let rootPath = (hoottyDir as NSString).appendingPathComponent("pipeline")
     let storage = PipelineStorage(rootPath: rootPath)
     let sessionID = resolveSessionID()
-    return PipelineEngine(storage: storage, sessionID: sessionID)
+    return PipelineEngine(storage: storage, sessionID: sessionID, templateStore: globalTemplateStore())
 }
 
 // MARK: - Command Handlers
@@ -274,10 +282,10 @@ func handleClaim(_ args: [String]) throws {
     )
 
     switch result {
-    case .claimed(let job, _, let prompt):
+    case let .claimed(job, _, prompt):
         if formatContext {
             // In context mode, just output the context
-            if let prompt = prompt {
+            if let prompt {
                 print(prompt)
             }
         } else {
@@ -286,13 +294,13 @@ func handleClaim(_ args: [String]) throws {
                 let repoRoot = try PipelineStorage.canonicalRepoRoot()
                 print("▶ Working directory: \(repoRoot)/.claude/worktrees/pipeline/\(job.slug)")
             }
-            if let prompt = prompt {
+            if let prompt {
                 print("▶ Prompt:")
                 print(prompt)
             }
         }
 
-    case .noJobsAvailable(let pipelineName):
+    case let .noJobsAvailable(pipelineName):
         if formatContext {
             // Silent in context mode
         } else {
@@ -300,29 +308,29 @@ func handleClaim(_ args: [String]) throws {
         }
         exit(1)
 
-    case .alreadyClaimed(let currentJob, _):
+    case let .alreadyClaimed(currentJob, _):
         printError("You already have a claim on \"\(currentJob)\". Run `hootty pipeline release` first.")
         exit(1)
     }
 }
 
-func handleAdvance(_ args: [String]) throws {
+func handleAdvance(_: [String]) throws {
     let engine = try makeEngine()
     let result = try engine.advance()
 
     switch result {
-    case .advanced(let job, _, let fromStage, let toStage, let nextPrompt):
+    case let .advanced(job, _, fromStage, toStage, nextPrompt):
         print("✓ Job \"\(job.slug)\" advanced: \(fromStage) → \(toStage) (automated)")
         if let prompt = nextPrompt {
             print("▶ Next prompt:")
             print(prompt)
         }
 
-    case .manual(let job, _, let fromStage, let toStage):
+    case let .manual(job, _, fromStage, toStage):
         print("✓ Job \"\(job.slug)\" advanced: \(fromStage) → \(toStage) (manual)")
         print("⏸ Waiting for human review. Claim released.")
 
-    case .completed(let job, _, let fromStage):
+    case let .completed(job, _, fromStage):
         print("✓ Job \"\(job.slug)\" completed (from \(fromStage)).")
         print("✓ Claim released.")
 
@@ -336,7 +344,7 @@ func handleAdvance(_ args: [String]) throws {
     }
 }
 
-func handleRelease(_ args: [String]) throws {
+func handleRelease(_: [String]) throws {
     let engine = try makeEngine()
     try engine.release()
     print("✓ Claim released.")
@@ -350,12 +358,12 @@ func handleCurrentJob(_ args: [String]) throws {
     print(output)
 }
 
-func handleWhoami(_ args: [String]) throws {
+func handleWhoami(_: [String]) throws {
     let engine = try makeEngine()
     print(engine.whoami())
 }
 
-func handleReap(_ args: [String]) throws {
+func handleReap(_: [String]) throws {
     let engine = try makeEngine()
     let reaped = engine.reap()
     if reaped.isEmpty {
@@ -548,7 +556,7 @@ func handleInjectTarget(_ args: [String]) throws {
     }
 }
 
-func handleListen(_ args: [String]) throws {
+func handleListen(_: [String]) throws {
     let rootPath = try PipelineStorage.findRoot()
     let storage = PipelineStorage(rootPath: rootPath)
 
@@ -595,10 +603,10 @@ func handleListen(_ args: [String]) throws {
     while true {
         let bytesRead = read(fd, &buf, buf.count)
         if bytesRead <= 0 { break }
-        buffer.append(contentsOf: buf[0..<bytesRead])
+        buffer.append(contentsOf: buf[0 ..< bytesRead])
 
         while let newlineIdx = buffer.firstIndex(of: UInt8(ascii: "\n")) {
-            let line = Data(buffer[buffer.startIndex..<newlineIdx])
+            let line = Data(buffer[buffer.startIndex ..< newlineIdx])
             buffer = Data(buffer[buffer.index(after: newlineIdx)...])
             if let str = String(data: line, encoding: .utf8) {
                 print(str)
@@ -608,6 +616,80 @@ func handleListen(_ args: [String]) throws {
 
     close(fd)
     print("\nDisconnected.")
+}
+
+// MARK: - Template Commands
+
+func handleTemplate(_ args: [String]) throws {
+    guard let subcommand = args.first else {
+        printError("Usage: hootty pipeline template <list|show|edit|remove|reset>")
+        exit(1)
+    }
+
+    let remaining = Array(args.dropFirst())
+    let store = globalTemplateStore()
+
+    switch subcommand {
+    case "list":
+        let templates = store.listTemplates()
+        if templates.isEmpty {
+            print("No templates found. Run `hootty pipeline template reset` to restore defaults.")
+        } else {
+            for name in templates {
+                if let config = try? store.loadTemplate(name: name) {
+                    let stages = config.stages.map(\.name).joined(separator: " → ")
+                    print("  \(name): \(stages)")
+                } else {
+                    print("  \(name): (invalid YAML)")
+                }
+            }
+        }
+
+    case "show":
+        guard let name = remaining.first else {
+            printError("Usage: hootty pipeline template show <name>")
+            exit(1)
+        }
+        let path = store.templatePath(name: name)
+        guard let data = FileManager.default.contents(atPath: path),
+              let content = String(data: data, encoding: .utf8) else {
+            printError("Template \"\(name)\" not found.")
+            exit(1)
+        }
+        print(content)
+
+    case "edit":
+        guard let name = remaining.first else {
+            printError("Usage: hootty pipeline template edit <name>")
+            exit(1)
+        }
+        // Create from review default if it doesn't exist
+        if !FileManager.default.fileExists(atPath: store.templatePath(name: name)) {
+            let config = PipelineTemplate.review.config
+            try store.saveTemplate(name: name, config: config)
+            print("Created new template \"\(name)\" from review default.")
+        }
+        try openEditor(path: store.templatePath(name: name))
+
+    case "remove":
+        guard let name = remaining.first else {
+            printError("Usage: hootty pipeline template remove <name>")
+            exit(1)
+        }
+        try store.deleteTemplate(name: name)
+        print("✓ Removed template: \(name)")
+
+    case "reset":
+        // Re-seed all built-in templates (overwrites existing)
+        for template in PipelineTemplate.allCases {
+            try store.saveTemplate(name: template.rawValue, config: template.config)
+        }
+        print("✓ Reset templates to defaults: \(PipelineTemplate.allCases.map(\.rawValue).joined(separator: ", "))")
+
+    default:
+        printError("Unknown template subcommand: \(subcommand)")
+        exit(1)
+    }
 }
 
 // MARK: - Helpers
@@ -662,7 +744,7 @@ func printPipelineUsage() {
     Usage: hootty pipeline <command> [options]
 
     Pipeline management:
-      init [<name>] [--template simple|review|full-ci] [--hooks]  Create a pipeline
+      init [<name>] [--template <name>] [--hooks]  Create a pipeline
       delete <name> [--yes]       Delete a pipeline
       status [<name>] [--all] [--json] [--format context]  Show board state
       play [<name>]               Resume pipeline
@@ -690,6 +772,13 @@ func printPipelineUsage() {
       stage add <name> [--type auto|manual] [--after <stage>]
       stage remove <name>
       stage move <name> --after <stage>
+
+    Templates (global):
+      template list               List available templates
+      template show <name>        Show template stages
+      template edit <name>        Edit template in $EDITOR (creates if new)
+      template remove <name>      Delete a template
+      template reset              Restore built-in defaults
 
     Daemon:
       daemon start                Start background daemon

@@ -27,7 +27,7 @@ public struct PipelineEvent: Codable, Sendable {
         self.paneID = paneID
     }
 
-    // Factory methods
+    /// Factory methods
     public static func jobMoved(pipeline: String, job: String, from: String, to: String) -> PipelineEvent {
         PipelineEvent(event: "job_moved", pipeline: pipeline, job: job, from: from, to: to)
     }

@@ -3,10 +3,12 @@ import Foundation
 public class PipelineEngine {
     public let storage: PipelineStorage
     public let sessionID: String
+    public var templateStore: TemplateStore?
 
-    public init(storage: PipelineStorage, sessionID: String) {
+    public init(storage: PipelineStorage, sessionID: String, templateStore: TemplateStore? = nil) {
         self.storage = storage
         self.sessionID = sessionID
+        self.templateStore = templateStore
     }
 
     // MARK: - Init
@@ -27,15 +29,22 @@ public class PipelineEngine {
             }
         }
 
-        // Resolve template
+        // Resolve template: prefer global template store, fall back to built-in
         var config: PipelineConfig
         if let templateName = template {
-            guard let tmpl = PipelineTemplate(rawValue: templateName) else {
+            if let store = templateStore {
+                config = try store.loadTemplate(name: templateName)
+            } else if let tmpl = PipelineTemplate(rawValue: templateName) {
+                config = tmpl.config
+            } else {
                 throw PipelineError.unknownTemplate(templateName)
             }
-            config = tmpl.config
         } else {
-            config = PipelineTemplate.review.config
+            if let store = templateStore {
+                config = (try? store.loadTemplate(name: "review")) ?? PipelineTemplate.review.config
+            } else {
+                config = PipelineTemplate.review.config
+            }
         }
         config.name = pipelineName.capitalized + " Pipeline"
 
@@ -79,7 +88,7 @@ public class PipelineEngine {
         return try statusHuman(pipeline: pipelineName)
     }
 
-    private func statusAll(json: Bool, formatContext: Bool) throws -> String {
+    private func statusAll(json _: Bool, formatContext: Bool) throws -> String {
         let pipelines = storage.listPipelines()
         if pipelines.isEmpty { return "No pipelines found." }
 
@@ -89,7 +98,7 @@ public class PipelineEngine {
 
         var output: [String] = []
         for name in pipelines {
-            output.append(try statusHuman(pipeline: name))
+            try output.append(statusHuman(pipeline: name))
             output.append("")
         }
         return output.joined(separator: "\n")
@@ -141,7 +150,7 @@ public class PipelineEngine {
                 var dict: [String: Any] = [
                     "slug": job.slug,
                     "title": job.title,
-                    "status": (entry.jobStatuses[job.slug] ?? .queued).rawValue,
+                    "status": (entry.jobStatuses[job.slug] ?? .queued).rawValue
                 ]
                 if let priority = job.priority { dict["priority"] = priority }
                 if !job.labels.isEmpty { dict["labels"] = job.labels }
@@ -153,14 +162,14 @@ public class PipelineEngine {
             stagesJSON.append([
                 "name": stage.name,
                 "type": stage.type.rawValue,
-                "jobs": jobsJSON,
+                "jobs": jobsJSON
             ])
         }
 
         let result: [String: Any] = [
             "pipeline": pipeline,
             "paused": entry.paused,
-            "stages": stagesJSON,
+            "stages": stagesJSON
         ]
 
         let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
@@ -330,7 +339,9 @@ public class PipelineEngine {
             var state = storage.pipelineState()
             if var entry = state.pipelines[pipelineName] {
                 let claimKeys = entry.claims.filter { $0.value == slug }.map(\.key)
-                for key in claimKeys { entry.claims.removeValue(forKey: key) }
+                for key in claimKeys {
+                    entry.claims.removeValue(forKey: key)
+                }
                 entry.jobStatuses.removeValue(forKey: slug)
                 state.pipelines[pipelineName] = entry
                 try storage.savePipelineState(state)
@@ -425,7 +436,7 @@ public class PipelineEngine {
 
             // Check max_claims
             let config = try storage.pipelineConfig(name: pipelineName)
-            if let max = config.settings.maxClaims, entry.claims.count >= max && !force {
+            if let max = config.settings.maxClaims, entry.claims.count >= max, !force {
                 throw PipelineError.noJobsAvailable(pipelineName)
             }
 
@@ -440,7 +451,7 @@ public class PipelineEngine {
                 }
                 // Check if already claimed by someone else
                 if let claimedBy = entry.claims.first(where: { $0.value == slug })?.key,
-                   claimedBy != sessionID && !force {
+                   claimedBy != sessionID, !force {
                     throw PipelineError.alreadyClaimed(slug)
                 }
                 targetJob = job
@@ -486,11 +497,10 @@ public class PipelineEngine {
 
             // Resolve prompt
             let stageConfig = config.stages.first(where: { $0.directoryName == targetStage })
-            let prompt: String?
-            if let cmd = stageConfig?.command {
-                prompt = resolveVariables(cmd, job: targetJob, pipeline: pipelineName, stage: targetStage, config: config)
+            let prompt: String? = if let cmd = stageConfig?.command {
+                resolveVariables(cmd, job: targetJob, pipeline: pipelineName, stage: targetStage, config: config)
             } else {
-                prompt = targetJob.prompt.isEmpty ? nil : resolveVariables(targetJob.prompt, job: targetJob, pipeline: pipelineName, stage: targetStage, config: config)
+                targetJob.prompt.isEmpty ? nil : resolveVariables(targetJob.prompt, job: targetJob, pipeline: pipelineName, stage: targetStage, config: config)
             }
 
             // Handle worktree creation
@@ -514,7 +524,7 @@ public class PipelineEngine {
     // MARK: - Advance
 
     public func advance() throws -> AdvanceResult {
-        return try storage.withStateLock {
+        try storage.withStateLock {
             var state = storage.pipelineState()
 
             // Find which pipeline this session has a claim in
@@ -588,11 +598,10 @@ public class PipelineEngine {
                 try storage.savePipelineState(state)
 
                 // Resolve prompt
-                let prompt: String?
-                if let cmd = nextStage.command {
-                    prompt = resolveVariables(cmd, job: job, pipeline: pipelineName, stage: nextStage.directoryName, config: config)
+                let prompt: String? = if let cmd = nextStage.command {
+                    resolveVariables(cmd, job: job, pipeline: pipelineName, stage: nextStage.directoryName, config: config)
                 } else {
-                    prompt = job.prompt.isEmpty ? nil : resolveVariables(job.prompt, job: job, pipeline: pipelineName, stage: nextStage.directoryName, config: config)
+                    job.prompt.isEmpty ? nil : resolveVariables(job.prompt, job: job, pipeline: pipelineName, stage: nextStage.directoryName, config: config)
                 }
 
                 return .advanced(
@@ -851,7 +860,7 @@ public class PipelineEngine {
             let jobs = try storage.jobsInStage(pipeline: pipeline, stage: stage.directoryName)
             for job in jobs {
                 let status = entry.jobStatuses[job.slug] ?? .queued
-                if status == .interrupted && !claimedSlugs.contains(job.slug) {
+                if status == .interrupted, !claimedSlugs.contains(job.slug) {
                     return (stage.directoryName, job)
                 }
             }
@@ -862,7 +871,7 @@ public class PipelineEngine {
             let jobs = try storage.jobsInStage(pipeline: pipeline, stage: stage.directoryName)
             for job in jobs {
                 let status = entry.jobStatuses[job.slug] ?? .queued
-                if status == .queued && !claimedSlugs.contains(job.slug) {
+                if status == .queued, !claimedSlugs.contains(job.slug) {
                     return (stage.directoryName, job)
                 }
             }
@@ -1013,7 +1022,7 @@ public class PipelineEngine {
     }
 
     /// Create a git worktree for a job
-    private func createWorktree(for job: Job, pipeline: String) throws {
+    private func createWorktree(for job: Job, pipeline _: String) throws {
         let repoRoot = try PipelineStorage.canonicalRepoRoot()
         let branchName = "pipeline/\(job.slug)"
         let worktreePath = "\(repoRoot)/.claude/worktrees/pipeline/\(job.slug)"
@@ -1049,6 +1058,5 @@ public func resolveSessionID() -> String {
         return claude
     }
     // 3. Parent process ID
-    let ppid = ProcessInfo.processInfo.environment["PPID"] ?? String(getppid())
-    return ppid
+    return ProcessInfo.processInfo.environment["PPID"] ?? String(getppid())
 }

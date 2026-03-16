@@ -10,7 +10,8 @@ struct ContentView: View {
     @State private var selectedPipelineName: String?
     @State private var showCreatePipeline = false
     @State private var newPipelineName: String = ""
-    @State private var newPipelineTemplate: PipelineTemplate = .review
+    @State private var selectedTemplateName: String = "review"
+    @State private var availableTemplates: [(name: String, stages: [PipelineStageDef])] = []
     @State private var showDeleteConfirmation = false
     @State private var pipelineToDelete: String?
 
@@ -379,7 +380,8 @@ struct ContentView: View {
             if let repoRoot = currentRepoRoot(workspace: workspace) {
                 Button("Create Pipeline") {
                     newPipelineName = "default"
-                    newPipelineTemplate = .review
+                    selectedTemplateName = "review"
+                    availableTemplates = loadGlobalTemplates()
                     showCreatePipeline = true
                 }
                 .buttonStyle(.plain)
@@ -422,8 +424,8 @@ struct ContentView: View {
                 Text("Template")
                     .font(.system(size: TypeScale.captionSize))
                     .foregroundStyle(Color(tokens.textMuted))
-                ForEach(PipelineTemplate.allCases, id: \.rawValue) { template in
-                    templateRow(template: template)
+                ForEach(availableTemplates, id: \.name) { template in
+                    templateRow(name: template.name, stages: template.stages)
                 }
             }
 
@@ -438,7 +440,9 @@ struct ContentView: View {
                     let name = newPipelineName.trimmingCharacters(in: .whitespaces)
                     guard !name.isEmpty else { return }
                     let slug = name.lowercased().replacingOccurrences(of: " ", with: "-")
-                    if appModel.pipelineModel.createPipeline(repoRoot: repoRoot, pipelineName: slug, displayName: name, stages: newPipelineTemplate.stages) {
+                    let stages = availableTemplates.first(where: { $0.name == selectedTemplateName })?.stages
+                        ?? PipelineTemplate.review.stages
+                    if appModel.pipelineModel.createPipeline(repoRoot: repoRoot, pipelineName: slug, displayName: name, stages: stages) {
                         refreshPipeline(repoRoot: repoRoot)
                         selectedPipelineName = slug
                     }
@@ -454,10 +458,11 @@ struct ContentView: View {
         .background(Color(tokens.surface))
     }
 
-    private func templateRow(template: PipelineTemplate) -> some View {
-        let isSelected = newPipelineTemplate == template
+    private func templateRow(name: String, stages: [PipelineStageDef]) -> some View {
+        let isSelected = selectedTemplateName == name
+        let displayName = name.split(separator: "-").map { $0.prefix(1).uppercased() + $0.dropFirst() }.joined(separator: " ")
         return Button {
-            newPipelineTemplate = template
+            selectedTemplateName = name
         } label: {
             HStack(spacing: Spacing.md) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
@@ -465,10 +470,10 @@ struct ContentView: View {
                     .foregroundStyle(Color(isSelected ? tokens.textAccent : tokens.textMuted))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(template.displayName)
+                    Text(displayName)
                         .font(.system(size: TypeScale.captionSize, weight: .medium))
                         .foregroundStyle(Color(tokens.text))
-                    Text(template.stages.map(\.name).joined(separator: " → "))
+                    Text(stages.map(\.name).joined(separator: " → "))
                         .font(.system(size: TypeScale.smallSize))
                         .foregroundStyle(Color(tokens.textMuted))
                 }
@@ -557,7 +562,8 @@ struct ContentView: View {
     private func pipelineAddButton(repoRoot: String) -> some View {
         Button {
             newPipelineName = ""
-            newPipelineTemplate = .review
+            selectedTemplateName = "review"
+            availableTemplates = loadGlobalTemplates()
             showCreatePipeline = true
         } label: {
             Image(systemName: "plus")
@@ -594,6 +600,15 @@ struct ContentView: View {
 
     private func currentRepoRoot(workspace: Workspace) -> String? {
         workspace.focusedPane?.repoRoot
+    }
+
+    private func loadGlobalTemplates() -> [(name: String, stages: [PipelineStageDef])] {
+        let store = TemplateStore(rootPath: TemplateStore.defaultDirectory)
+        store.seedDefaults()
+        return store.listTemplates().compactMap { name in
+            guard let config = try? store.loadTemplate(name: name) else { return nil }
+            return (name: name, stages: config.stages)
+        }
     }
 
     private func refreshPipeline(repoRoot: String) {

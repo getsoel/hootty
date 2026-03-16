@@ -2,7 +2,7 @@ import Foundation
 
 private let marker = "# Added by hootty alias"
 private let aliases: [(name: String, expansion: String)] = [
-    ("pipeline", "hootty pipeline"),
+    ("pipeline", "hootty pipeline")
 ]
 
 func handleAlias(_ args: [String]) throws {
@@ -88,7 +88,7 @@ private func removeAliases() throws {
     }
 
     // Trim trailing blank lines
-    while filtered.last == "" && filtered.count > 1 {
+    while filtered.last == "", filtered.count > 1 {
         filtered.removeLast()
     }
 

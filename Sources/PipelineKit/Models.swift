@@ -72,16 +72,16 @@ public enum JobStatus: String, Codable, Sendable {
 // MARK: - Job
 
 public struct Job: Sendable {
-    public var filename: String        // e.g. "001-auth-refactor.md"
-    public var slug: String            // e.g. "001-auth-refactor"
-    public var number: Int             // e.g. 1
-    public var title: String           // from frontmatter
-    public var priority: String?       // from frontmatter
-    public var labels: [String]        // from frontmatter
-    public var created: String?        // from frontmatter (ISO 8601 string)
-    public var prompt: String          // body up to first ## heading
-    public var fullBody: String        // entire body after frontmatter
-    public var stage: String           // current stage directory name
+    public var filename: String // e.g. "001-auth-refactor.md"
+    public var slug: String // e.g. "001-auth-refactor"
+    public var number: Int // e.g. 1
+    public var title: String // from frontmatter
+    public var priority: String? // from frontmatter
+    public var labels: [String] // from frontmatter
+    public var created: String? // from frontmatter (ISO 8601 string)
+    public var prompt: String // body up to first ## heading
+    public var fullBody: String // entire body after frontmatter
+    public var stage: String // current stage directory name
 
     public init(
         filename: String, slug: String, number: Int, title: String,
@@ -104,8 +104,8 @@ public struct Job: Sendable {
 // MARK: - Pipeline State (.state.json)
 
 public struct PipelineStateEntry: Codable, Sendable {
-    public var claims: [String: String]          // session_id → job_slug
-    public var jobStatuses: [String: JobStatus]  // job_slug → status
+    public var claims: [String: String] // session_id → job_slug
+    public var jobStatuses: [String: JobStatus] // job_slug → status
     public var paused: Bool
     public var injectionTarget: String?
 
@@ -160,37 +160,37 @@ public enum PipelineError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .noPipelineDirectory:
-            return "No .hootty/pipeline/ directory found. Run `hootty pipeline init` to create one."
-        case .pipelineNotFound(let name):
-            return "Pipeline \"\(name)\" not found."
-        case .pipelineAlreadyExists(let name):
-            return "Pipeline \"\(name)\" already exists."
-        case .jobNotFound(let slug):
-            return "Job \"\(slug)\" not found."
-        case .stageNotFound(let name):
-            return "Stage \"\(name)\" not found."
-        case .alreadyClaimed(let job):
-            return "You already have a claim on \"\(job)\". Run `hootty pipeline release` first."
+            "No .hootty/pipeline/ directory found. Run `hootty pipeline init` to create one."
+        case let .pipelineNotFound(name):
+            "Pipeline \"\(name)\" not found."
+        case let .pipelineAlreadyExists(name):
+            "Pipeline \"\(name)\" already exists."
+        case let .jobNotFound(slug):
+            "Job \"\(slug)\" not found."
+        case let .stageNotFound(name):
+            "Stage \"\(name)\" not found."
+        case let .alreadyClaimed(job):
+            "You already have a claim on \"\(job)\". Run `hootty pipeline release` first."
         case .noClaim:
-            return "No active claim. Run `hootty pipeline claim` first."
+            "No active claim. Run `hootty pipeline claim` first."
         case .pipelinePaused:
-            return "Pipeline is paused. Run `hootty pipeline play` to resume."
-        case .noJobsAvailable(let pipeline):
-            return "No jobs available to claim in pipeline \"\(pipeline)\"."
+            "Pipeline is paused. Run `hootty pipeline play` to resume."
+        case let .noJobsAvailable(pipeline):
+            "No jobs available to claim in pipeline \"\(pipeline)\"."
         case .jobMoved:
-            return "Job has moved since your last action. Run `hootty pipeline current-job` to see current state."
+            "Job has moved since your last action. Run `hootty pipeline current-job` to see current state."
         case .lockFailed:
-            return "Failed to acquire lock on .state.json."
-        case .invalidConfig(let msg):
-            return "Invalid configuration: \(msg)"
-        case .gitError(let msg):
-            return "Git error: \(msg)"
-        case .missingArgument(let name):
-            return "Missing required argument: \(name)"
-        case .fileError(let msg):
-            return "File error: \(msg)"
-        case .unknownTemplate(let name):
-            return "Unknown template: \"\(name)\". Available: simple, review, full-ci"
+            "Failed to acquire lock on .state.json."
+        case let .invalidConfig(msg):
+            "Invalid configuration: \(msg)"
+        case let .gitError(msg):
+            "Git error: \(msg)"
+        case let .missingArgument(name):
+            "Missing required argument: \(name)"
+        case let .fileError(msg):
+            "File error: \(msg)"
+        case let .unknownTemplate(name):
+            "Unknown template: \"\(name)\". Run `hootty pipeline template list` to see available templates."
         }
     }
 }

@@ -13,6 +13,7 @@ public extension PipelineKit.Stage {
 
 public typealias JobStatus = PipelineKit.JobStatus
 public typealias PipelineTemplate = PipelineKit.PipelineTemplate
+public typealias TemplateStore = PipelineKit.TemplateStore
 
 public extension PipelineKit.PipelineTemplate {
     var displayName: String {

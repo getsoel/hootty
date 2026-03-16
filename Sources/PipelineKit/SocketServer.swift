@@ -1,8 +1,8 @@
 import Foundation
 #if canImport(Darwin)
-import Darwin
+    import Darwin
 #else
-import Glibc
+    import Glibc
 #endif
 
 /// Unix domain socket server for the pipeline daemon.
@@ -17,7 +17,7 @@ public class SocketServer {
 
     private struct ClientState {
         var readSource: DispatchSourceRead?
-        var buffer: Data = Data()
+        var buffer: Data = .init()
     }
 
     public init(socketPath: String) {
@@ -108,9 +108,9 @@ public class SocketServer {
     public func broadcast(_ event: PipelineEvent) {
         let data = event.jsonLine()
         queue.async { [weak self] in
-            guard let self = self else { return }
+            guard let self else { return }
             var disconnected: [Int32] = []
-            for fd in self.clients.keys {
+            for fd in clients.keys {
                 let result = data.withUnsafeBytes { buf in
                     write(fd, buf.baseAddress!, buf.count)
                 }
@@ -119,7 +119,7 @@ public class SocketServer {
                 }
             }
             for fd in disconnected {
-                self.disconnectClient(fd)
+                disconnectClient(fd)
             }
         }
     }
@@ -181,12 +181,12 @@ public class SocketServer {
             return
         }
 
-        clients[fd]?.buffer.append(contentsOf: buf[0..<bytesRead])
+        clients[fd]?.buffer.append(contentsOf: buf[0 ..< bytesRead])
 
         // Process complete lines
         while let state = clients[fd] {
             guard let newlineIdx = state.buffer.firstIndex(of: UInt8(ascii: "\n")) else { break }
-            let lineData = Data(state.buffer[state.buffer.startIndex..<newlineIdx])
+            let lineData = Data(state.buffer[state.buffer.startIndex ..< newlineIdx])
             clients[fd]?.buffer = Data(state.buffer[state.buffer.index(after: newlineIdx)...])
 
             // Parse command

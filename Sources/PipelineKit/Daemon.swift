@@ -1,8 +1,8 @@
 import Foundation
 #if canImport(Darwin)
-import Darwin
+    import Darwin
 #else
-import Glibc
+    import Glibc
 #endif
 
 /// Pipeline daemon: watches files, serves events over Unix socket, handles auto-execution.
@@ -88,7 +88,7 @@ public class PipelineDaemon {
 
     // MARK: - File Change Detection
 
-    private func onFileChange(_ paths: [String]) {
+    private func onFileChange(_: [String]) {
         // Ignore events from our own changes (debounce window)
         if Date() < selfChangeDeadline { return }
 
@@ -176,22 +176,22 @@ public class PipelineDaemon {
         let result = try sessionEngine.advance()
 
         switch result {
-        case .advanced(let job, let pipeline, let from, let to, let prompt):
+        case let .advanced(job, pipeline, from, to, prompt):
             server.send(DaemonResponse(success: true, message: "Advanced to \(to)"), to: clientFD)
             server.broadcast(.jobMoved(pipeline: pipeline, job: job.slug, from: from, to: to))
             server.broadcast(.jobStatusChanged(pipeline: pipeline, job: job.slug, status: .active))
 
             // If there's an injection target, send inject event
-            if let prompt = prompt, let paneID = injectionTarget(for: pipeline) {
+            if let prompt, let paneID = injectionTarget(for: pipeline) {
                 server.broadcast(.inject(paneID: paneID, prompt: prompt, job: job.slug))
             }
 
-        case .manual(let job, let pipeline, let from, let to):
+        case let .manual(job, pipeline, from, to):
             server.send(DaemonResponse(success: true, message: "Waiting for human at \(to)"), to: clientFD)
             server.broadcast(.jobMoved(pipeline: pipeline, job: job.slug, from: from, to: to))
             server.broadcast(.jobStatusChanged(pipeline: pipeline, job: job.slug, status: .interrupted))
 
-        case .completed(let job, let pipeline, _):
+        case let .completed(job, pipeline, _):
             server.send(DaemonResponse(success: true, message: "Job completed"), to: clientFD)
             server.broadcast(.jobStatusChanged(pipeline: pipeline, job: job.slug, status: .completed))
 
@@ -214,14 +214,14 @@ public class PipelineDaemon {
         )
 
         switch result {
-        case .claimed(let job, let pipeline, _):
+        case let .claimed(job, pipeline, _):
             server.send(DaemonResponse(success: true, message: "Claimed \(job.slug)"), to: clientFD)
             server.broadcast(.jobStatusChanged(pipeline: pipeline, job: job.slug, status: .active))
 
-        case .noJobsAvailable(let pipeline):
+        case let .noJobsAvailable(pipeline):
             server.send(DaemonResponse(success: false, message: "No jobs available in \(pipeline)"), to: clientFD)
 
-        case .alreadyClaimed(let job, _):
+        case let .alreadyClaimed(job, _):
             server.send(DaemonResponse(success: false, message: "Already claimed \(job)"), to: clientFD)
         }
 
@@ -244,8 +244,8 @@ public class PipelineDaemon {
         markSelfChange()
         let job = try engine.addJob(pipeline: cmd.pipeline, title: title, body: cmd.prompt, stage: cmd.stage)
         server.send(DaemonResponse(success: true, message: "Added \(job.slug)"), to: clientFD)
-        server.broadcast(.jobAdded(pipeline: try engine.resolveDefaultPipeline(cmd.pipeline),
-                                   job: job.slug, stage: job.stage))
+        try server.broadcast(.jobAdded(pipeline: engine.resolveDefaultPipeline(cmd.pipeline),
+                                       job: job.slug, stage: job.stage))
         lastSnapshot = takeSnapshot()
     }
 
@@ -362,25 +362,25 @@ public class PipelineDaemon {
             let result = try sessionEngine.advance()
 
             switch result {
-            case .advanced(let job, let pipeline, _, _, let prompt):
-                if let prompt = prompt {
+            case let .advanced(job, pipeline, _, _, prompt):
+                if let prompt {
                     server.broadcast(.inject(paneID: paneID, prompt: prompt, job: job.slug))
                 }
                 server.send(DaemonResponse(success: true, message: "Auto-advanced \(job.slug)"), to: clientFD)
                 server.broadcast(.jobStatusChanged(pipeline: pipeline, job: job.slug, status: .active))
 
-            case .manual(let job, let pipeline, _, let to):
+            case let .manual(job, pipeline, _, to):
                 server.send(DaemonResponse(success: true, message: "Waiting at \(to)"), to: clientFD)
                 server.broadcast(.jobStatusChanged(pipeline: pipeline, job: job.slug, status: .interrupted))
 
-            case .completed(let job, let pipeline, _):
+            case let .completed(job, pipeline, _):
                 // Auto-claim next job
                 let nextResult = try sessionEngine.claim(
                     pipeline: pipeline, jobSlug: nil, stage: nil,
                     force: false, worktree: false, formatContext: false
                 )
-                if case .claimed(let nextJob, _, let prompt) = nextResult {
-                    if let prompt = prompt {
+                if case let .claimed(nextJob, _, prompt) = nextResult {
+                    if let prompt {
                         server.broadcast(.inject(paneID: paneID, prompt: prompt, job: nextJob.slug))
                     }
                     server.send(DaemonResponse(success: true, message: "Auto-claimed \(nextJob.slug)"), to: clientFD)
@@ -400,8 +400,8 @@ public class PipelineDaemon {
                     pipeline: pipelineName, jobSlug: nil, stage: nil,
                     force: false, worktree: false, formatContext: false
                 )
-                if case .claimed(let job, let pipeline, let prompt) = result {
-                    if let prompt = prompt {
+                if case let .claimed(job, pipeline, prompt) = result {
+                    if let prompt {
                         server.broadcast(.inject(paneID: paneID, prompt: prompt, job: job.slug))
                     }
                     server.send(DaemonResponse(success: true, message: "Auto-claimed \(job.slug)"), to: clientFD)
@@ -474,42 +474,42 @@ public class PipelineDaemon {
 
 // MARK: - Daemon Process Management
 
-extension PipelineStorage {
+public extension PipelineStorage {
     /// Path to daemon PID file
-    public var daemonPIDPath: String {
+    var daemonPIDPath: String {
         (rootPath as NSString).appendingPathComponent(".daemon.pid")
     }
 
     /// Path to Unix socket
-    public var socketPath: String {
+    var socketPath: String {
         (rootPath as NSString).appendingPathComponent("pipeline.sock")
     }
 
     /// Path to daemon log
-    public var daemonLogPath: String {
+    var daemonLogPath: String {
         (rootPath as NSString).appendingPathComponent(".daemon.log")
     }
 
-    public func writeDaemonPID(_ pid: pid_t) throws {
+    func writeDaemonPID(_ pid: pid_t) throws {
         try String(pid).write(toFile: daemonPIDPath, atomically: true, encoding: .utf8)
     }
 
-    public func readDaemonPID() -> pid_t? {
+    func readDaemonPID() -> pid_t? {
         guard let content = try? String(contentsOfFile: daemonPIDPath, encoding: .utf8) else { return nil }
         return pid_t(content.trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
-    public func removeDaemonPID() {
+    func removeDaemonPID() {
         try? FileManager.default.removeItem(atPath: daemonPIDPath)
     }
 
-    public func isDaemonRunning() -> Bool {
+    func isDaemonRunning() -> Bool {
         guard let pid = readDaemonPID() else { return false }
         return kill(pid, 0) == 0
     }
 
     /// Stop the daemon by sending SIGTERM
-    public func stopDaemon() -> Bool {
+    func stopDaemon() -> Bool {
         guard let pid = readDaemonPID() else { return false }
         let result = kill(pid, SIGTERM)
         if result == 0 {

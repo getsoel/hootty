@@ -8,26 +8,26 @@ public enum PipelineTemplate: String, CaseIterable {
     public var config: PipelineConfig {
         switch self {
         case .simple:
-            return PipelineConfig(
+            PipelineConfig(
                 name: "Pipeline",
                 stages: [
                     Stage(name: "Backlog", type: .manual),
                     Stage(name: "Run", type: .automated),
-                    Stage(name: "Done", type: .manual),
+                    Stage(name: "Done", type: .manual)
                 ]
             )
         case .review:
-            return PipelineConfig(
+            PipelineConfig(
                 name: "Pipeline",
                 stages: [
                     Stage(name: "Backlog", type: .manual),
                     Stage(name: "Implement", type: .automated),
                     Stage(name: "Review", type: .manual),
-                    Stage(name: "Done", type: .manual),
+                    Stage(name: "Done", type: .manual)
                 ]
             )
         case .fullCi:
-            return PipelineConfig(
+            PipelineConfig(
                 name: "Pipeline",
                 stages: [
                     Stage(name: "Backlog", type: .manual),
@@ -35,7 +35,7 @@ public enum PipelineTemplate: String, CaseIterable {
                     Stage(name: "Review", type: .manual),
                     Stage(name: "Test", type: .automated, command: "Write tests for the changes you just made. Run them and fix any failures."),
                     Stage(name: "Commit", type: .automated, command: "/commit"),
-                    Stage(name: "Done", type: .manual),
+                    Stage(name: "Done", type: .manual)
                 ]
             )
         }

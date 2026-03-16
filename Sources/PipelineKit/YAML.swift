@@ -59,7 +59,7 @@ public func parsePipelineConfig(_ content: String) -> PipelineConfig {
         switch section {
         case .stages:
             // "  - name: Backlog" starts a new stage item
-            if indent == 2 && stripped.hasPrefix("- ") {
+            if indent == 2, stripped.hasPrefix("- ") {
                 if let stage = currentStage {
                     stages.append(stage)
                 }
@@ -76,7 +76,7 @@ public func parsePipelineConfig(_ content: String) -> PipelineConfig {
                 } else if let value = extractYAMLValue(stripped, key: "command") {
                     currentStage?.command = value
                 }
-            } else if indent == 2 && stripped.hasPrefix("- ") {
+            } else if indent == 2, stripped.hasPrefix("- ") {
                 // New stage item
                 if let stage = currentStage {
                     stages.append(stage)
@@ -106,7 +106,7 @@ public func parsePipelineConfig(_ content: String) -> PipelineConfig {
             if indent >= 4 {
                 // Parse variable key-value pairs
                 if let colonIdx = stripped.firstIndex(of: ":") {
-                    let key = String(stripped[stripped.startIndex..<colonIdx]).trimmingCharacters(in: .whitespaces)
+                    let key = String(stripped[stripped.startIndex ..< colonIdx]).trimmingCharacters(in: .whitespaces)
                     let val = String(stripped[stripped.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
                     settings.variables[key] = unquoteYAML(val)
                 }
@@ -207,7 +207,7 @@ public func parseFrontmatter(_ content: String) -> Frontmatter {
         if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
 
         guard let colonIdx = trimmed.firstIndex(of: ":") else { continue }
-        let key = String(trimmed[trimmed.startIndex..<colonIdx]).trimmingCharacters(in: .whitespaces)
+        let key = String(trimmed[trimmed.startIndex ..< colonIdx]).trimmingCharacters(in: .whitespaces)
         let rawValue = String(trimmed[trimmed.index(after: colonIdx)...]).trimmingCharacters(in: .whitespaces)
 
         if key == "labels" {
@@ -229,15 +229,15 @@ public func parseFrontmatter(_ content: String) -> Frontmatter {
 /// Serialize a job file with frontmatter + body
 public func serializeJob(title: String, priority: String? = nil, labels: [String] = [],
                          created: String? = nil, body: String) -> String {
-    var lines: [String] = ["---"]
+    var lines = ["---"]
     lines.append("title: \(title)")
-    if let priority = priority {
+    if let priority {
         lines.append("priority: \(priority)")
     }
     if !labels.isEmpty {
         lines.append("labels: [\(labels.joined(separator: ", "))]")
     }
-    if let created = created {
+    if let created {
         lines.append("created: \(created)")
     }
     lines.append("---")
@@ -259,7 +259,7 @@ func extractYAMLValue(_ line: String, key: String) -> String? {
 /// Remove surrounding quotes from a YAML value
 func unquoteYAML(_ value: String) -> String {
     if (value.hasPrefix("\"") && value.hasSuffix("\"")) ||
-       (value.hasPrefix("'") && value.hasSuffix("'")) {
+        (value.hasPrefix("'") && value.hasSuffix("'")) {
         return String(value.dropFirst().dropLast())
     }
     return value
@@ -268,7 +268,7 @@ func unquoteYAML(_ value: String) -> String {
 /// Parse inline YAML array: [a, b, c] → ["a", "b", "c"]
 func parseInlineArray(_ value: String) -> [String] {
     var s = value.trimmingCharacters(in: .whitespaces)
-    guard s.hasPrefix("[") && s.hasSuffix("]") else { return [] }
+    guard s.hasPrefix("["), s.hasSuffix("]") else { return [] }
     s = String(s.dropFirst().dropLast())
     return s.split(separator: ",").map {
         $0.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))

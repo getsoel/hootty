@@ -48,7 +48,7 @@ struct Flags {
         while i < args.count {
             if args[i].hasPrefix("--") {
                 let flag = String(args[i].dropFirst(2))
-                if i + 1 < args.count && !args[i + 1].hasPrefix("--") {
+                if i + 1 < args.count, !args[i + 1].hasPrefix("--") {
                     named[flag] = args[i + 1]
                     i += 2
                 } else {
@@ -62,8 +62,13 @@ struct Flags {
         }
     }
 
-    func has(_ name: String) -> Bool { booleans.contains(name) }
-    func get(_ name: String) -> String? { named[name] }
+    func has(_ name: String) -> Bool {
+        booleans.contains(name)
+    }
+
+    func get(_ name: String) -> String? {
+        named[name]
+    }
 }
 
 // MARK: - Helpers

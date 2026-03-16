@@ -1,14 +1,14 @@
 import Foundation
 #if canImport(Darwin)
-import Darwin
+    import Darwin
 #else
-import Glibc
+    import Glibc
 #endif
 
 /// File-based storage for pipeline data.
 /// All paths are relative to the `.hootty/pipeline/` directory at the canonical repo root.
 public class PipelineStorage {
-    public let rootPath: String  // path to .hootty/pipeline/ directory
+    public let rootPath: String // path to .hootty/pipeline/ directory
 
     public init(rootPath: String) {
         self.rootPath = rootPath
@@ -269,8 +269,8 @@ public class PipelineStorage {
 
     /// Get the next available job number across all stages
     public func nextJobNumber(pipeline: String) throws -> Int {
-        let allJobs = try self.allJobs(pipeline: pipeline)
-        let maxNum = allJobs.map { $0.job.number }.max() ?? -1
+        let allJobs = try allJobs(pipeline: pipeline)
+        let maxNum = allJobs.map(\.job.number).max() ?? -1
         return maxNum + 1
     }
 

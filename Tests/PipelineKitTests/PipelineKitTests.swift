@@ -725,6 +725,96 @@ import Foundation
     }
 }
 
+// MARK: - Template Store Tests
+
+@Suite struct TemplateStoreTests {
+    let tempDir: String
+
+    init() throws {
+        tempDir = NSTemporaryDirectory() + "template-store-test-\(UUID().uuidString)"
+        try FileManager.default.createDirectory(atPath: tempDir, withIntermediateDirectories: true)
+    }
+
+    @Test func seedsDefaultTemplates() {
+        let store = TemplateStore(rootPath: tempDir)
+        store.seedDefaults()
+
+        let names = store.listTemplates()
+        #expect(names.contains("simple"))
+        #expect(names.contains("review"))
+        #expect(names.contains("full-ci"))
+    }
+
+    @Test func seedDefaultsOnlyWhenEmpty() throws {
+        let store = TemplateStore(rootPath: tempDir)
+        // Save a custom template first
+        let custom = PipelineConfig(name: "Custom", stages: [Stage(name: "Start", type: .manual)])
+        try store.saveTemplate(name: "custom", config: custom)
+
+        // Seed should not overwrite or add defaults since directory is not empty
+        store.seedDefaults()
+        let names = store.listTemplates()
+        #expect(names == ["custom"])
+    }
+
+    @Test func loadsSavedTemplate() throws {
+        let store = TemplateStore(rootPath: tempDir)
+        let config = PipelineConfig(
+            name: "My Template",
+            stages: [
+                Stage(name: "Todo", type: .manual),
+                Stage(name: "Build", type: .automated, command: "make build"),
+                Stage(name: "Done", type: .manual),
+            ]
+        )
+        try store.saveTemplate(name: "my-template", config: config)
+
+        let loaded = try store.loadTemplate(name: "my-template")
+        #expect(loaded.name == "My Template")
+        #expect(loaded.stages.count == 3)
+        #expect(loaded.stages[1].command == "make build")
+    }
+
+    @Test func loadNonexistentThrows() {
+        let store = TemplateStore(rootPath: tempDir)
+        #expect(throws: PipelineError.self) {
+            _ = try store.loadTemplate(name: "nonexistent")
+        }
+    }
+
+    @Test func deletesTemplate() throws {
+        let store = TemplateStore(rootPath: tempDir)
+        let config = PipelineConfig(name: "Temp", stages: [Stage(name: "A", type: .manual)])
+        try store.saveTemplate(name: "temp", config: config)
+        #expect(store.listTemplates().contains("temp"))
+
+        try store.deleteTemplate(name: "temp")
+        #expect(!store.listTemplates().contains("temp"))
+    }
+
+    @Test func deleteNonexistentThrows() {
+        let store = TemplateStore(rootPath: tempDir)
+        #expect(throws: PipelineError.self) {
+            try store.deleteTemplate(name: "nonexistent")
+        }
+    }
+
+    @Test func templatePathIsCorrect() {
+        let store = TemplateStore(rootPath: "/tmp/templates")
+        #expect(store.templatePath(name: "review") == "/tmp/templates/review.yaml")
+    }
+
+    @Test func listTemplatesIsSorted() throws {
+        let store = TemplateStore(rootPath: tempDir)
+        let config = PipelineConfig(name: "T", stages: [Stage(name: "A", type: .manual)])
+        try store.saveTemplate(name: "zebra", config: config)
+        try store.saveTemplate(name: "alpha", config: config)
+        try store.saveTemplate(name: "middle", config: config)
+
+        #expect(store.listTemplates() == ["alpha", "middle", "zebra"])
+    }
+}
+
 // MARK: - Event Tests
 
 @Suite struct EventTests {
