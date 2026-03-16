@@ -168,6 +168,21 @@ public final class AppModel {
         return body(workspace, pane)
     }
 
+    /// Collect panes in a repo root with their session IDs for pipeline matching.
+    public func pipelinePanes(forRepoRoot repoRoot: String) -> [(id: UUID, sessionIDs: [String])] {
+        var result: [(id: UUID, sessionIDs: [String])] = []
+        for workspace in workspaces {
+            for pane in workspace.allPanes where pane.repoRoot == repoRoot {
+                var ids = [pane.id.uuidString]
+                if let sid = pane.claudeSessionID, sid != "auto" {
+                    ids.append(sid)
+                }
+                result.append((id: pane.id, sessionIDs: ids))
+            }
+        }
+        return result
+    }
+
     /// Re-query branch for all panes in the given canonical repo root.
     /// Called when `.git/HEAD` changes (branch switch without pwd change).
     public func refreshBranchesForRepo(_ canonicalRepoRoot: String) {

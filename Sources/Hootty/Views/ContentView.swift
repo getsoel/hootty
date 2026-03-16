@@ -225,6 +225,7 @@ struct ContentView: View {
             focusedPaneID: workspace.focusedPaneID,
             tokens: tokens,
             isInSplit: false,
+            pipelineModel: appModel.pipelineModel,
             onFocusPane: { paneID in
                 appModel.sidebarHasFocus = false
                 workspace.focusPane(id: paneID)

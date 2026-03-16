@@ -6,12 +6,12 @@ struct PaneContentView: View {
     var pane: Pane
     let isFocused: Bool
     let tokens: DesignTokens
+    var pipelineModel: PipelineModel
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
     let onSave: () -> Void
-
     @State private var isDropTarget = false
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
     @Environment(\.sidebarCursorPaneID) private var sidebarCursorPaneID
@@ -31,6 +31,10 @@ struct PaneContentView: View {
                 onClosePane: onClosePane,
                 onSave: onSave
             )
+
+            if let claim = pipelineModel.claimInfo(for: pane.id) {
+                PipelineBarView(claimInfo: claim, tokens: tokens)
+            }
 
             TerminalPaneView(pane: pane, isFocused: isFocused, onFocusPane: onFocusPane)
         }

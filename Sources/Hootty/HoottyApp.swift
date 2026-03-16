@@ -54,6 +54,7 @@ struct HoottyApp: App {
     @State private var appModel: AppModel
     @State private var commandRegistry: CommandRegistry
     @State private var headWatcher = GitHEADWatcher()
+    @State private var pipelineWatcher = PipelineWatcher()
 
     // MARK: - Command Registration
 
@@ -165,7 +166,7 @@ struct HoottyApp: App {
         WindowGroup {
             ContentView(appModel: appModel, commandRegistry: commandRegistry)
                 .frame(minWidth: 700, minHeight: 400)
-                .onAppear { [headWatcher] in
+                .onAppear { [headWatcher, pipelineWatcher] in
                     // Bootstrap HEAD watchers for persisted repos
                     for workspace in appModel.workspaces {
                         for pane in workspace.allPanes {
@@ -173,6 +174,21 @@ struct HoottyApp: App {
                                !headWatcher.watchedRepoRoots.contains(repoRoot),
                                let gitDir = GitWorktreeManager.gitCommonDir(for: pane.workingDirectory) {
                                 headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
+                            }
+                        }
+                    }
+
+                    // Bootstrap pipeline watchers for repos with .hootty/pipeline/
+                    pipelineWatcher.setOnChange { [appModel] repoRoot in
+                        let panes = appModel.pipelinePanes(forRepoRoot: repoRoot)
+                        appModel.pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
+                    }
+                    for workspace in appModel.workspaces {
+                        for pane in workspace.allPanes {
+                            if let repoRoot = pane.repoRoot,
+                               PipelineReader.hasPipeline(repoRoot: repoRoot),
+                               appModel.pipelineModel.registerRepoRoot(repoRoot) {
+                                pipelineWatcher.startWatching(repoRoot: repoRoot)
                             }
                         }
                     }
@@ -233,7 +249,7 @@ struct HoottyApp: App {
                     GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
                         appModel.handleTitleChange(paneID, title: title)
                     }
-                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher] paneID, pwd in
+                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, pipelineWatcher] paneID, pwd in
                         appModel.handlePwdChanged(paneID, pwd: pwd)
                         // Register HEAD watcher for newly discovered repos
                         if let (_, pane) = appModel.findPane(id: paneID),
@@ -241,6 +257,13 @@ struct HoottyApp: App {
                            !headWatcher.watchedRepoRoots.contains(repoRoot),
                            let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
                             headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
+                        }
+                        // Register pipeline watcher for repos with .hootty/pipeline/
+                        if let (_, pane) = appModel.findPane(id: paneID),
+                           let repoRoot = pane.repoRoot,
+                           PipelineReader.hasPipeline(repoRoot: repoRoot),
+                           appModel.pipelineModel.registerRepoRoot(repoRoot) {
+                            pipelineWatcher.startWatching(repoRoot: repoRoot)
                         }
                     }
                     GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
