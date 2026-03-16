@@ -72,11 +72,27 @@ public enum PipelineReader {
         return nil
     }
 
+    /// Parsed frontmatter fields from a job markdown file.
+    public struct JobFrontmatter: Sendable {
+        public let title: String?
+        public let priority: String?
+        public let labels: [String]
+    }
+
+    /// A job file entry discovered by scanning stage directories.
+    public struct JobEntry: Sendable {
+        public let slug: String
+        public let title: String
+        public let stageIndex: Int
+        public let priority: String?
+        public let labels: [String]
+    }
+
     /// Read all jobs across all stage directories for a pipeline.
-    public static func readAllJobs(repoRoot: String, pipelineName: String, stages: [PipelineStageDef]) -> [(slug: String, title: String, stageIndex: Int)] {
+    public static func readAllJobs(repoRoot: String, pipelineName: String, stages: [PipelineStageDef]) -> [JobEntry] {
         let fm = FileManager.default
         let pipelineDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)")
-        var results: [(slug: String, title: String, stageIndex: Int)] = []
+        var results: [JobEntry] = []
 
         for (index, stage) in stages.enumerated() {
             let stageDir = (pipelineDir as NSString).appendingPathComponent(stage.name.lowercased())
@@ -84,17 +100,62 @@ public enum PipelineReader {
             for file in files.sorted() where file.hasSuffix(".md") {
                 let slug = String(file.dropLast(3)) // remove .md
                 let filePath = (stageDir as NSString).appendingPathComponent(file)
-                let title: String = if let data = fm.contents(atPath: filePath),
-                                       let content = String(data: data, encoding: .utf8),
-                                       let parsed = parseFrontmatterTitle(content) {
-                    parsed
-                } else {
-                    slug
-                }
-                results.append((slug: slug, title: title, stageIndex: index))
+                let meta = parseFrontmatterFromFile(filePath)
+                let title = meta?.title ?? slug
+                results.append(JobEntry(slug: slug, title: title, stageIndex: index, priority: meta?.priority, labels: meta?.labels ?? []))
             }
         }
         return results
+    }
+
+    /// Read the markdown body (after frontmatter) of a job file.
+    public static func readJobBody(repoRoot: String, pipelineName: String, stages: [PipelineStageDef], jobSlug: String) -> String? {
+        let fm = FileManager.default
+        let pipelineDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)")
+
+        for stage in stages {
+            let stageDir = (pipelineDir as NSString).appendingPathComponent(stage.name.lowercased())
+            guard let files = try? fm.contentsOfDirectory(atPath: stageDir) else { continue }
+            guard let fileName = files.first(where: { $0.hasPrefix(jobSlug) && $0.hasSuffix(".md") }) else { continue }
+            let filePath = (stageDir as NSString).appendingPathComponent(fileName)
+            guard let data = fm.contents(atPath: filePath),
+                  let content = String(data: data, encoding: .utf8) else { continue }
+            return extractBodyAfterFrontmatter(content)
+        }
+        return nil
+    }
+
+    /// List all pipeline directories in the repo (for multi-pipeline support).
+    public static func listPipelines(repoRoot: String) -> [String] {
+        let fm = FileManager.default
+        let pipelineBase = (repoRoot as NSString).appendingPathComponent(directoryPath)
+        guard let entries = try? fm.contentsOfDirectory(atPath: pipelineBase) else { return [] }
+        return entries.filter { name in
+            guard !name.hasPrefix(".") else { return false }
+            let subdir = (pipelineBase as NSString).appendingPathComponent(name)
+            let configPath = (subdir as NSString).appendingPathComponent("pipeline.yaml")
+            return fm.fileExists(atPath: configPath)
+        }.sorted()
+    }
+
+    /// Find the next available job number across all stages in a pipeline.
+    public static func nextJobNumber(repoRoot: String, pipelineName: String, stages: [PipelineStageDef]) -> Int {
+        let fm = FileManager.default
+        let pipelineDir = (repoRoot as NSString).appendingPathComponent("\(directoryPath)/\(pipelineName)")
+        var maxNum = 0
+
+        for stage in stages {
+            let stageDir = (pipelineDir as NSString).appendingPathComponent(stage.name.lowercased())
+            guard let files = try? fm.contentsOfDirectory(atPath: stageDir) else { continue }
+            for file in files where file.hasSuffix(".md") {
+                // Extract leading digits from filename
+                let digits = file.prefix(while: { $0.isNumber })
+                if let num = Int(digits) {
+                    maxNum = max(maxNum, num)
+                }
+            }
+        }
+        return maxNum + 1
     }
 
     // MARK: - Minimal YAML Parser
@@ -184,15 +245,66 @@ public enum PipelineReader {
     // MARK: - Frontmatter Parser
 
     private static func parseFrontmatterTitle(_ content: String) -> String? {
+        parseFrontmatter(content)?.title
+    }
+
+    /// Parse all supported frontmatter fields from a job markdown file.
+    static func parseFrontmatter(_ content: String) -> JobFrontmatter? {
         let lines = content.components(separatedBy: .newlines)
         guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else { return nil }
+
+        var title: String?
+        var priority: String?
+        var labels: [String] = []
+
         for line in lines.dropFirst() {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed == "---" { break }
+
             if trimmed.hasPrefix("title:") {
-                return extractYAMLValue(trimmed, key: "title")
+                title = extractYAMLValue(trimmed, key: "title")
+            } else if trimmed.hasPrefix("priority:") {
+                priority = extractYAMLValue(trimmed, key: "priority")?.lowercased()
+            } else if trimmed.hasPrefix("labels:") {
+                if let raw = extractYAMLValue(trimmed, key: "labels") {
+                    // Parse inline list: "auth, refactor" or "[auth, refactor]"
+                    let cleaned = raw.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+                    labels = cleaned.components(separatedBy: ",")
+                        .map { $0.trimmingCharacters(in: .whitespaces) }
+                        .filter { !$0.isEmpty }
+                }
             }
         }
-        return nil
+        return JobFrontmatter(title: title, priority: priority, labels: labels)
+    }
+
+    /// Parse frontmatter from a file path.
+    private static func parseFrontmatterFromFile(_ path: String) -> JobFrontmatter? {
+        guard let data = FileManager.default.contents(atPath: path),
+              let content = String(data: data, encoding: .utf8) else { return nil }
+        return parseFrontmatter(content)
+    }
+
+    /// Extract the body content after YAML frontmatter.
+    private static func extractBodyAfterFrontmatter(_ content: String) -> String? {
+        let lines = content.components(separatedBy: .newlines)
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else {
+            return content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : content
+        }
+
+        var foundEnd = false
+        var bodyLines: [String] = []
+        for line in lines.dropFirst() {
+            if !foundEnd {
+                if line.trimmingCharacters(in: .whitespaces) == "---" {
+                    foundEnd = true
+                }
+                continue
+            }
+            bodyLines.append(line)
+        }
+
+        let body = bodyLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return body.isEmpty ? nil : body
     }
 }

@@ -65,8 +65,10 @@ public struct PipelineJobInfo: Identifiable, Sendable {
     public let stageName: String
     public let status: JobStatus? // nil = unclaimed
     public let claimedBy: String? // session key if claimed
+    public let priority: String? // "low", "medium", "high", "critical"
+    public let labels: [String]
 
-    public init(slug: String, title: String, stageIndex: Int, stageName: String, status: JobStatus?, claimedBy: String?) {
+    public init(slug: String, title: String, stageIndex: Int, stageName: String, status: JobStatus?, claimedBy: String?, priority: String? = nil, labels: [String] = []) {
         self.id = slug
         self.slug = slug
         self.title = title
@@ -74,6 +76,8 @@ public struct PipelineJobInfo: Identifiable, Sendable {
         self.stageName = stageName
         self.status = status
         self.claimedBy = claimedBy
+        self.priority = priority
+        self.labels = labels
     }
 }
 

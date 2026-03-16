@@ -242,6 +242,205 @@ struct PipelineReaderTests {
         let result = PipelineReader.resolveClaimForSession(stateFile: state, sessionIDs: ["my-session"])
         #expect(result == nil)
     }
+
+    @Test func parsesFrontmatterPriorityAndLabels() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let stageDir = tempDir.appendingPathComponent(".hootty/pipeline/default/backlog")
+        try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try """
+        ---
+        title: Auth Refactor
+        priority: high
+        labels: auth, refactor
+        ---
+
+        Refactor the auth module.
+        """.write(to: stageDir.appendingPathComponent("001-auth-refactor.md"), atomically: true, encoding: .utf8)
+
+        let stages = [PipelineStageDef(name: "Backlog", type: .manual)]
+        let jobs = PipelineReader.readAllJobs(repoRoot: tempDir.path, pipelineName: "default", stages: stages)
+
+        #expect(jobs.count == 1)
+        #expect(jobs[0].title == "Auth Refactor")
+        #expect(jobs[0].priority == "high")
+        #expect(jobs[0].labels == ["auth", "refactor"])
+    }
+
+    @Test func readsJobBody() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let stageDir = tempDir.appendingPathComponent(".hootty/pipeline/default/backlog")
+        try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try """
+        ---
+        title: My Task
+        ---
+
+        This is the task body.
+        It has multiple lines.
+        """.write(to: stageDir.appendingPathComponent("001-my-task.md"), atomically: true, encoding: .utf8)
+
+        let stages = [PipelineStageDef(name: "Backlog", type: .manual)]
+        let body = PipelineReader.readJobBody(repoRoot: tempDir.path, pipelineName: "default", stages: stages, jobSlug: "001-my-task")
+
+        #expect(body != nil)
+        #expect(body?.contains("This is the task body.") == true)
+        #expect(body?.contains("multiple lines") == true)
+    }
+
+    @Test func nextJobNumberIncrementsMaxAcrossStages() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        let backlogDir = pipelineDir.appendingPathComponent("backlog")
+        let doneDir = pipelineDir.appendingPathComponent("done")
+        try FileManager.default.createDirectory(at: backlogDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: doneDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "---\ntitle: A\n---\n".write(to: backlogDir.appendingPathComponent("003-task-a.md"), atomically: true, encoding: .utf8)
+        try "---\ntitle: B\n---\n".write(to: doneDir.appendingPathComponent("005-task-b.md"), atomically: true, encoding: .utf8)
+
+        let stages = [
+            PipelineStageDef(name: "Backlog", type: .manual),
+            PipelineStageDef(name: "Done", type: .manual)
+        ]
+        let next = PipelineReader.nextJobNumber(repoRoot: tempDir.path, pipelineName: "default", stages: stages)
+        #expect(next == 6)
+    }
+
+    @Test func listsPipelinesInRepo() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let base = tempDir.appendingPathComponent(".hootty/pipeline")
+        let featureDir = base.appendingPathComponent("feature")
+        let bugsDir = base.appendingPathComponent("bugs")
+        try FileManager.default.createDirectory(at: featureDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: bugsDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Only directories with pipeline.yaml count
+        try "name: Feature\nstages:\n  - name: Backlog\n    type: manual\n".write(
+            to: featureDir.appendingPathComponent("pipeline.yaml"), atomically: true, encoding: .utf8
+        )
+        try "name: Bugs\nstages:\n  - name: Triage\n    type: manual\n".write(
+            to: bugsDir.appendingPathComponent("pipeline.yaml"), atomically: true, encoding: .utf8
+        )
+
+        let pipelines = PipelineReader.listPipelines(repoRoot: tempDir.path)
+        #expect(pipelines == ["bugs", "feature"])
+    }
+}
+
+// MARK: - PipelineWriter Tests
+
+struct PipelineWriterTests {
+    @Test func movesJobBetweenStages() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        let backlogDir = pipelineDir.appendingPathComponent("backlog")
+        let implementDir = pipelineDir.appendingPathComponent("implement")
+        try FileManager.default.createDirectory(at: backlogDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: implementDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "---\ntitle: My Task\n---\n".write(
+            to: backlogDir.appendingPathComponent("001-my-task.md"), atomically: true, encoding: .utf8
+        )
+
+        let result = PipelineWriter.moveJob(
+            repoRoot: tempDir.path, pipelineName: "default",
+            jobSlug: "001-my-task", fromStageDir: "backlog", toStageDir: "implement"
+        )
+        #expect(result == true)
+
+        // File should be gone from backlog
+        let backlogFiles = try FileManager.default.contentsOfDirectory(atPath: backlogDir.path)
+        #expect(backlogFiles.isEmpty)
+
+        // File should exist in implement
+        let implementFiles = try FileManager.default.contentsOfDirectory(atPath: implementDir.path)
+        #expect(implementFiles.contains("001-my-task.md"))
+    }
+
+    @Test func addsJobStubFile() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline/default")
+        let backlogDir = pipelineDir.appendingPathComponent("backlog")
+        try FileManager.default.createDirectory(at: backlogDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let slug = PipelineWriter.addJob(
+            repoRoot: tempDir.path, pipelineName: "default",
+            title: "Fix Login Bug", stageDir: "backlog", number: 7
+        )
+        #expect(slug != nil)
+        #expect(slug?.hasPrefix("007-") == true)
+
+        // Verify file exists and has frontmatter
+        let files = try FileManager.default.contentsOfDirectory(atPath: backlogDir.path)
+        #expect(files.count == 1)
+
+        let filePath = backlogDir.appendingPathComponent(files[0])
+        let content = try String(contentsOf: filePath, encoding: .utf8)
+        #expect(content.contains("title: Fix Login Bug"))
+    }
+
+    @Test func removesJobFile() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let stageDir = tempDir.appendingPathComponent(".hootty/pipeline/default/backlog")
+        try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try "---\ntitle: Doomed\n---\n".write(
+            to: stageDir.appendingPathComponent("001-doomed.md"), atomically: true, encoding: .utf8
+        )
+
+        let result = PipelineWriter.removeJob(
+            repoRoot: tempDir.path, pipelineName: "default",
+            jobSlug: "001-doomed", stageDir: "backlog"
+        )
+        #expect(result == true)
+
+        let files = try FileManager.default.contentsOfDirectory(atPath: stageDir.path)
+        #expect(files.isEmpty)
+    }
+
+    @Test func togglesPauseState() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let pipelineDir = tempDir.appendingPathComponent(".hootty/pipeline")
+        try FileManager.default.createDirectory(at: pipelineDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        // Write initial state
+        let initialState = """
+        {
+          "pipelines": {
+            "default": {
+              "claims": {},
+              "job_statuses": {},
+              "paused": false
+            }
+          }
+        }
+        """
+        try initialState.write(to: pipelineDir.appendingPathComponent(".state.json"), atomically: true, encoding: .utf8)
+
+        // Toggle to paused
+        let result1 = PipelineWriter.togglePause(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(result1 == true)
+
+        let state1 = PipelineReader.readStateFile(repoRoot: tempDir.path)
+        #expect(state1?.pipelines["default"]?.paused == true)
+
+        // Toggle back to unpaused
+        let result2 = PipelineWriter.togglePause(repoRoot: tempDir.path, pipelineName: "default")
+        #expect(result2 == true)
+
+        let state2 = PipelineReader.readStateFile(repoRoot: tempDir.path)
+        #expect(state2?.pipelines["default"]?.paused == false)
+    }
 }
 
 @MainActor

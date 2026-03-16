@@ -7,6 +7,7 @@ struct ContentView: View {
     @GestureState private var dragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorPaneID: UUID?
+    @State private var selectedPipelineName: String?
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -259,6 +260,7 @@ struct ContentView: View {
     @ViewBuilder
     private func boardDetail(workspace: Workspace) -> some View {
         let boards = currentBoardData(workspace: workspace)
+        let repoRoot = currentRepoRoot(workspace: workspace)
         if boards.isEmpty {
             VStack(spacing: Spacing.md) {
                 Image(systemName: "square.grid.3x3.topleft.filled")
@@ -273,22 +275,125 @@ struct ContentView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ScrollView(.vertical) {
-                VStack(spacing: Spacing.lg) {
-                    ForEach(boards) { board in
-                        PipelineBoardView(boardData: board, tokens: tokens)
-                    }
+            VStack(spacing: 0) {
+                // Pipeline selector (only if multiple pipelines)
+                if boards.count > 1 {
+                    pipelineSelector(boards: boards)
                 }
-                .padding(Spacing.lg)
+
+                // Selected board
+                let activeBoard = resolveActiveBoard(boards: boards)
+                if let board = activeBoard, let repoRoot {
+                    PipelineBoardView(
+                        boardData: board,
+                        tokens: tokens,
+                        onTogglePause: {
+                            if appModel.pipelineModel.togglePause(repoRoot: repoRoot, pipelineName: board.pipelineName) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onMoveJob: { slug, from, to in
+                            if appModel.pipelineModel.moveJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, fromStageIndex: from, toStageIndex: to, stages: board.stages) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onAddJob: { title, stageIndex in
+                            if appModel.pipelineModel.addJob(repoRoot: repoRoot, pipelineName: board.pipelineName, title: title, stages: board.stages, toStageIndex: stageIndex) != nil {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onRemoveJob: { slug in
+                            if appModel.pipelineModel.removeJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, stages: board.stages) {
+                                refreshPipeline(repoRoot: repoRoot)
+                            }
+                        },
+                        onClickClaimed: { sessionKey in
+                            navigateToClaimedPane(sessionKey: sessionKey, workspace: workspace)
+                        },
+                        onLoadJobBody: { slug in
+                            PipelineReader.readJobBody(repoRoot: repoRoot, pipelineName: board.pipelineName, stages: board.stages, jobSlug: slug)
+                        }
+                    )
+                }
             }
             .background(Color(tokens.background))
         }
     }
 
+    private func pipelineSelector(boards: [PipelineBoardData]) -> some View {
+        HStack(spacing: 2) {
+            ForEach(boards) { board in
+                let isActive = resolveActiveBoard(boards: boards)?.pipelineName == board.pipelineName
+                Button {
+                    selectedPipelineName = board.pipelineName
+                } label: {
+                    HStack(spacing: Spacing.sm) {
+                        Text(board.displayName)
+                            .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
+                            .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
+
+                        let activeCount = board.jobs.filter { $0.status == .active || $0.status == .interrupted }.count
+                        if activeCount > 0 {
+                            Text("\(activeCount)")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(Color(tokens.textAccent))
+                                .padding(.horizontal, Spacing.xs + 1)
+                                .background(
+                                    Capsule().fill(Color(tokens.textAccent).opacity(0.15))
+                                )
+                        }
+                    }
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+                    .background(
+                        Capsule()
+                            .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(Spacing.sm)
+        .padding(.horizontal, Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(tokens.surface))
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Color(tokens.border)).frame(height: 1)
+        }
+    }
+
+    private func resolveActiveBoard(boards: [PipelineBoardData]) -> PipelineBoardData? {
+        if let name = selectedPipelineName,
+           let board = boards.first(where: { $0.pipelineName == name }) {
+            return board
+        }
+        return boards.first
+    }
+
     private func currentBoardData(workspace: Workspace) -> [PipelineBoardData] {
-        guard let focusedPane = workspace.focusedPane,
-              let repoRoot = focusedPane.repoRoot else { return [] }
+        guard let repoRoot = currentRepoRoot(workspace: workspace) else { return [] }
         return appModel.pipelineModel.boardData(for: repoRoot)
+    }
+
+    private func currentRepoRoot(workspace: Workspace) -> String? {
+        workspace.focusedPane?.repoRoot
+    }
+
+    private func refreshPipeline(repoRoot: String) {
+        let panes = appModel.pipelinePanes(forRepoRoot: repoRoot)
+        appModel.pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
+    }
+
+    private func navigateToClaimedPane(sessionKey: String, workspace: Workspace) {
+        // Find the pane that has this session key
+        for pane in workspace.allPanes {
+            let sessionIDs = [pane.id.uuidString] + (pane.claudeSessionID.map { [$0] } ?? [])
+            if sessionIDs.contains(sessionKey) {
+                appModel.detailMode = .terminals
+                workspace.focusPane(id: pane.id)
+                return
+            }
+        }
     }
 
     private func applyTheme(name: String, fallback: TerminalTheme? = nil) {

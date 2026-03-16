@@ -40,6 +40,7 @@ Sources/
     PipelineModel.swift        -- @Observable pipeline claim/board state per pane/repo
     PipelineReader.swift       -- Reads pipeline config and state from .hootty/pipeline/
     PipelineState.swift        -- Pipeline data structures (stages, config, jobs, claims)
+    PipelineWriter.swift       -- Writes job files and .state.json mutations (move, add, remove, pause)
     SoundManager.swift         -- Sound trigger playback management
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
@@ -92,6 +93,7 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 - Split panes: Workspace.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 - Commands: AppCommand enum → CommandRegistry (maps to actions) → menus, palette, ghostty callbacks all dispatch through `commandRegistry.execute()`
 - PipelineWatcher monitors `.hootty/pipeline/.state.json` → PipelineModel updates → PipelineBarView/PipelineBoardView react
+- PipelineModel delegates mutations (move, add, remove, pause) to PipelineWriter → writes job files and .state.json
 
 ### Deep-dive docs (read on demand)
 - `docs/COMMANDS.md` — read when adding commands, modifying keyboard shortcuts, or working on the command palette

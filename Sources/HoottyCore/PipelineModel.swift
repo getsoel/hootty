@@ -62,8 +62,8 @@ public final class PipelineModel {
 
             // Read all jobs once — reused for both claim resolution and board data
             let allJobs = PipelineReader.readAllJobs(repoRoot: repoRoot, pipelineName: pipelineName, stages: config.stages)
-            let jobLookup: [String: (title: String, stageIndex: Int)] = allJobs.reduce(into: [:]) { dict, job in
-                dict[job.slug] = (title: job.title, stageIndex: job.stageIndex)
+            let jobLookup: [String: PipelineReader.JobEntry] = allJobs.reduce(into: [:]) { dict, job in
+                dict[job.slug] = job
             }
 
             // Resolve claims for panes
@@ -71,15 +71,15 @@ public final class PipelineModel {
                 guard let paneID = sessionToPaneID[sessionKey] else { continue }
                 claimedPaneIDs.insert(paneID)
 
-                let jobInfo = jobLookup[jobSlug]
+                let entry = jobLookup[jobSlug]
                 let status = JobStatus(rawString: runtime.job_statuses[jobSlug]) ?? .active
 
                 claimsByPane[paneID] = PipelineClaimInfo(
                     pipelineName: pipelineName,
                     pipelineDisplayName: config.name,
                     jobSlug: jobSlug,
-                    jobTitle: jobInfo?.title ?? jobSlug,
-                    currentStageIndex: jobInfo?.stageIndex ?? 0,
+                    jobTitle: entry?.title ?? jobSlug,
+                    currentStageIndex: entry?.stageIndex ?? 0,
                     stages: config.stages,
                     status: status,
                     isPaused: runtime.paused
@@ -98,7 +98,9 @@ public final class PipelineModel {
                     stageIndex: job.stageIndex,
                     stageName: config.stages[job.stageIndex].name,
                     status: JobStatus(rawString: runtime.job_statuses[job.slug]),
-                    claimedBy: claimByJob[job.slug]
+                    claimedBy: claimByJob[job.slug],
+                    priority: job.priority,
+                    labels: job.labels
                 )
             }
 
@@ -116,5 +118,50 @@ public final class PipelineModel {
         for (paneID, _) in panes where !claimedPaneIDs.contains(paneID) {
             claimsByPane.removeValue(forKey: paneID)
         }
+    }
+
+    // MARK: - Mutations
+
+    /// Move a job from one stage directory to another.
+    public func moveJob(repoRoot: String, pipelineName: String, jobSlug: String, fromStageIndex: Int, toStageIndex: Int, stages: [PipelineStageDef]) -> Bool {
+        guard fromStageIndex != toStageIndex,
+              fromStageIndex >= 0, fromStageIndex < stages.count,
+              toStageIndex >= 0, toStageIndex < stages.count else { return false }
+        return PipelineWriter.moveJob(
+            repoRoot: repoRoot,
+            pipelineName: pipelineName,
+            jobSlug: jobSlug,
+            fromStageDir: stages[fromStageIndex].name.lowercased(),
+            toStageDir: stages[toStageIndex].name.lowercased()
+        )
+    }
+
+    /// Add a new job to a stage (defaults to first stage).
+    public func addJob(repoRoot: String, pipelineName: String, title: String, stages: [PipelineStageDef], toStageIndex: Int = 0) -> String? {
+        guard toStageIndex >= 0, toStageIndex < stages.count else { return nil }
+        let nextNum = PipelineReader.nextJobNumber(repoRoot: repoRoot, pipelineName: pipelineName, stages: stages)
+        return PipelineWriter.addJob(
+            repoRoot: repoRoot,
+            pipelineName: pipelineName,
+            title: title,
+            stageDir: stages[toStageIndex].name.lowercased(),
+            number: nextNum
+        )
+    }
+
+    /// Toggle pause state for a pipeline.
+    public func togglePause(repoRoot: String, pipelineName: String) -> Bool {
+        PipelineWriter.togglePause(repoRoot: repoRoot, pipelineName: pipelineName)
+    }
+
+    /// Remove a job file from its current stage directory.
+    public func removeJob(repoRoot: String, pipelineName: String, jobSlug: String, stages: [PipelineStageDef]) -> Bool {
+        for stage in stages {
+            let stageDir = stage.name.lowercased()
+            if PipelineWriter.removeJob(repoRoot: repoRoot, pipelineName: pipelineName, jobSlug: jobSlug, stageDir: stageDir) {
+                return true
+            }
+        }
+        return false
     }
 }
