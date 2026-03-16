@@ -18,6 +18,7 @@ struct PaneBar: View {
     @State private var hovered: HoveredElement?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
+    @State private var showRenameAlert = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -57,12 +58,10 @@ struct PaneBar: View {
             Button("Rename Pane") {
                 editingName = pane.displayName
                 renameTargetID = pane.id
+                showRenameAlert = true
             }
         }
-        .alert("Rename Pane", isPresented: Binding(
-            get: { renameTargetID != nil },
-            set: { if !$0 { renameTargetID = nil } }
-        )) {
+        .alert("Rename Pane", isPresented: $showRenameAlert) {
             TextField("Pane name", text: $editingName)
             Button("OK") { commitRename() }
             Button("Cancel", role: .cancel) { renameTargetID = nil }
@@ -100,6 +99,7 @@ struct PaneBar: View {
                 .buttonStyle(.plain)
                 .menuIndicator(.hidden)
                 .accessibilityLabel("Split pane")
+                .help("Split pane")
             }
 
             if onClosePane != nil {
@@ -126,6 +126,7 @@ struct PaneBar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Close pane")
+                .help("Close pane")
             }
         }
         .padding(Spacing.smd)
@@ -161,5 +162,6 @@ struct PaneBar: View {
             onSave?()
         }
         renameTargetID = nil
+        showRenameAlert = false
     }
 }

@@ -650,6 +650,7 @@ private struct JobDetailSheet: View {
                     .foregroundStyle(Color(tokens.textMuted))
             }
             .buttonStyle(.plain)
+            .help("Close")
         }
         .padding(Spacing.lg)
         .overlay(alignment: .bottom) {
@@ -768,6 +769,7 @@ private struct JobDetailSheet: View {
                 .buttonStyle(.plain)
                 .font(.system(size: TypeScale.captionSize))
                 .foregroundStyle(Color(tokens.textMuted))
+                .help("Move job to previous stage")
             }
 
             if job.stageIndex < boardData.stages.count - 1 {
@@ -779,6 +781,7 @@ private struct JobDetailSheet: View {
                 .buttonStyle(.plain)
                 .font(.system(size: TypeScale.captionSize, weight: .medium))
                 .foregroundStyle(Color(tokens.textAccent))
+                .help("Advance job to next stage")
             }
 
             Spacer()
@@ -790,6 +793,7 @@ private struct JobDetailSheet: View {
             .buttonStyle(.plain)
             .font(.system(size: TypeScale.captionSize))
             .foregroundStyle(Color(tokens.statusError))
+            .help("Delete this job")
         }
         .padding(Spacing.lg)
         .overlay(alignment: .top) {

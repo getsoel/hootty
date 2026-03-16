@@ -51,6 +51,9 @@ struct WorkspaceSidebar: View {
     var pipelineAttentionCount: Int = 0
     @State private var hoveredHeaderButton: String?
     @State private var hoveredWorktreeAction: String?
+    @State private var showRenameWorkspaceAlert = false
+    @State private var showRenamePaneAlert = false
+    @State private var showWorktreeAlert = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -80,26 +83,17 @@ struct WorkspaceSidebar: View {
         .onChange(of: isFocused) { _, focused in
             if !focused, sidebarHasFocus { sidebarHasFocus = false }
         }
-        .alert("Rename Workspace", isPresented: Binding(
-            get: { renameTargetID != nil },
-            set: { if !$0 { renameTargetID = nil } }
-        )) {
+        .alert("Rename Workspace", isPresented: $showRenameWorkspaceAlert) {
             TextField("Workspace name", text: $editingName)
             Button("OK") { commitRename() }
             Button("Cancel", role: .cancel) { renameTargetID = nil }
         }
-        .alert("Rename Pane", isPresented: Binding(
-            get: { renamePaneTargetID != nil },
-            set: { if !$0 { renamePaneTargetID = nil } }
-        )) {
+        .alert("Rename Pane", isPresented: $showRenamePaneAlert) {
             TextField("Pane name", text: $editingPaneName)
             Button("OK") { commitPaneRename() }
             Button("Cancel", role: .cancel) { renamePaneTargetID = nil }
         }
-        .alert("New Worktree", isPresented: Binding(
-            get: { worktreeTarget != nil },
-            set: { if !$0 { worktreeTarget = nil } }
-        )) {
+        .alert("New Worktree", isPresented: $showWorktreeAlert) {
             TextField("Branch name", text: $worktreeBranchName)
             Button("Create") { commitWorktreeCreation() }
             Button("Cancel", role: .cancel) { worktreeTarget = nil }
@@ -137,6 +131,7 @@ struct WorkspaceSidebar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Toggle worktrees")
+                .help("Toggle worktree actions")
 
                 Button(action: onAddWorkspace) {
                     Image(systemName: "plus")
@@ -159,6 +154,7 @@ struct WorkspaceSidebar: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("New workspace")
+                .help("Create new workspace")
             }
             .padding(Spacing.smd)
             .frame(maxHeight: .infinity)
@@ -225,6 +221,7 @@ struct WorkspaceSidebar: View {
                         onRename: { id, name in
                             editingName = name
                             renameTargetID = id
+                            showRenameWorkspaceAlert = true
                         },
                         onRemove: onRemoveWorkspace,
                         onMove: { sourceID, edge in
@@ -272,6 +269,7 @@ struct WorkspaceSidebar: View {
                     onRename: { id, name in
                         editingPaneName = name
                         renamePaneTargetID = id
+                        showRenamePaneAlert = true
                     },
                     onClose: { id in
                         onRemovePane(workspace.id, id)
@@ -300,6 +298,7 @@ struct WorkspaceSidebar: View {
             onSave?()
         }
         renameTargetID = nil
+        showRenameWorkspaceAlert = false
     }
 
     private func commitPaneRename() {
@@ -314,6 +313,7 @@ struct WorkspaceSidebar: View {
             }
         }
         renamePaneTargetID = nil
+        showRenamePaneAlert = false
     }
 
     private func commitWorktreeCreation() {
@@ -323,6 +323,7 @@ struct WorkspaceSidebar: View {
         }
         worktreeTarget = nil
         worktreeBranchName = ""
+        showWorktreeAlert = false
     }
 
     // MARK: - Keyboard Navigation
@@ -399,6 +400,7 @@ struct WorkspaceSidebar: View {
         .onTapGesture {
             worktreeBranchName = ""
             worktreeTarget = WorktreeCreationTarget(workspaceID: workspace.id, repoRoot: repoRoot)
+            showWorktreeAlert = true
         }
     }
 }

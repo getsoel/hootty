@@ -238,6 +238,7 @@ struct PipelineBarView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Release pipeline claim")
+        .help("Release pipeline claim")
         .padding(.trailing, Spacing.smd)
     }
 
