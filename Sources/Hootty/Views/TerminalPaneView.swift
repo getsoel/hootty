@@ -86,7 +86,7 @@ struct TerminalPaneView: NSViewRepresentable {
             }
         }
         view.onUserInteraction = { [weak pane] in
-            if pane?.attentionKind == .bell {
+            if pane?.attentionKind != nil {
                 pane?.attentionKind = nil
             }
         }

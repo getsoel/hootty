@@ -46,7 +46,7 @@ struct SidebarPaneRow: View {
                         : isHovered
                         ? Color(tokens.elementHover)
                         : pane.attentionKind != nil
-                        ? Color(tokens.statusBell).opacity(0.12)
+                        ? Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.12)
                         : Color.clear
                 )
         )

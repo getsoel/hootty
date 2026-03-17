@@ -439,10 +439,10 @@ struct AttentionFlowIntegration {
         #expect(p1.attentionKind == nil)
         #expect(p1.isThinking == true)
 
-        // Stop thinking
+        // Stop thinking — unfocused pane gets done attention
         model.handlePaneThinkingChanged(p1.id, isThinking: false)
         #expect(p1.isThinking == false)
-        #expect(p1.attentionKind == nil)
+        #expect(p1.attentionKind == .done)
     }
 
     @Test func bellOnFocusedPaneSetsBellAttention() throws {
@@ -682,7 +682,7 @@ struct TitleBasedClaudeDetection {
         #expect(pane.isThinking == false)
     }
 
-    @Test func titleIdleStopsThinkingWithoutAttention() throws {
+    @Test func titleIdleSetsDoneOnUnfocusedPane() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -697,10 +697,10 @@ struct TitleBasedClaudeDetection {
         model.handleTitleChange(p1.id, title: "\u{280B} Thinking . project")
         #expect(p1.isThinking == true)
 
-        // Simulate idle (Claude finished) — no attention set
+        // Simulate idle (Claude finished) — done attention on unfocused pane
         model.handleTitleChange(p1.id, title: "\u{2733} project")
         #expect(p1.isThinking == false)
-        #expect(p1.attentionKind == nil)
+        #expect(p1.attentionKind == .done)
     }
 
     @Test func rapidTitleUpdatesAreIdempotent() {
@@ -738,15 +738,55 @@ struct TitleBasedClaudeDetection {
         #expect(p1.isThinking == true)
         #expect(p1.attentionKind == nil)
 
-        // Title-based idle fires — no attention set
+        // Title-based idle fires — done attention on unfocused pane
         model.handleTitleChange(p1.id, title: "* project")
         #expect(p1.isThinking == false)
-        #expect(p1.attentionKind == nil)
+        #expect(p1.attentionKind == .done)
 
-        // Hook-based idle fires later — still no attention
+        // Hook-based idle fires later — already not thinking, no change
         model.handlePaneThinkingChanged(p1.id, isThinking: false)
         #expect(p1.isThinking == false)
-        #expect(p1.attentionKind == nil)
+        #expect(p1.attentionKind == .done)
+    }
+
+    @Test func bellDuringThinkingIsSuppressed() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let pane = ws.allPanes[0]
+        pane.claudeSessionID = "test-session"
+
+        // Start thinking
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
+        #expect(pane.isThinking == true)
+        #expect(pane.attentionKind == nil)
+
+        // Bell during thinking — should be suppressed
+        let didSet = model.handleBell(pane.id)
+        #expect(didSet == false)
+        #expect(pane.attentionKind == nil)
+        #expect(pane.isThinking == true)
+    }
+
+    @Test func titleIdleOnFocusedPaneDoesNotSetDone() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let pane = ws.allPanes[0]
+        pane.claudeSessionID = "test-session"
+        ws.focusPane(id: pane.id)
+        // Single pane — it is the focused pane
+
+        // Start thinking
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
+        #expect(pane.isThinking == true)
+
+        // Idle on focused pane — no done attention
+        model.handleTitleChange(pane.id, title: "\u{2733} project")
+        #expect(pane.isThinking == false)
+        #expect(pane.attentionKind == nil)
     }
 }
 

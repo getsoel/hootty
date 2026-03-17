@@ -8,7 +8,10 @@ struct StatusDotView: View {
 
     var body: some View {
         Group {
-            if attentionKind != nil {
+            if attentionKind == .done {
+                Image(systemName: "checkmark.circle")
+                    .foregroundStyle(Color(tokens.statusDone))
+            } else if attentionKind == .bell {
                 Image(systemName: "bell")
                     .foregroundStyle(Color(tokens.statusBell))
             } else if isThinking {

@@ -40,22 +40,28 @@ public final class PaneEventHandler {
     @discardableResult
     public func handleBell(_ paneID: UUID) -> Bool {
         withPane(id: paneID) { _, pane in
+            guard !pane.isThinking else { return false }
             pane.attentionKind = .bell
             return true
         } ?? false
     }
 
     public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
-        withPane(id: paneID) { _, pane in
+        withPane(id: paneID) { workspace, pane in
+            let wasThinking = pane.isThinking
             pane.isThinking = isThinking
             if isThinking {
                 pane.attentionKind = nil
+            } else if wasThinking {
+                let isFocused = workspace.id == selectedWorkspaceID()
+                    && workspace.focusedPaneID == paneID
+                if !isFocused { pane.attentionKind = .done }
             }
         }
     }
 
     public func handleTitleChange(_ paneID: UUID, title: String) {
-        withPane(id: paneID) { _, pane in
+        withPane(id: paneID) { workspace, pane in
             guard let state = ClaudeTitleParser.parse(title) else {
                 // Title no longer matches Claude pattern — clear auto-detected session
                 if pane.claudeSessionID == "auto" {
@@ -71,12 +77,16 @@ public final class PaneEventHandler {
 
             switch state {
             case .thinking:
-                if !pane.isThinking {
-                    pane.isThinking = true
-                    pane.attentionKind = nil
-                }
+                pane.isThinking = true
+                pane.attentionKind = nil
             case .idle:
-                if pane.isThinking { pane.isThinking = false }
+                let wasThinking = pane.isThinking
+                if wasThinking { pane.isThinking = false }
+                if wasThinking {
+                    let isFocused = workspace.id == selectedWorkspaceID()
+                        && workspace.focusedPaneID == pane.id
+                    if !isFocused { pane.attentionKind = .done }
+                }
             }
         }
     }

@@ -3,6 +3,8 @@ import Foundation
 public enum AttentionKind: String, Codable, Sendable {
     /// Bell rang (visual-only, cleared by next user interaction).
     case bell
+    /// Claude finished thinking, needs input (cleared by next user interaction).
+    case done
 }
 
 @MainActor
