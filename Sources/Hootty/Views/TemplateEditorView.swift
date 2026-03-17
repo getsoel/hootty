@@ -53,7 +53,7 @@ struct TemplateEditorView: View {
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, Spacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                     .fill(Color(tokens.textAccent).opacity(0.1))
             )
         }
@@ -116,7 +116,7 @@ struct TemplateEditorView: View {
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.smd)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                 .fill(isSelected ? Color(tokens.elementSelected) : (isHover ? Color(tokens.elementHover) : Color.clear))
                 .padding(.horizontal, Spacing.sm)
         )
@@ -178,11 +178,11 @@ struct TemplateEditorView: View {
                 .foregroundStyle(Color(tokens.text))
                 .padding(Spacing.md)
                 .background(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                         .fill(Color(tokens.surfaceHighlight).opacity(0.3))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                         .stroke(Color(tokens.border), lineWidth: 1)
                 )
                 .onSubmit {
@@ -209,11 +209,11 @@ struct TemplateEditorView: View {
                 }
             }
             .background(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                     .fill(Color(tokens.surfaceHighlight).opacity(0.15))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                     .stroke(Color(tokens.border), lineWidth: 1)
             )
 
@@ -307,11 +307,11 @@ struct TemplateEditorView: View {
                     .frame(width: 60)
                     .padding(Spacing.sm)
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                             .fill(Color(tokens.surfaceHighlight).opacity(0.3))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                             .stroke(Color(tokens.border), lineWidth: 1)
                     )
                     .onSubmit {
@@ -580,11 +580,11 @@ private struct StageRowView: View {
             .foregroundStyle(Color(tokens.text))
             .padding(Spacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                     .fill(Color(tokens.surfaceHighlight).opacity(0.2))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                     .stroke(Color(tokens.border).opacity(0.5), lineWidth: 1)
             )
             .padding(.leading, 28)

@@ -173,6 +173,20 @@ public enum Spacing {
     public static let xl: CGFloat = 16
 }
 
+// MARK: - Layout Constants
+
+public enum Layout {
+    /// Standard bar height for all horizontal bars (titlebar, sidebar header, tab bar, board header, pipeline bar).
+    public static let barHeight: CGFloat = 38
+
+    /// Small element rounding (cards, inputs, badges, hover backgrounds).
+    public static let cornerRadiusSm: CGFloat = 4
+    /// Container rounding (columns, sections, list rows).
+    public static let cornerRadiusMd: CGFloat = 6
+    /// Panel rounding (modals, floating panels).
+    public static let cornerRadiusLg: CGFloat = 8
+}
+
 // MARK: - Typography Scale
 
 // Font construction requires SwiftUI or AppKit font APIs.

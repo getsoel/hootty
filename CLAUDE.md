@@ -62,6 +62,10 @@ Sources/
       SplitView.swift          -- Recursive SplitNodeView rendering split panes with dividers
       TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
       AnimatedBorderModifier.swift -- Animated gradient border for attention state
+      BarIconButton.swift      -- Reusable square icon button/menu for horizontal bars
+      CapsulePickerView.swift  -- Reusable capsule segmented control (used by titlebar, sidebar, pipelines)
+      SearchModalView.swift    -- Reusable search modal container (used by command palette, theme picker)
+      PipelineBoardFactory.swift -- AppModel extension constructing PipelineBoardView with callbacks
       CommandPaletteView.swift -- Searchable command palette with keyboard navigation
       PipelineBarView.swift    -- Job claim bar with stage progress dots
       PipelineBoardView.swift  -- Kanban board grouped by pipeline stages

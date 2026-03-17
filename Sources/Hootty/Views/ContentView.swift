@@ -47,7 +47,7 @@ struct ContentView: View {
                 window.backgroundColor = tokens.background
                 window.appearance = NSAppearance(named: theme.isLight ? .aqua : .darkAqua)
 
-                // Vertically center traffic lights in the 38pt title bar.
+                // Vertically center traffic lights in the bar.
                 // Use Auto Layout constraints on each button — persists across
                 // window move/resize/fullscreen unlike setFrameOrigin.
                 Self.repositionTrafficLights(in: window)
@@ -165,7 +165,7 @@ struct ContentView: View {
 
             Spacer()
         }
-        .frame(height: 38)
+        .frame(height: Layout.barHeight)
         .frame(maxWidth: .infinity)
         .background(Color(tokens.tabBarBackground))
         .overlay(alignment: .bottom) {
@@ -174,30 +174,12 @@ struct ContentView: View {
     }
 
     private var appModePicker: some View {
-        HStack(spacing: 2) {
-            appModeLabel(mode: .workspaces, title: "Workspaces")
-            appModeLabel(mode: .pipelines, title: "Pipelines")
-        }
-        .padding(2)
-        .background(
-            Capsule()
-                .fill(Color(tokens.surfaceHighlight).opacity(0.3))
+        CapsulePickerView(
+            options: [AppModel.AppMode.workspaces, .pipelines],
+            selection: $appModel.appMode,
+            tokens: tokens,
+            label: { $0 == .workspaces ? "Workspaces" : "Pipelines" }
         )
-    }
-
-    private func appModeLabel(mode: AppModel.AppMode, title: String) -> some View {
-        let isActive = appModel.appMode == mode
-        return Text(title)
-            .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
-            .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.xs + 1)
-            .background(
-                Capsule()
-                    .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
-            )
-            .contentShape(Capsule())
-            .onTapGesture { appModel.appMode = mode }
     }
 
     // MARK: - Main Content
@@ -353,67 +335,15 @@ struct ContentView: View {
                 // Selected board
                 let activeBoard = resolveActiveBoard(boards: boards)
                 if let board = activeBoard, let repoRoot {
-                    PipelineBoardView(
-                        boardData: board,
+                    appModel.makePipelineBoardView(
+                        board: board,
                         tokens: tokens,
-                        highlightedJobSlug: appModel.pipelineModel.highlightedJobSlug,
-                        onTogglePause: {
-                            if appModel.pipelineModel.togglePause(repoRoot: repoRoot, pipelineName: board.pipelineName) {
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
-                        onMoveJob: { slug, from, to in
-                            if appModel.pipelineModel.moveJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, fromStageIndex: from, toStageIndex: to, stages: board.stages) {
-                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Moved to \(board.stages[safe: to]?.name ?? "unknown")")
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
-                        onAddJob: { title, stageIndex in
-                            if let slug = appModel.pipelineModel.addJob(repoRoot: repoRoot, pipelineName: board.pipelineName, title: title, stages: board.stages, toStageIndex: stageIndex) {
-                                _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Created")
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
-                        onRemoveJob: { slug in
-                            _ = appModel.pipelineModel.appendLogEntry(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, message: "Removed")
-                            if appModel.pipelineModel.removeJob(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug) {
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
+                        repoRoot: repoRoot,
                         onClickClaimed: { sessionKey in
                             navigateToClaimedPane(sessionKey: sessionKey, workspace: workspace)
                         },
-                        onLoadJobBody: { slug in
-                            appModel.pipelineModel.readJobBody(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug)
-                        },
-                        onLoadFullContent: { slug in
-                            appModel.pipelineModel.readFullJobContent(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug)
-                        },
-                        onUpdateTitle: { slug, newTitle in
-                            if appModel.pipelineModel.updateJobTitle(repoRoot: repoRoot, pipelineName: board.pipelineName, jobSlug: slug, newTitle: newTitle) {
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
-                        onAddStage: { name, type, afterIndex in
-                            if appModel.pipelineModel.addStage(repoRoot: repoRoot, pipelineName: board.pipelineName, stageName: name, type: type, afterIndex: afterIndex) {
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
-                        onRemoveStage: { stageIndex in
-                            if appModel.pipelineModel.removeStage(repoRoot: repoRoot, pipelineName: board.pipelineName, stageIndex: stageIndex) {
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
-                        onChangeStageType: { stageIndex, newType in
-                            if appModel.pipelineModel.changeStageType(repoRoot: repoRoot, pipelineName: board.pipelineName, stageIndex: stageIndex, newType: newType) {
-                                appModel.refreshPipeline(repoRoot: repoRoot)
-                            }
-                        },
                         onClaimInWorktree: { slug in
                             claimInWorktree(slug: slug, repoRoot: repoRoot, workspace: workspace)
-                        },
-                        onArchive: {
-                            appModel.archivePipeline(name: board.pipelineName, repoRoot: repoRoot)
                         }
                     )
                     .task(id: appModel.pipelineModel.highlightedJobSlug) {
@@ -456,7 +386,7 @@ struct ContentView: View {
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
                 .background(
-                    RoundedRectangle(cornerRadius: 6)
+                    RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                         .fill(Color(tokens.textAccent).opacity(0.1))
                 )
                 .sheet(isPresented: $showCreatePipeline) {
@@ -482,8 +412,8 @@ struct ContentView: View {
                     .font(.system(size: TypeScale.bodySize))
                     .foregroundStyle(Color(tokens.text))
                     .padding(Spacing.sm)
-                    .background(RoundedRectangle(cornerRadius: 4).fill(Color(tokens.surfaceHighlight).opacity(0.3)))
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(tokens.border), lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm).fill(Color(tokens.surfaceHighlight).opacity(0.3)))
+                    .overlay(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm).stroke(Color(tokens.border), lineWidth: 1))
             }
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
@@ -547,7 +477,7 @@ struct ContentView: View {
             }
             .padding(Spacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                     .fill(isSelected ? Color(tokens.elementSelected) : Color.clear)
             )
             .contentShape(Rectangle())
@@ -741,9 +671,9 @@ struct ContentView: View {
     // MARK: - Traffic Light Positioning
 
     private static let trafficLightConstraintID = "hootty-traffic-light"
-    private static let titleBarHeight: CGFloat = 38
+    private static let titleBarHeight: CGFloat = Layout.barHeight
 
-    /// Reposition traffic light buttons to vertically center in the 38pt title bar.
+    /// Reposition traffic light buttons to vertically center in the title bar.
     /// Uses Auto Layout constraints which persist across window move/resize/fullscreen.
     private static func repositionTrafficLights(in window: NSWindow) {
         guard let close = window.standardWindowButton(.closeButton),

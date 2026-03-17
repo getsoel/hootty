@@ -90,10 +90,10 @@ struct PaneContentView: View {
                         .padding(.horizontal, Spacing.xl)
                         .padding(.vertical, Spacing.md)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: Layout.cornerRadiusLg)
                                 .fill(Color(tokens.surface))
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
+                                    RoundedRectangle(cornerRadius: Layout.cornerRadiusLg)
                                         .stroke(Color(tokens.borderFocused).opacity(0.5), lineWidth: 1)
                                 )
                                 .shadow(color: .black.opacity(0.3), radius: 12, y: 4)

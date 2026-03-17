@@ -49,7 +49,6 @@ struct WorkspaceSidebar: View {
     @State private var workspaceRowHeight: CGFloat = 32
     @Binding var showWorktreeActions: Bool
     var pipelineAttentionCount: Int = 0
-    @State private var hoveredHeaderButton: String?
     @State private var hoveredWorktreeAction: String?
     @State private var showRenameWorkspaceAlert = false
     @State private var showRenamePaneAlert = false
@@ -108,53 +107,22 @@ struct WorkspaceSidebar: View {
             Spacer(minLength: 0)
 
             HStack(spacing: Spacing.xs) {
-                Button {
-                    showWorktreeActions.toggle()
-                } label: {
-                    Image(systemName: "cube")
-                        .font(.system(size: TypeScale.smallSize))
-                        .foregroundStyle(Color(showWorktreeActions ? tokens.textAccent : tokens.textMuted))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .aspectRatio(1, contentMode: .fit)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(hoveredHeaderButton == "worktree" ? Color(tokens.elementHover) : Color.clear))
-                        .contentShape(RoundedRectangle(cornerRadius: 4))
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                hoveredHeaderButton = "worktree"
-                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                            case .ended:
-                                if hoveredHeaderButton == "worktree" { hoveredHeaderButton = nil }
-                            @unknown default: break
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Toggle worktrees")
-                .help("Toggle worktree actions")
+                BarIconButton(
+                    systemImage: "cube",
+                    tokens: tokens,
+                    accessibilityLabel: "Toggle worktrees",
+                    help: "Toggle worktree actions",
+                    iconColor: showWorktreeActions ? tokens.textAccent : tokens.textMuted,
+                    action: { showWorktreeActions.toggle() }
+                )
 
-                Button(action: onAddWorkspace) {
-                    Image(systemName: "plus")
-                        .font(.system(size: TypeScale.smallSize))
-                        .foregroundStyle(Color(tokens.textMuted))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .aspectRatio(1, contentMode: .fit)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(hoveredHeaderButton == "add" ? Color(tokens.elementHover) : Color.clear))
-                        .contentShape(RoundedRectangle(cornerRadius: 4))
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                hoveredHeaderButton = "add"
-                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                            case .ended:
-                                if hoveredHeaderButton == "add" { hoveredHeaderButton = nil }
-                            @unknown default: break
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("New workspace")
-                .help("Create new workspace")
+                BarIconButton(
+                    systemImage: "plus",
+                    tokens: tokens,
+                    accessibilityLabel: "New workspace",
+                    help: "Create new workspace",
+                    action: onAddWorkspace
+                )
             }
             .padding(Spacing.smd)
             .frame(maxHeight: .infinity)
@@ -162,7 +130,7 @@ struct WorkspaceSidebar: View {
                 Rectangle().fill(Color(tokens.border)).frame(width: 1)
             }
         }
-        .frame(height: 38)
+        .frame(height: Layout.barHeight)
         .frame(maxWidth: .infinity)
         .background(Color(tokens.tabBarBackground))
         .overlay(alignment: .bottom) {
@@ -171,42 +139,19 @@ struct WorkspaceSidebar: View {
     }
 
     private var sidebarTabPicker: some View {
-        let activeTab = SidebarTab(detailMode)
-        return HStack(spacing: 2) {
-            ForEach(SidebarTab.allCases, id: \.self) { tab in
-                sidebarTabLabel(tab: tab, isActive: activeTab == tab)
-            }
-        }
-        .padding(2)
-        .background(
-            Capsule()
-                .fill(Color(tokens.surfaceHighlight).opacity(0.3))
+        let tabBinding = Binding<SidebarTab>(
+            get: { SidebarTab(detailMode) },
+            set: { detailMode = $0.detailMode }
         )
-    }
-
-    private func sidebarTabLabel(tab: SidebarTab, isActive: Bool) -> some View {
-        HStack(spacing: Spacing.xs) {
-            Text(tab.rawValue)
-                .font(.system(size: TypeScale.captionSize, weight: isActive ? .medium : .regular))
-                .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
-
-            if tab == .board, pipelineAttentionCount > 0, !isActive {
-                Text("\(pipelineAttentionCount)")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color(tokens.statusWarning))
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color(tokens.statusWarning).opacity(0.2)))
+        return CapsulePickerView(
+            options: SidebarTab.allCases,
+            selection: tabBinding,
+            tokens: tokens,
+            label: { $0.rawValue },
+            badge: { tab in
+                tab == .board ? pipelineAttentionCount : nil
             }
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.xs + 1)
-        .background(
-            Capsule()
-                .fill(isActive ? Color(tokens.elementSelected) : Color.clear)
         )
-        .contentShape(Capsule())
-        .onTapGesture { detailMode = tab.detailMode }
     }
 
     private var workspaceList: some View {

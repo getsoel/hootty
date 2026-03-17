@@ -8,6 +8,10 @@ When the Swift compiler reports "unable to type-check this expression in reasona
 
 For custom titlebars (traffic lights only, no chrome), use `.windowStyle(.hiddenTitleBar)` on the `WindowGroup`. Do not manually set `titlebarAppearsTransparent`, `titleVisibility`, `fullSizeContentView`, or hide `NSVisualEffectView` — the SwiftUI modifier handles all of it.
 
+With `.hiddenTitleBar`, to place a custom titlebar inline with traffic lights, use `.ignoresSafeArea(edges: .top)` on the container and position the titlebar as the first VStack child. `.safeAreaInset(edge: .top)` does NOT place content in the traffic light area — it renders below the safe area inset.
+
+To vertically center traffic lights in a custom-height titlebar (e.g., `Layout.barHeight`), use Auto Layout constraints on each `window.standardWindowButton()` — never `setFrameOrigin` (resets on window move/resize). Set `translatesAutoresizingMaskIntoConstraints = false`, remove system constraints from `button.superview`, pin with `topAnchor`/`leadingAnchor`. Add a height constraint on `closeButton.superview?.superview` (NSTitlebarContainerView) to expand it to the custom height. Use an identifier on all constraints to deduplicate across repeated `WindowAccessor` callbacks.
+
 For draggable dividers/resizable panes, never mutate `@Observable` properties on every drag frame — causes full observation propagation and layout stutter. Use `@GestureState` for the in-flight delta (commit to model on `.onEnded` only) and `GeometryReader` + `ZStack` with absolute positioning instead of `HStack`/`VStack` layout negotiation.
 
 With `.windowStyle(.hiddenTitleBar)`, `GeometryReader` reports width excluding safe area insets. When using `.clipped()` on a container, set `.frame(width:)` to the full width (geometry + safe area insets) *before* `.clipped()` — otherwise content beyond the safe-area-constrained width is invisibly clipped away.
@@ -30,6 +34,8 @@ Never use `if condition { View() }` to show/hide elements when the surrounding l
 
 **Extract into a separate file** when a UI component is used across 2+ view files, OR is a self-contained primitive with no dependency on parent state (takes all inputs as params). **Keep inline (private)** when a component is used only within one file AND is tightly coupled to parent state (e.g., references parent's `@State` hover enum). Extracted files go in `Sources/Hootty/Views/` flat alongside other views, prefixed descriptively (no `Components/` subfolder unless count exceeds ~5 extracted primitives).
 
+Use `Layout.cornerRadiusSm` (4pt), `Layout.cornerRadiusMd` (6pt), and `Layout.cornerRadiusLg` (8pt) for all rounded corners. Never hardcode `cornerRadius: 4`, `cornerRadius: 6`, or `cornerRadius: 8`. `cornerRadius: 3` for tiny badge pills is fine as-is.
+
 Always add `.contentShape(Rectangle())` before `.onTapGesture` on container views (HStacks, tab rows, toolbar items). Without it, taps only register on visible content (text, icons), not the empty space within the container's frame.
 
 When visually balancing left/right elements in an HStack (e.g., status indicator and close button flanking a label), compute total rendered size (icon size + padding on each side) to ensure both containers occupy the same width. A 10pt icon with `Spacing.sm` padding ≠ a 20pt frame with `Spacing.sm` padding — the latter is 10pt wider.
@@ -39,3 +45,5 @@ When visually balancing left/right elements in an HStack (e.g., status indicator
 `@State` default initializers (`@State private var foo = Foo()`) run before the `init()` body regardless of source order. When initialization order matters (e.g., a side effect in `init()` must complete before a model is created), declare `@State private var foo: Type` and initialize via `_foo = State(initialValue:)` inside `init()`.
 
 When a UI mode switch (e.g., tab picker) affects content in sibling views (sidebar picker controlling detail area), lift the state to the shared model (`AppModel`) and pass bindings — never use local `@State` in one view to control rendering in another.
+
+For square icon buttons in horizontal bars (sidebar header, tab bar, board header, pipeline bar), use `BarIconButton` (or `BarIconMenu` for menu-style). Never hand-roll the hover-state/cursor/background pattern inline. Use `Layout.barHeight` for all bar heights — never hardcode `38`.

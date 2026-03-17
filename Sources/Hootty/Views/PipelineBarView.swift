@@ -10,8 +10,6 @@ struct PipelineBarView: View {
     var onAdvance: (() -> Void)?
     var onLoadJobBody: ((String) -> String?)?
 
-    @State private var closeHovered = false
-    @State private var pauseHovered = false
     @State private var pipelineNameHovered = false
     @State private var titleHovered = false
     @State private var showJobPopover = false
@@ -38,7 +36,7 @@ struct PipelineBarView: View {
                 releaseButton
             }
         }
-        .frame(height: 28)
+        .frame(height: Layout.barHeight)
         .frame(maxWidth: .infinity)
         .background(Color(tokens.surface))
         .overlay(alignment: .bottom) {
@@ -189,56 +187,25 @@ struct PipelineBarView: View {
     // MARK: - Pause/Play Button
 
     private var pausePlayButton: some View {
-        Button {
-            onTogglePause?()
-        } label: {
-            Image(systemName: claimInfo.isPaused ? "play.fill" : "pause.fill")
-                .font(.system(size: 9))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(width: 20, height: 20)
-                .background(RoundedRectangle(cornerRadius: 4).fill(pauseHovered ? Color(tokens.elementHover) : Color.clear))
-                .contentShape(RoundedRectangle(cornerRadius: 4))
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        pauseHovered = true
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        pauseHovered = false
-                    @unknown default: break
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .help(claimInfo.isPaused ? "Resume pipeline" : "Pause pipeline")
+        BarIconButton(
+            systemImage: claimInfo.isPaused ? "play.fill" : "pause.fill",
+            tokens: tokens,
+            accessibilityLabel: claimInfo.isPaused ? "Resume pipeline" : "Pause pipeline",
+            sizing: .fillBar,
+            action: { onTogglePause?() }
+        )
     }
 
     // MARK: - Release Button
 
     private var releaseButton: some View {
-        Button {
-            onRelease?()
-        } label: {
-            Image(systemName: "xmark")
-                .font(.system(size: 9))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(width: 20, height: 20)
-                .background(RoundedRectangle(cornerRadius: 4).fill(closeHovered ? Color(tokens.elementHover) : Color.clear))
-                .contentShape(RoundedRectangle(cornerRadius: 4))
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        closeHovered = true
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        closeHovered = false
-                    @unknown default: break
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Release pipeline claim")
-        .help("Release pipeline claim")
+        BarIconButton(
+            systemImage: "xmark",
+            tokens: tokens,
+            accessibilityLabel: "Release pipeline claim",
+            sizing: .fillBar,
+            action: { onRelease?() }
+        )
         .padding(.trailing, Spacing.smd)
     }
 

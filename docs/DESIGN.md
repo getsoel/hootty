@@ -129,6 +129,27 @@ All horizontal bars must share the same height (`Layout.barHeight`, 38pt) to mai
 
 Never hardcode `38` in view code — always use `Layout.barHeight`. If a new bar-like component is added, it must use this constant.
 
+### Corner Radius
+
+Three semantic corner radius tiers cover all rounded corners in the UI:
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `cornerRadiusSm` | 4pt | Cards, inputs, badges, hover backgrounds |
+| `cornerRadiusMd` | 6pt | Columns, sections, list rows |
+| `cornerRadiusLg` | 8pt | Modals, floating panels |
+
+Never hardcode `cornerRadius: 4`, `cornerRadius: 6`, or `cornerRadius: 8` — always use the corresponding `Layout.cornerRadius*` constant. `cornerRadius: 3` (tiny badge pills) is intentionally not tokenized.
+
+### Bar Icon Buttons
+
+Use `BarIconButton` (or `BarIconMenu` for menu-style) for square icon buttons inside horizontal bars. These components own their hover state, show a rounded hover background, and set the pointing-hand cursor automatically.
+
+- **`BarIconButton`** — wraps `Button`, takes `systemImage`, `tokens`, `accessibilityLabel`, `action`.
+- **`BarIconMenu`** — same visual treatment, wraps `Menu` with hidden indicator. Takes `@ViewBuilder` for menu content.
+- **Sizing:** `.fillBar` (default) expands to fill bar height as a square. `.fixed(CGFloat)` uses a fixed size.
+- **Icon color:** Defaults to `tokens.textMuted`. Pass `iconColor:` to override (e.g., dynamic accent color).
+
 ---
 
 ## Component Patterns

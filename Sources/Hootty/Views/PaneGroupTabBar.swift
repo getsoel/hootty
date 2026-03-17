@@ -10,12 +10,6 @@ struct PaneBar: View {
     var onClosePane: ((UUID) -> Void)?
     var onSave: (() -> Void)?
 
-    private enum HoveredElement: Equatable {
-        case split
-        case close
-    }
-
-    @State private var hovered: HoveredElement?
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
     @State private var showRenameAlert = false
@@ -43,7 +37,7 @@ struct PaneBar: View {
                 actionGroup
             }
         }
-        .frame(height: 38)
+        .frame(height: Layout.barHeight)
         .frame(maxWidth: .infinity)
         .background(Color(tokens.tabBarBackground))
         .overlay(alignment: .bottom) {
@@ -71,62 +65,27 @@ struct PaneBar: View {
     private var actionGroup: some View {
         HStack(spacing: Spacing.xs) {
             if onSplitPane != nil {
-                Menu {
+                BarIconMenu(
+                    systemImage: "rectangle.split.2x1",
+                    tokens: tokens,
+                    accessibilityLabel: "Split pane",
+                    help: "Split pane"
+                ) {
                     Button("Split Right") { onSplitPane?(.horizontal, false) }
                     Button("Split Down") { onSplitPane?(.vertical, false) }
                     Divider()
                     Button("Split Left") { onSplitPane?(.horizontal, true) }
                     Button("Split Up") { onSplitPane?(.vertical, true) }
-                } label: {
-                    Image(systemName: "rectangle.split.2x1")
-                        .font(.system(size: TypeScale.smallSize))
-                        .foregroundStyle(Color(tokens.textMuted))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .aspectRatio(1, contentMode: .fit)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(hovered == .split ? Color(tokens.elementHover) : Color.clear))
-                        .contentShape(RoundedRectangle(cornerRadius: 4))
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                hovered = .split
-                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                            case .ended:
-                                if hovered == .split { hovered = nil }
-                            @unknown default: break
-                            }
-                        }
                 }
-                .buttonStyle(.plain)
-                .menuIndicator(.hidden)
-                .accessibilityLabel("Split pane")
-                .help("Split pane")
             }
 
             if onClosePane != nil {
-                Button {
-                    onClosePane?(pane.id)
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: TypeScale.smallSize))
-                        .foregroundStyle(Color(tokens.textMuted))
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .aspectRatio(1, contentMode: .fit)
-                        .background(RoundedRectangle(cornerRadius: 4).fill(hovered == .close ? Color(tokens.elementHover) : Color.clear))
-                        .contentShape(RoundedRectangle(cornerRadius: 4))
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                hovered = .close
-                                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                            case .ended:
-                                if hovered == .close { hovered = nil }
-                            @unknown default: break
-                            }
-                        }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Close pane")
-                .help("Close pane")
+                BarIconButton(
+                    systemImage: "xmark",
+                    tokens: tokens,
+                    accessibilityLabel: "Close pane",
+                    action: { onClosePane?(pane.id) }
+                )
             }
         }
         .padding(Spacing.smd)

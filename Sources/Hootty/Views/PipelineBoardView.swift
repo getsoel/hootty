@@ -23,8 +23,6 @@ struct PipelineBoardView: View {
     @State private var showArchive = false
     @State private var addingJobInStage: Int?
     @State private var newJobTitle: String = ""
-    @State private var hoveredPauseButton = false
-    @State private var hoveredArchiveButton = false
     @State private var dropTargetStage: Int?
 
     var body: some View {
@@ -66,7 +64,7 @@ struct PipelineBoardView: View {
                     .padding(.horizontal, Spacing.sm)
                     .padding(.vertical, 2)
                     .background(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                             .fill(Color(tokens.statusWarning).opacity(0.15))
                     )
             }
@@ -84,7 +82,7 @@ struct PipelineBoardView: View {
             }
         }
         .padding(.horizontal, Spacing.lg)
-        .frame(height: 38)
+        .frame(height: Layout.barHeight)
         .background(Color(tokens.surface))
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color(tokens.border)).frame(height: 1)
@@ -100,59 +98,23 @@ struct PipelineBoardView: View {
     }
 
     private var archiveButton: some View {
-        Button {
-            onArchive?()
-        } label: {
-            Image(systemName: "archivebox")
-                .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(width: 24, height: 24)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(hoveredArchiveButton ? Color(tokens.elementHover) : Color.clear)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 4))
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        hoveredArchiveButton = true
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        hoveredArchiveButton = false
-                    @unknown default: break
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .help("Archive completed jobs")
+        BarIconButton(
+            systemImage: "archivebox",
+            tokens: tokens,
+            accessibilityLabel: "Archive completed jobs",
+            sizing: .fixed(24),
+            action: { onArchive?() }
+        )
     }
 
     private var pausePlayButton: some View {
-        Button {
-            onTogglePause?()
-        } label: {
-            Image(systemName: boardData.isPaused ? "play.fill" : "pause.fill")
-                .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(tokens.textMuted))
-                .frame(width: 24, height: 24)
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(hoveredPauseButton ? Color(tokens.elementHover) : Color.clear)
-                )
-                .contentShape(RoundedRectangle(cornerRadius: 4))
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active:
-                        hoveredPauseButton = true
-                        DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                    case .ended:
-                        hoveredPauseButton = false
-                    @unknown default: break
-                    }
-                }
-        }
-        .buttonStyle(.plain)
-        .help(boardData.isPaused ? "Resume pipeline" : "Pause pipeline")
+        BarIconButton(
+            systemImage: boardData.isPaused ? "play.fill" : "pause.fill",
+            tokens: tokens,
+            accessibilityLabel: boardData.isPaused ? "Resume pipeline" : "Pause pipeline",
+            sizing: .fixed(24),
+            action: { onTogglePause?() }
+        )
     }
 
     // MARK: - Columns
@@ -194,11 +156,11 @@ struct PipelineBoardView: View {
         }
         .frame(width: 220)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                 .fill(Color(tokens.surfaceLow))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusMd)
                 .stroke(isDropTarget ? Color(tokens.textAccent) : Color.clear, lineWidth: 2)
         )
         .dropDestination(for: String.self) { items, _ in
@@ -279,14 +241,14 @@ struct PipelineBoardView: View {
         }
         .padding(Spacing.md)
         .background(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                 .fill(Color(tokens.surface))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                 .stroke(isHighlighted ? Color(tokens.textAccent) : Color(tokens.border), lineWidth: isHighlighted ? 2 : 1)
         )
-        .contentShape(RoundedRectangle(cornerRadius: 4))
+        .contentShape(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm))
         .onTapGesture { selectedJob = job }
         .animation(.easeOut(duration: 0.3), value: isHighlighted)
     }
@@ -391,11 +353,11 @@ struct PipelineBoardView: View {
                 .foregroundStyle(Color(tokens.text))
                 .padding(Spacing.sm)
                 .background(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                         .fill(Color(tokens.surface))
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                         .stroke(Color(tokens.textAccent), lineWidth: 1)
                 )
                 .onSubmit { commitAddJob(stageIndex: stageIndex) }
@@ -519,7 +481,7 @@ struct PipelineBoardView: View {
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
         .background(
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                 .fill(Color(tokens.surfaceHighlight).opacity(0.3))
         )
     }
@@ -542,11 +504,11 @@ struct PipelineBoardView: View {
             .foregroundStyle(Color(tokens.text))
             .padding(Spacing.md)
             .background(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                     .fill(Color(tokens.surface))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
                     .stroke(Color(tokens.textAccent), lineWidth: 1)
             )
     }
@@ -664,8 +626,8 @@ private struct JobDetailSheet: View {
             .font(.system(size: 15, weight: .semibold))
             .foregroundStyle(Color(tokens.text))
             .padding(Spacing.xs)
-            .background(RoundedRectangle(cornerRadius: 4).fill(Color(tokens.surfaceHighlight).opacity(0.3)))
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color(tokens.textAccent), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm).fill(Color(tokens.surfaceHighlight).opacity(0.3)))
+            .overlay(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm).stroke(Color(tokens.textAccent), lineWidth: 1))
             .onSubmit {
                 let trimmed = editedTitle.trimmingCharacters(in: .whitespaces)
                 if !trimmed.isEmpty, trimmed != job.title {
