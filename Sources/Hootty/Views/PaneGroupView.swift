@@ -7,6 +7,7 @@ struct PaneContentView: View {
     let isFocused: Bool
     let tokens: DesignTokens
     var pipelineModel: PipelineModel
+    var macroRunner: MacroRunner
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
@@ -58,6 +59,14 @@ struct PaneContentView: View {
                         guard let repoRoot = pane.repoRoot else { return nil }
                         return pipelineModel.readJobBody(repoRoot: repoRoot, pipelineName: claim.pipelineName, jobSlug: slug)
                     }
+                )
+            }
+
+            if let progress = macroRunner.progress(paneID: pane.id) {
+                MacroBarView(
+                    progress: progress,
+                    tokens: tokens,
+                    onRemove: { macroRunner.remove(paneID: pane.id) }
                 )
             }
 

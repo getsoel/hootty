@@ -45,6 +45,9 @@ final class GhosttyApp {
     /// Called when a command finishes in a surface (shell integration required). (paneID, exitCode)
     var onCommandFinished: ((UUID, Int16) -> Void)?
 
+    /// Called when a Claude Code response completes in a pane (Stop hook via OSC 9).
+    var onMacroStepDone: ((UUID) -> Void)?
+
     /// Called when a surface's working directory changes (paneID, newPath).
     var onPwdChanged: ((UUID, String) -> Void)?
 

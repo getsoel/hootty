@@ -111,6 +111,9 @@ struct ContentView: View {
             },
             onRemoveWorkspace: { id in
                 if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
+                    for pane in workspace.allPanes {
+                        appModel.macroRunner.remove(paneID: pane.id)
+                    }
                     GhosttyApp.shared.cleanupWorkspace(workspace)
                 }
                 appModel.removeWorkspace(id: id)
@@ -129,6 +132,7 @@ struct ContentView: View {
             },
             onRemovePane: { workspaceID, paneID in
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                    appModel.macroRunner.remove(paneID: paneID)
                     GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                     workspace.removePane(id: paneID)
                     appModel.saveWorkspaces()
@@ -282,6 +286,7 @@ struct ContentView: View {
             tokens: tokens,
             isInSplit: false,
             pipelineModel: appModel.pipelineModel,
+            macroRunner: appModel.macroRunner,
             onFocusPane: { paneID in
                 appModel.sidebarHasFocus = false
                 workspace.focusPane(id: paneID)
@@ -296,6 +301,7 @@ struct ContentView: View {
                 }
             },
             onClosePane: { paneID in
+                appModel.macroRunner.remove(paneID: paneID)
                 GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                 workspace.removePane(id: paneID)
                 appModel.saveWorkspaces()

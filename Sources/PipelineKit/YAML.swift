@@ -249,7 +249,7 @@ public func serializeJob(title: String, priority: String? = nil, labels: [String
 // MARK: - YAML Helpers
 
 /// Extract value for a key from "key: value" or "key: \"value\""
-func extractYAMLValue(_ line: String, key: String) -> String? {
+public func extractYAMLValue(_ line: String, key: String) -> String? {
     let prefix = key + ":"
     guard line.hasPrefix(prefix) else { return nil }
     let raw = String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
@@ -257,7 +257,7 @@ func extractYAMLValue(_ line: String, key: String) -> String? {
 }
 
 /// Remove surrounding quotes from a YAML value
-func unquoteYAML(_ value: String) -> String {
+public func unquoteYAML(_ value: String) -> String {
     if (value.hasPrefix("\"") && value.hasSuffix("\"")) ||
         (value.hasPrefix("'") && value.hasSuffix("'")) {
         return String(value.dropFirst().dropLast())

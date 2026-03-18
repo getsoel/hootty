@@ -27,8 +27,10 @@ case "${1:-}" in
     mcp|config|api-key) exec "$REAL_CLAUDE" "$@" ;;
 esac
 
-# Inject SessionStart hook to report session ID back to Hootty for resume support.
+# Inject hooks:
+# - SessionStart: report session ID back to Hootty for resume support.
+# - Stop: emit OSC 9 signal so Hootty knows when Claude finishes a response (used by macros).
 # Thinking/attention detection is handled by title watching (ClaudeTitleParser).
-HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}]}}'
+HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}],"Stop":[{"hooks":[{"type":"command","command":"printf '"'"'\\e]9;hootty:macro:done:'"'"'\"$HOOTTY_PANE_ID\"'"'"'\\a'"'"'"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"

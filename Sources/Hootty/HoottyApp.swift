@@ -66,6 +66,9 @@ struct HoottyApp: App {
         commandRegistry.register(.closeWorkspace) { [appModel] in
             guard let workspace = appModel.selectedWorkspace else { return }
             let id = workspace.id
+            for pane in workspace.allPanes {
+                appModel.macroRunner.remove(paneID: pane.id)
+            }
             GhosttyApp.shared.cleanupWorkspace(workspace)
             appModel.removeWorkspace(id: id)
             if appModel.selectedWorkspaceID == id {
@@ -137,6 +140,14 @@ struct HoottyApp: App {
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
+        commandRegistry.register(.runMacro) { [appModel] in
+            Self.runMacroOnFocusedPane(appModel: appModel)
+        }
+        commandRegistry.register(.cancelMacro) { [appModel] in
+            guard let workspace = appModel.selectedWorkspace,
+                  let paneID = workspace.focusedPaneID else { return }
+            appModel.macroRunner.remove(paneID: paneID)
+        }
 
         // Wire the registry into GhosttyApp for action callback routing
         GhosttyApp.shared.commandRegistry = commandRegistry
@@ -149,6 +160,27 @@ struct HoottyApp: App {
         if !hasRemainingPanes {
             watcher.stopWatching(repoRoot: repoRoot)
         }
+    }
+
+    private static func runMacroOnFocusedPane(appModel: AppModel) {
+        guard let workspace = appModel.selectedWorkspace,
+              let paneID = workspace.focusedPaneID,
+              let (_, pane) = appModel.findPane(id: paneID),
+              let repoRoot = pane.repoRoot else { return }
+
+        appModel.macroStore.refresh(repoRoot: repoRoot)
+        // MVP: runs first macro alphabetically; add picker when multi-macro support is needed
+        guard let macro = appModel.macroStore.macros.first else { return }
+
+        if let stepText = appModel.macroRunner.start(macro: macro, paneID: paneID) {
+            injectMacroStep(stepText, paneID: paneID)
+        }
+    }
+
+    /// Inject a macro step into the pane's terminal via queueText.
+    static func injectMacroStep(_ text: String, paneID: UUID) {
+        guard let surfaceView = GhosttyApp.shared.cachedSurfaceView(for: paneID) else { return }
+        surfaceView.queueText(text + "\r")
     }
 
     private static func splitFocusedPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
@@ -237,6 +269,7 @@ struct HoottyApp: App {
                     }
                     GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher] paneID in
                         let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
+                        appModel.macroRunner.remove(paneID: paneID)
                         GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                         guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
                         workspace.removePane(id: paneID)
@@ -266,6 +299,12 @@ struct HoottyApp: App {
                             pipelineWatcher.startWatching(repoRoot: repoRoot)
                         }
                     }
+                    GhosttyApp.shared.onMacroStepDone = { [appModel] paneID in
+                        guard appModel.macroRunner.isActive(paneID: paneID) else { return }
+                        if let nextStep = appModel.macroRunner.stepCompleted(paneID: paneID) {
+                            Self.injectMacroStep(nextStep, paneID: paneID)
+                        }
+                    }
                     GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
                         if exitCode > 128 {
                             Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
@@ -275,6 +314,7 @@ struct HoottyApp: App {
                         guard let workspace = appModel.selectedWorkspace,
                               let focusedPaneID = workspace.focusedPaneID else { return }
                         let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
+                        appModel.macroRunner.remove(paneID: focusedPaneID)
                         GhosttyApp.shared.removeCachedSurfaceView(for: focusedPaneID)
                         workspace.removePane(id: focusedPaneID)
                         appModel.saveWorkspaces()

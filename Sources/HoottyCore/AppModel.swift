@@ -8,6 +8,8 @@ public final class AppModel {
     public let soundManager: SoundManager
     public let workspaceStore: WorkspaceStore
     public let pipelineModel: PipelineModel
+    public let macroStore: MacroStore
+    public let macroRunner: MacroRunner
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
@@ -47,7 +49,7 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, pipelineModel: PipelineModel? = nil) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, pipelineModel: PipelineModel? = nil, macroStore: MacroStore? = nil, macroRunner: MacroRunner? = nil) {
         let resolvedConfigFile = configFile ?? ConfigFile()
         self.configFile = resolvedConfigFile
         resolvedConfigFile.ensureExists()
@@ -56,6 +58,8 @@ public final class AppModel {
         self.soundManager = SoundManager(configFile: resolvedConfigFile)
         self.workspaceStore = workspaceStore
         self.pipelineModel = pipelineModel ?? PipelineModel()
+        self.macroStore = macroStore ?? MacroStore()
+        self.macroRunner = macroRunner ?? MacroRunner()
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
@@ -218,6 +222,7 @@ public final class AppModel {
     }
 
     public func resetWorkspaces() {
+        macroRunner.removeAll()
         workspaceStore.deleteStorage()
         workspaces = []
         sidebarWidth = 260
