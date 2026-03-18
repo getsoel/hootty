@@ -37,6 +37,7 @@ Sources/
     ConfigFile.swift           -- Observable key-value config file store (persisted to app support)
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
     PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd)
+    ModuleFlags.swift           -- Module toggle struct bundled through view hierarchy (see docs/MODULES.md)
     PipelineModel.swift        -- @Observable pipeline claim/board state per pane/repo
     PipelineReader.swift       -- Reads pipeline config and state from .hootty/pipeline/
     PipelineState.swift        -- Pipeline data structures (stages, config, jobs, claims)
@@ -107,6 +108,7 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 - `docs/REBUILDING.md` — read when updating or rebuilding libghostty
 - `docs/CONFIG.md` — read when working on the config file system or adding new settings
 - `docs/RULES.md` — read when adding new `.claude/rules/` files or modifying progressive disclosure structure
+- `docs/MODULES.md` — read when adding a new module, modifying module flags, or working on module guard points
 - `docs/specs/PIPELINE_SPEC.md` — read when working on pipeline board, claim logic, or job state
 
 ### Naming: Tab vs Pane vs Group

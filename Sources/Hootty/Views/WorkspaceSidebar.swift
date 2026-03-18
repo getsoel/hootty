@@ -48,6 +48,7 @@ struct WorkspaceSidebar: View {
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
     @Binding var showWorktreeActions: Bool
+    var moduleFlags: ModuleFlags = .init()
     var pipelineAttentionCount: Int = 0
     @State private var hoveredWorktreeAction: String?
     @State private var showRenameWorkspaceAlert = false
@@ -138,20 +139,23 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    @ViewBuilder
     private var sidebarTabPicker: some View {
-        let tabBinding = Binding<SidebarTab>(
-            get: { SidebarTab(detailMode) },
-            set: { detailMode = $0.detailMode }
-        )
-        return CapsulePickerView(
-            options: SidebarTab.allCases,
-            selection: tabBinding,
-            tokens: tokens,
-            label: { $0.rawValue },
-            badge: { tab in
-                tab == .board ? pipelineAttentionCount : nil
-            }
-        )
+        if moduleFlags.pipelines {
+            let tabBinding = Binding<SidebarTab>(
+                get: { SidebarTab(detailMode) },
+                set: { detailMode = $0.detailMode }
+            )
+            CapsulePickerView(
+                options: SidebarTab.allCases,
+                selection: tabBinding,
+                tokens: tokens,
+                label: { $0.rawValue },
+                badge: { tab in
+                    tab == .board ? pipelineAttentionCount : nil
+                }
+            )
+        }
     }
 
     private var workspaceList: some View {

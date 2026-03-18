@@ -232,11 +232,22 @@ public final class AppModel {
     }
 
     public var showWorktreeActions: Bool {
-        get { configFile.get("hootty-show-worktree-actions") != "false" }
-        set {
-            configFile.set("hootty-show-worktree-actions", value: newValue ? nil : "false")
-            configFile.save()
-        }
+        get { configFile.defaultTrueBool("hootty-show-worktree-actions") }
+        set { configFile.setDefaultTrueBool("hootty-show-worktree-actions", newValue) }
+    }
+
+    public var pipelinesEnabled: Bool {
+        get { configFile.defaultFalseBool("hootty-module-pipelines") }
+        set { configFile.setDefaultFalseBool("hootty-module-pipelines", newValue) }
+    }
+
+    public var macrosEnabled: Bool {
+        get { configFile.defaultFalseBool("hootty-module-macros") }
+        set { configFile.setDefaultFalseBool("hootty-module-macros", newValue) }
+    }
+
+    public var moduleFlags: ModuleFlags {
+        ModuleFlags(pipelines: pipelinesEnabled, macros: macrosEnabled)
     }
 
     public func toggleSidebar() {

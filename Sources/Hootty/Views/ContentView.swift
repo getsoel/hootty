@@ -97,6 +97,12 @@ struct ContentView: View {
                 )
             }
         }
+        .onChange(of: appModel.pipelinesEnabled) { _, enabled in
+            if !enabled {
+                appModel.appMode = .workspaces
+                appModel.detailMode = .terminals
+            }
+        }
     }
 
     private var sidebar: some View {
@@ -154,7 +160,8 @@ struct ContentView: View {
             sidebarCursorPaneID: $sidebarCursorPaneID,
             sidebarWidth: effectiveSidebarWidth,
             showWorktreeActions: $appModel.showWorktreeActions,
-            pipelineAttentionCount: currentPipelineAttentionCount
+            moduleFlags: appModel.moduleFlags,
+            pipelineAttentionCount: appModel.pipelinesEnabled ? currentPipelineAttentionCount : 0
         )
     }
 
@@ -177,24 +184,31 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
     private var appModePicker: some View {
-        CapsulePickerView(
-            options: [AppModel.AppMode.workspaces, .pipelines],
-            selection: $appModel.appMode,
-            tokens: tokens,
-            label: { $0 == .workspaces ? "Workspaces" : "Pipelines" }
-        )
+        if appModel.pipelinesEnabled {
+            CapsulePickerView(
+                options: [AppModel.AppMode.workspaces, .pipelines],
+                selection: $appModel.appMode,
+                tokens: tokens,
+                label: { $0 == .workspaces ? "Workspaces" : "Pipelines" }
+            )
+        }
     }
 
     // MARK: - Main Content
 
     @ViewBuilder
     private var mainContent: some View {
-        switch appModel.appMode {
-        case .workspaces:
+        if appModel.pipelinesEnabled {
+            switch appModel.appMode {
+            case .workspaces:
+                workspacesContent
+            case .pipelines:
+                PipelinesView(appModel: appModel, tokens: tokens)
+            }
+        } else {
             workspacesContent
-        case .pipelines:
-            PipelinesView(appModel: appModel, tokens: tokens)
         }
     }
 
@@ -266,11 +280,15 @@ struct ContentView: View {
     @ViewBuilder
     private var detailView: some View {
         if let workspace = selectedWorkspace {
-            switch appModel.detailMode {
-            case .terminals:
+            if appModel.pipelinesEnabled {
+                switch appModel.detailMode {
+                case .terminals:
+                    terminalsDetail(workspace: workspace)
+                case .board:
+                    boardDetail(workspace: workspace)
+                }
+            } else {
                 terminalsDetail(workspace: workspace)
-            case .board:
-                boardDetail(workspace: workspace)
             }
         } else {
             Text("Select or create a workspace")
@@ -311,13 +329,14 @@ struct ContentView: View {
                 appModel.saveWorkspaces()
             },
             onSave: { appModel.saveWorkspaces() },
-            onSwitchToBoard: { pipelineName in
+            onSwitchToBoard: appModel.pipelinesEnabled ? { pipelineName in
                 selectedPipelineName = pipelineName
                 appModel.detailMode = .board
-            },
-            onPipelineRefresh: { repoRoot in
+            } : nil,
+            onPipelineRefresh: appModel.pipelinesEnabled ? { repoRoot in
                 appModel.refreshPipeline(repoRoot: repoRoot)
-            }
+            } : nil,
+            moduleFlags: appModel.moduleFlags
         )
         .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
         .environment(\.sidebarCursorPaneID, sidebarCursorPaneID)

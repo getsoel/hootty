@@ -15,6 +15,7 @@ struct PaneContentView: View {
     let onSave: () -> Void
     var onSwitchToBoard: ((String?) -> Void)?
     var onPipelineRefresh: ((String) -> Void)?
+    var moduleFlags: ModuleFlags = .init()
     @State private var isDropTarget = false
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
     @Environment(\.sidebarCursorPaneID) private var sidebarCursorPaneID
@@ -35,7 +36,7 @@ struct PaneContentView: View {
                 onSave: onSave
             )
 
-            if let claim = pipelineModel.claimInfo(for: pane.id) {
+            if moduleFlags.pipelines, let claim = pipelineModel.claimInfo(for: pane.id) {
                 PipelineBarView(
                     claimInfo: claim,
                     tokens: tokens,
@@ -62,7 +63,7 @@ struct PaneContentView: View {
                 )
             }
 
-            if let progress = macroRunner.progress(paneID: pane.id) {
+            if moduleFlags.macros, let progress = macroRunner.progress(paneID: pane.id) {
                 MacroBarView(
                     progress: progress,
                     tokens: tokens,

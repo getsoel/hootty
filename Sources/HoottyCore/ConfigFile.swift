@@ -49,6 +49,28 @@ public final class ConfigFile {
         }
     }
 
+    /// Read a boolean config key that defaults to `true` when absent.
+    public func defaultTrueBool(_ key: String) -> Bool {
+        get(key) != "false"
+    }
+
+    /// Write a boolean config key that defaults to `true` (removes the key when `true`, writes `"false"` when `false`).
+    public func setDefaultTrueBool(_ key: String, _ value: Bool) {
+        set(key, value: value ? nil : "false")
+        save()
+    }
+
+    /// Read a boolean config key that defaults to `false` when absent.
+    public func defaultFalseBool(_ key: String) -> Bool {
+        get(key) == "true"
+    }
+
+    /// Write a boolean config key that defaults to `false` (removes the key when `false`, writes `"true"` when `true`).
+    public func setDefaultFalseBool(_ key: String, _ value: Bool) {
+        set(key, value: value ? "true" : nil)
+        save()
+    }
+
     // MARK: - Load / Save
 
     public func load() {

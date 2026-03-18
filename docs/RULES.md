@@ -58,6 +58,7 @@ Claude Code reads the file when the task matches the condition.
 | `design-system.md` | `Views/**/*.swift`, `DesignTokens.swift` | Design tokens, spacing, type scale, component patterns |
 | `testing.md` | `HoottyCore/**/*.swift`, `Tests/**/*.swift` | Test strategy, integration vs unit, test isolation |
 | `commands.md` | `AppCommand.swift`, `CommandRegistry.swift`, `HoottyApp.swift`, `CommandPaletteView.swift` | Command system: adding commands, dispatch flow |
+| `business/modules.md` | `ModuleFlags.swift`, `AppModel.swift`, `ContentView.swift`, `SplitView.swift`, `PaneGroupView.swift`, `WorkspaceSidebar.swift`, `HoottyApp.swift` | Module system: ModuleFlags threading, guard patterns, config keys |
 
 ## Adding a new rule file
 
@@ -107,4 +108,5 @@ Comma-separate multiple patterns: `Sources/Foo/*.swift, Sources/Bar/*.swift`
 | `docs/HOOKS.md` | Modifying wrapper script, env var injection, attention indicators |
 | `docs/REBUILDING.md` | Updating or rebuilding libghostty |
 | `docs/CONFIG.md` | Working on config file system or adding new settings |
+| `docs/MODULES.md` | Adding a new module, modifying module flags, working on module guard points |
 | `docs/RULES.md` | Adding new rules files or modifying progressive disclosure structure |

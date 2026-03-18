@@ -15,6 +15,7 @@ struct SplitNodeView: View {
     let onSave: () -> Void
     var onSwitchToBoard: ((String?) -> Void)?
     var onPipelineRefresh: ((String) -> Void)?
+    var moduleFlags: ModuleFlags = .init()
 
     var body: some View {
         switch node.content {
@@ -31,7 +32,8 @@ struct SplitNodeView: View {
                 onSwapPanes: onSwapPanes,
                 onSave: onSave,
                 onSwitchToBoard: onSwitchToBoard,
-                onPipelineRefresh: onPipelineRefresh
+                onPipelineRefresh: onPipelineRefresh,
+                moduleFlags: moduleFlags
             )
 
         case let .split(direction, first, second):
@@ -57,14 +59,14 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, pipelineModel: pipelineModel, macroRunner: macroRunner, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave, onSwitchToBoard: onSwitchToBoard, onPipelineRefresh: onPipelineRefresh)
+                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, pipelineModel: pipelineModel, macroRunner: macroRunner, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave, onSwitchToBoard: onSwitchToBoard, onPipelineRefresh: onPipelineRefresh, moduleFlags: moduleFlags)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
                     )
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, pipelineModel: pipelineModel, macroRunner: macroRunner, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave, onSwitchToBoard: onSwitchToBoard, onPipelineRefresh: onPipelineRefresh)
+                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, isInSplit: true, pipelineModel: pipelineModel, macroRunner: macroRunner, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave, onSwitchToBoard: onSwitchToBoard, onPipelineRefresh: onPipelineRefresh, moduleFlags: moduleFlags)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize

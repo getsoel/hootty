@@ -69,4 +69,19 @@ struct AppModelTests {
         // Should still be "Workspace 1" since no numbered workspaces exist
         #expect(w.name == "Workspace 1")
     }
+
+    @Test func moduleFlagsBridgesConfigToggles() {
+        let model = makeModel()
+        // Defaults: both disabled (experimental)
+        #expect(model.moduleFlags == ModuleFlags(pipelines: false, macros: false))
+
+        model.pipelinesEnabled = true
+        #expect(model.moduleFlags == ModuleFlags(pipelines: true, macros: false))
+
+        model.macrosEnabled = true
+        #expect(model.moduleFlags == ModuleFlags(pipelines: true, macros: true))
+
+        model.pipelinesEnabled = false
+        #expect(model.moduleFlags == ModuleFlags(pipelines: false, macros: true))
+    }
 }

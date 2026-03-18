@@ -140,10 +140,18 @@ struct HoottyApp: App {
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
+        commandRegistry.register(.togglePipelines) { [appModel] in
+            appModel.pipelinesEnabled.toggle()
+        }
+        commandRegistry.register(.toggleMacros) { [appModel] in
+            appModel.macrosEnabled.toggle()
+        }
         commandRegistry.register(.runMacro) { [appModel] in
+            guard appModel.macrosEnabled else { return }
             Self.runMacroOnFocusedPane(appModel: appModel)
         }
         commandRegistry.register(.cancelMacro) { [appModel] in
+            guard appModel.macrosEnabled else { return }
             guard let workspace = appModel.selectedWorkspace,
                   let paneID = workspace.focusedPaneID else { return }
             appModel.macroRunner.remove(paneID: paneID)
@@ -211,16 +219,18 @@ struct HoottyApp: App {
                     }
 
                     // Bootstrap pipeline watchers for repos with .hootty/pipeline/
-                    pipelineWatcher.setOnChange { [appModel] repoRoot in
-                        let panes = appModel.pipelinePanes(forRepoRoot: repoRoot)
-                        appModel.pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
-                    }
-                    for workspace in appModel.workspaces {
-                        for pane in workspace.allPanes {
-                            if let repoRoot = pane.repoRoot,
-                               PipelineModel.hasPipeline(repoRoot: repoRoot),
-                               appModel.pipelineModel.registerRepoRoot(repoRoot) {
-                                pipelineWatcher.startWatching(repoRoot: repoRoot)
+                    if appModel.pipelinesEnabled {
+                        pipelineWatcher.setOnChange { [appModel] repoRoot in
+                            let panes = appModel.pipelinePanes(forRepoRoot: repoRoot)
+                            appModel.pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
+                        }
+                        for workspace in appModel.workspaces {
+                            for pane in workspace.allPanes {
+                                if let repoRoot = pane.repoRoot,
+                                   PipelineModel.hasPipeline(repoRoot: repoRoot),
+                                   appModel.pipelineModel.registerRepoRoot(repoRoot) {
+                                    pipelineWatcher.startWatching(repoRoot: repoRoot)
+                                }
                             }
                         }
                     }
@@ -292,7 +302,8 @@ struct HoottyApp: App {
                             headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
                         }
                         // Register pipeline watcher for repos with .hootty/pipeline/
-                        if let (_, pane) = appModel.findPane(id: paneID),
+                        if appModel.pipelinesEnabled,
+                           let (_, pane) = appModel.findPane(id: paneID),
                            let repoRoot = pane.repoRoot,
                            PipelineModel.hasPipeline(repoRoot: repoRoot),
                            appModel.pipelineModel.registerRepoRoot(repoRoot) {
@@ -300,6 +311,7 @@ struct HoottyApp: App {
                         }
                     }
                     GhosttyApp.shared.onMacroStepDone = { [appModel] paneID in
+                        guard appModel.macrosEnabled else { return }
                         guard appModel.macroRunner.isActive(paneID: paneID) else { return }
                         if let nextStep = appModel.macroRunner.stepCompleted(paneID: paneID) {
                             Self.injectMacroStep(nextStep, paneID: paneID)
