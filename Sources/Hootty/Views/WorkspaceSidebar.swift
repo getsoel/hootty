@@ -155,6 +155,10 @@ struct WorkspaceSidebar: View {
                     tab == .board ? pipelineAttentionCount : nil
                 }
             )
+        } else {
+            Text("Workspaces")
+                .font(.system(size: TypeScale.captionSize, weight: .semibold))
+                .foregroundStyle(Color(tokens.textMuted))
         }
     }
 
