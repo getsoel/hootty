@@ -20,12 +20,12 @@ struct WorkspaceRow: View {
         HStack(spacing: 6) {
             Image(systemName: "folder.fill")
                 .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(tokens.textMuted))
+                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted))
+                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
 
             Spacer(minLength: 0)

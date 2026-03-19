@@ -4,13 +4,14 @@ import SwiftUI
 
 struct BranchSectionHeader: View {
     let section: SidebarSection
+    let isSelected: Bool
     let tokens: DesignTokens
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: iconName)
                 .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(tokens.textMuted))
+                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
 
             if let displayLabel = section.displayLabel {

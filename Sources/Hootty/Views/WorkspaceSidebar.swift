@@ -203,7 +203,7 @@ struct WorkspaceSidebar: View {
         let headBranchRepos = Set(sections.filter(\.isHead).compactMap(\.repoRoot))
         ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
             if hasBranches {
-                BranchSectionHeader(section: section, tokens: tokens)
+                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens)
             }
 
             ForEach(section.panes) { pane in
