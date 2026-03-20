@@ -26,3 +26,9 @@ CLAUDE.local.md
 *.local.json
 .soel/
 repomix-output.xml
+
+# Project-local config
+.hootty/
+
+# Documentation (generated/internal)
+docs/

@@ -1,5 +1,0 @@
-.state.json
-.state.lock
-pipeline.sock
-.daemon.pid
-.daemon.log
