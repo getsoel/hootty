@@ -7,9 +7,7 @@ public final class AppModel {
     public let themeManager: ThemeManager
     public let soundManager: SoundManager
     public let workspaceStore: WorkspaceStore
-    public let pipelineModel: PipelineModel
-    public let macroStore: MacroStore
-    public let macroRunner: MacroRunner
+    public let opsxModel: OpsxModel
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
@@ -21,25 +19,13 @@ public final class AppModel {
         case themePicker
     }
 
-    public enum DetailMode {
-        case terminals
-        case board
-    }
-
     public enum AppMode {
         case workspaces
-        case pipelines
-    }
-
-    public enum PipelineMode {
-        case boards
-        case templates
+        case opsx
     }
 
     public var modalState: ModalState = .none
-    public var detailMode: DetailMode = .terminals
     public var appMode: AppMode = .workspaces
-    public var pipelineMode: PipelineMode = .boards
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
 
@@ -49,7 +35,7 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, pipelineModel: PipelineModel? = nil, macroStore: MacroStore? = nil, macroRunner: MacroRunner? = nil) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, opsxModel: OpsxModel? = nil) {
         let resolvedConfigFile = configFile ?? ConfigFile()
         self.configFile = resolvedConfigFile
         resolvedConfigFile.ensureExists()
@@ -57,9 +43,7 @@ public final class AppModel {
         self.themeManager = ThemeManager(configFile: resolvedConfigFile, themeCatalog: catalog)
         self.soundManager = SoundManager(configFile: resolvedConfigFile)
         self.workspaceStore = workspaceStore
-        self.pipelineModel = pipelineModel ?? PipelineModel()
-        self.macroStore = macroStore ?? MacroStore()
-        self.macroRunner = macroRunner ?? MacroRunner()
+        self.opsxModel = opsxModel ?? OpsxModel()
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
@@ -184,21 +168,6 @@ public final class AppModel {
         return body(workspace, pane)
     }
 
-    /// Collect panes in a repo root with their session IDs for pipeline matching.
-    public func pipelinePanes(forRepoRoot repoRoot: String) -> [(id: UUID, sessionIDs: [String])] {
-        var result: [(id: UUID, sessionIDs: [String])] = []
-        for workspace in workspaces {
-            for pane in workspace.allPanes where pane.repoRoot == repoRoot {
-                var ids = [pane.id.uuidString]
-                if let sid = pane.claudeSessionID, sid != "auto" {
-                    ids.append(sid)
-                }
-                result.append((id: pane.id, sessionIDs: ids))
-            }
-        }
-        return result
-    }
-
     /// Re-query branch for all panes in the given canonical repo root.
     /// Called when `.git/HEAD` changes (branch switch without pwd change).
     public func refreshBranchesForRepo(_ canonicalRepoRoot: String) {
@@ -222,7 +191,6 @@ public final class AppModel {
     }
 
     public func resetWorkspaces() {
-        macroRunner.removeAll()
         workspaceStore.deleteStorage()
         workspaces = []
         sidebarWidth = 260
@@ -236,18 +204,13 @@ public final class AppModel {
         set { configFile.setDefaultTrueBool("hootty-show-worktree-actions", newValue) }
     }
 
-    public var pipelinesEnabled: Bool {
-        get { configFile.defaultFalseBool("hootty-module-pipelines") }
-        set { configFile.setDefaultFalseBool("hootty-module-pipelines", newValue) }
-    }
-
-    public var macrosEnabled: Bool {
-        get { configFile.defaultFalseBool("hootty-module-macros") }
-        set { configFile.setDefaultFalseBool("hootty-module-macros", newValue) }
+    public var opsxEnabled: Bool {
+        get { configFile.defaultFalseBool("hootty-module-opsx") }
+        set { configFile.setDefaultFalseBool("hootty-module-opsx", newValue) }
     }
 
     public var moduleFlags: ModuleFlags {
-        ModuleFlags(pipelines: pipelinesEnabled, macros: macrosEnabled)
+        ModuleFlags(opsx: opsxEnabled)
     }
 
     public func toggleSidebar() {
@@ -271,24 +234,8 @@ public final class AppModel {
         selectedWorkspaceID = workspaces[prevIdx].id
     }
 
-    /// Refresh pipeline state for all panes in a specific repo root.
-    public func refreshPipeline(repoRoot: String) {
-        let panes = pipelinePanes(forRepoRoot: repoRoot)
-        pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
-    }
-
-    /// Run `hootty pipeline archive` for a pipeline in the background.
-    public func archivePipeline(name: String, repoRoot: String) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["hootty", "pipeline", "archive", name]
-            process.currentDirectoryURL = URL(fileURLWithPath: repoRoot)
-            try? process.run()
-            process.waitUntilExit()
-            DispatchQueue.main.async { [weak self] in
-                self?.refreshPipeline(repoRoot: repoRoot)
-            }
-        }
+    /// Refresh OPSX state for all changes in a specific repo root.
+    public func refreshOpsx(repoRoot: String) {
+        opsxModel.refresh(repoRoot: repoRoot)
     }
 }

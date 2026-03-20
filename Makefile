@@ -1,4 +1,4 @@
-.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint hootty-cli
+.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint
 
 APP_NAME := Hootty
 INSTALL_DIR := /Applications
@@ -8,11 +8,7 @@ RELEASE_PRODUCTS := $(DERIVED_DATA)/Build/Products/Release
 RELEASE_APP_BUNDLE := .build/release/$(APP_NAME).app
 XCODEBUILD := xcodebuild -scheme $(APP_NAME) -destination 'platform=macOS' -derivedDataPath $(DERIVED_DATA)
 
-hootty-cli:
-	swift build -c release --product HoottyCLI --arch arm64
-	cp .build/release/HoottyCLI Sources/Hootty/Resources/bin/hootty
-
-build: hootty-cli
+build:
 	$(XCODEBUILD) -configuration Debug build
 
 test:
@@ -32,7 +28,7 @@ clean:
 	rm -rf $(DERIVED_DATA)
 	rm -rf $(HOME)/.cache/hootty/ghosttykit
 
-release: clean hootty-cli
+release: clean
 	$(XCODEBUILD) -configuration Release build
 	rm -rf "$(RELEASE_APP_BUNDLE)"
 	mkdir -p "$(RELEASE_APP_BUNDLE)/Contents/MacOS"
@@ -85,10 +81,10 @@ uninstall:
 	@echo "Removed $(INSTALL_DIR)/$(APP_NAME).app"
 
 format:
-	swiftformat Sources/Hootty Sources/HoottyCore Sources/HoottyCLI Sources/PipelineKit Tests/HoottyCoreTests
+	swiftformat Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests
 
 format-check:
-	swiftformat --lint Sources/Hootty Sources/HoottyCore Sources/HoottyCLI Sources/PipelineKit Tests/HoottyCoreTests
+	swiftformat --lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests
 
 lint:
-	swiftlint lint Sources/Hootty Sources/HoottyCore Sources/HoottyCLI Sources/PipelineKit Tests/HoottyCoreTests
+	swiftlint lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests

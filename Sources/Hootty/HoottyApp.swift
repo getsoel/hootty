@@ -54,7 +54,7 @@ struct HoottyApp: App {
     @State private var appModel: AppModel
     @State private var commandRegistry: CommandRegistry
     @State private var headWatcher = GitHEADWatcher()
-    @State private var pipelineWatcher = PipelineWatcher()
+    @State private var opsxWatcher = OpsxWatcher()
 
     // MARK: - Command Registration
 
@@ -66,9 +66,6 @@ struct HoottyApp: App {
         commandRegistry.register(.closeWorkspace) { [appModel] in
             guard let workspace = appModel.selectedWorkspace else { return }
             let id = workspace.id
-            for pane in workspace.allPanes {
-                appModel.macroRunner.remove(paneID: pane.id)
-            }
             GhosttyApp.shared.cleanupWorkspace(workspace)
             appModel.removeWorkspace(id: id)
             if appModel.selectedWorkspaceID == id {
@@ -140,21 +137,8 @@ struct HoottyApp: App {
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
-        commandRegistry.register(.togglePipelines) { [appModel] in
-            appModel.pipelinesEnabled.toggle()
-        }
-        commandRegistry.register(.toggleMacros) { [appModel] in
-            appModel.macrosEnabled.toggle()
-        }
-        commandRegistry.register(.runMacro) { [appModel] in
-            guard appModel.macrosEnabled else { return }
-            Self.runMacroOnFocusedPane(appModel: appModel)
-        }
-        commandRegistry.register(.cancelMacro) { [appModel] in
-            guard appModel.macrosEnabled else { return }
-            guard let workspace = appModel.selectedWorkspace,
-                  let paneID = workspace.focusedPaneID else { return }
-            appModel.macroRunner.remove(paneID: paneID)
+        commandRegistry.register(.toggleOpsx) { [appModel] in
+            appModel.opsxEnabled.toggle()
         }
 
         // Wire the registry into GhosttyApp for action callback routing
@@ -170,25 +154,14 @@ struct HoottyApp: App {
         }
     }
 
-    private static func runMacroOnFocusedPane(appModel: AppModel) {
-        guard let workspace = appModel.selectedWorkspace,
-              let paneID = workspace.focusedPaneID,
-              let (_, pane) = appModel.findPane(id: paneID),
-              let repoRoot = pane.repoRoot else { return }
-
-        appModel.macroStore.refresh(repoRoot: repoRoot)
-        // MVP: runs first macro alphabetically; add picker when multi-macro support is needed
-        guard let macro = appModel.macroStore.macros.first else { return }
-
-        if let stepText = appModel.macroRunner.start(macro: macro, paneID: paneID) {
-            injectMacroStep(stepText, paneID: paneID)
+    private static func cleanupOpsxWatcher(_ watcher: OpsxWatcher, repoRoot: String, appModel: AppModel) {
+        let hasRemainingPanes = appModel.workspaces.contains { workspace in
+            workspace.allPanes.contains { $0.repoRoot == repoRoot }
         }
-    }
-
-    /// Inject a macro step into the pane's terminal via queueText.
-    static func injectMacroStep(_ text: String, paneID: UUID) {
-        guard let surfaceView = GhosttyApp.shared.cachedSurfaceView(for: paneID) else { return }
-        surfaceView.queueText(text + "\r")
+        if !hasRemainingPanes {
+            watcher.stopWatching(repoRoot: repoRoot)
+            appModel.opsxModel.removeStatus(for: repoRoot)
+        }
     }
 
     private static func splitFocusedPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
@@ -206,7 +179,7 @@ struct HoottyApp: App {
         WindowGroup {
             ContentView(appModel: appModel, commandRegistry: commandRegistry)
                 .frame(minWidth: 700, minHeight: 400)
-                .onAppear { [headWatcher, pipelineWatcher] in
+                .onAppear { [headWatcher, opsxWatcher] in
                     // Bootstrap HEAD watchers for persisted repos
                     for workspace in appModel.workspaces {
                         for pane in workspace.allPanes {
@@ -218,18 +191,17 @@ struct HoottyApp: App {
                         }
                     }
 
-                    // Bootstrap pipeline watchers for repos with .hootty/pipeline/
-                    if appModel.pipelinesEnabled {
-                        pipelineWatcher.setOnChange { [appModel] repoRoot in
-                            let panes = appModel.pipelinePanes(forRepoRoot: repoRoot)
-                            appModel.pipelineModel.refresh(repoRoot: repoRoot, panes: panes)
+                    // Bootstrap OPSX watchers for repos with openspec/
+                    if appModel.opsxEnabled {
+                        opsxWatcher.setOnChange { [appModel] repoRoot in
+                            appModel.refreshOpsx(repoRoot: repoRoot)
                         }
                         for workspace in appModel.workspaces {
                             for pane in workspace.allPanes {
                                 if let repoRoot = pane.repoRoot,
-                                   PipelineModel.hasPipeline(repoRoot: repoRoot),
-                                   appModel.pipelineModel.registerRepoRoot(repoRoot) {
-                                    pipelineWatcher.startWatching(repoRoot: repoRoot)
+                                   !opsxWatcher.watchedRepoRoots.contains(repoRoot),
+                                   OpsxModel.hasOpenSpec(repoRoot: repoRoot) {
+                                    opsxWatcher.startWatching(repoRoot: repoRoot)
                                 }
                             }
                         }
@@ -277,44 +249,34 @@ struct HoottyApp: App {
                             appModel.saveWorkspaces()
                         }
                     }
-                    GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher] paneID in
+                    GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher, opsxWatcher] paneID in
                         let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
-                        appModel.macroRunner.remove(paneID: paneID)
                         GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                         guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
                         workspace.removePane(id: paneID)
                         appModel.saveWorkspaces()
-                        // Clean up watcher if no panes remain in this repo
                         if let root = repoRoot {
                             Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                            Self.cleanupOpsxWatcher(opsxWatcher, repoRoot: root, appModel: appModel)
                         }
                     }
                     GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
                         appModel.handleTitleChange(paneID, title: title)
                     }
-                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, pipelineWatcher] paneID, pwd in
+                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, opsxWatcher] paneID, pwd in
                         appModel.handlePwdChanged(paneID, pwd: pwd)
+                        guard let (_, pane) = appModel.findPane(id: paneID),
+                              let repoRoot = pane.repoRoot else { return }
                         // Register HEAD watcher for newly discovered repos
-                        if let (_, pane) = appModel.findPane(id: paneID),
-                           let repoRoot = pane.repoRoot,
-                           !headWatcher.watchedRepoRoots.contains(repoRoot),
+                        if !headWatcher.watchedRepoRoots.contains(repoRoot),
                            let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
                             headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
                         }
-                        // Register pipeline watcher for repos with .hootty/pipeline/
-                        if appModel.pipelinesEnabled,
-                           let (_, pane) = appModel.findPane(id: paneID),
-                           let repoRoot = pane.repoRoot,
-                           PipelineModel.hasPipeline(repoRoot: repoRoot),
-                           appModel.pipelineModel.registerRepoRoot(repoRoot) {
-                            pipelineWatcher.startWatching(repoRoot: repoRoot)
-                        }
-                    }
-                    GhosttyApp.shared.onMacroStepDone = { [appModel] paneID in
-                        guard appModel.macrosEnabled else { return }
-                        guard appModel.macroRunner.isActive(paneID: paneID) else { return }
-                        if let nextStep = appModel.macroRunner.stepCompleted(paneID: paneID) {
-                            Self.injectMacroStep(nextStep, paneID: paneID)
+                        // Register OPSX watcher for repos with openspec/
+                        if appModel.opsxEnabled,
+                           !opsxWatcher.watchedRepoRoots.contains(repoRoot),
+                           OpsxModel.hasOpenSpec(repoRoot: repoRoot) {
+                            opsxWatcher.startWatching(repoRoot: repoRoot)
                         }
                     }
                     GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
@@ -322,16 +284,16 @@ struct HoottyApp: App {
                             Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
                         }
                     }
-                    GhosttyApp.shared.onCloseTab = { [appModel, headWatcher] in
+                    GhosttyApp.shared.onCloseTab = { [appModel, headWatcher, opsxWatcher] in
                         guard let workspace = appModel.selectedWorkspace,
                               let focusedPaneID = workspace.focusedPaneID else { return }
                         let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
-                        appModel.macroRunner.remove(paneID: focusedPaneID)
                         GhosttyApp.shared.removeCachedSurfaceView(for: focusedPaneID)
                         workspace.removePane(id: focusedPaneID)
                         appModel.saveWorkspaces()
                         if let root = repoRoot {
                             Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                            Self.cleanupOpsxWatcher(opsxWatcher, repoRoot: root, appModel: appModel)
                         }
                     }
                 }

@@ -2,30 +2,10 @@ import HoottyCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-private enum SidebarTab: String, CaseIterable {
-    case terminals = "Terminals"
-    case board = "Board"
-
-    init(_ detailMode: AppModel.DetailMode) {
-        switch detailMode {
-        case .terminals: self = .terminals
-        case .board: self = .board
-        }
-    }
-
-    var detailMode: AppModel.DetailMode {
-        switch self {
-        case .terminals: .terminals
-        case .board: .board
-        }
-    }
-}
-
 struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let tokens: DesignTokens
-    @Binding var detailMode: AppModel.DetailMode
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onMoveWorkspace: (UUID, Int) -> Void
@@ -48,8 +28,6 @@ struct WorkspaceSidebar: View {
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
     @Binding var showWorktreeActions: Bool
-    var moduleFlags: ModuleFlags = .init()
-    var pipelineAttentionCount: Int = 0
     @State private var hoveredWorktreeAction: String?
     @State private var showRenameWorkspaceAlert = false
     @State private var showRenamePaneAlert = false
@@ -139,27 +117,10 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    @ViewBuilder
     private var sidebarTabPicker: some View {
-        if moduleFlags.pipelines {
-            let tabBinding = Binding<SidebarTab>(
-                get: { SidebarTab(detailMode) },
-                set: { detailMode = $0.detailMode }
-            )
-            CapsulePickerView(
-                options: SidebarTab.allCases,
-                selection: tabBinding,
-                tokens: tokens,
-                label: { $0.rawValue },
-                badge: { tab in
-                    tab == .board ? pipelineAttentionCount : nil
-                }
-            )
-        } else {
-            Text("Workspaces")
-                .font(.system(size: TypeScale.captionSize, weight: .semibold))
-                .foregroundStyle(Color(tokens.textMuted))
-        }
+        Text("Workspaces")
+            .font(.system(size: TypeScale.captionSize, weight: .semibold))
+            .foregroundStyle(Color(tokens.textMuted))
     }
 
     private var workspaceList: some View {

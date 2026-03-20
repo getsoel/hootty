@@ -27,10 +27,8 @@ let package = Package(
                 .linkedFramework("Carbon"),
             ]
         ),
-        .target(name: "PipelineKit", path: "Sources/PipelineKit"),
         .target(
             name: "HoottyCore",
-            dependencies: ["PipelineKit"],
             path: "Sources/HoottyCore"
         ),
         .executableTarget(
@@ -46,12 +44,6 @@ let package = Package(
                               "-Xlinker", "Sources/Hootty/Info.plist"]),
             ]
         ),
-        .executableTarget(
-            name: "HoottyCLI",
-            dependencies: ["PipelineKit"],
-            path: "Sources/HoottyCLI"
-        ),
-        .testTarget(name: "HoottyCoreTests", dependencies: ["HoottyCore", "PipelineKit"]),
-        .testTarget(name: "PipelineKitTests", dependencies: ["PipelineKit"]),
+        .testTarget(name: "HoottyCoreTests", dependencies: ["HoottyCore"]),
     ]
 )

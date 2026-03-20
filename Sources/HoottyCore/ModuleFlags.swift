@@ -1,9 +1,7 @@
 public struct ModuleFlags: Equatable, Sendable {
-    public let pipelines: Bool
-    public let macros: Bool
+    public let opsx: Bool
 
-    public init(pipelines: Bool = false, macros: Bool = false) {
-        self.pipelines = pipelines
-        self.macros = macros
+    public init(opsx: Bool = false) {
+        self.opsx = opsx
     }
 }

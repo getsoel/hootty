@@ -72,16 +72,12 @@ struct AppModelTests {
 
     @Test func moduleFlagsBridgesConfigToggles() {
         let model = makeModel()
-        // Defaults: both disabled (experimental)
-        #expect(model.moduleFlags == ModuleFlags(pipelines: false, macros: false))
+        #expect(model.moduleFlags == ModuleFlags(opsx: false))
 
-        model.pipelinesEnabled = true
-        #expect(model.moduleFlags == ModuleFlags(pipelines: true, macros: false))
+        model.opsxEnabled = true
+        #expect(model.moduleFlags == ModuleFlags(opsx: true))
 
-        model.macrosEnabled = true
-        #expect(model.moduleFlags == ModuleFlags(pipelines: true, macros: true))
-
-        model.pipelinesEnabled = false
-        #expect(model.moduleFlags == ModuleFlags(pipelines: false, macros: true))
+        model.opsxEnabled = false
+        #expect(model.moduleFlags == ModuleFlags(opsx: false))
     }
 }

@@ -98,7 +98,6 @@ extension GhosttyApp {
     }
 
     private static let hoottySessionPrefix = "hootty:session:"
-    private static let hoottyMacroDonePrefix = "hootty:macro:done:"
 
     private static func handleDesktopNotification(target: ghostty_target_s, v: ghostty_action_desktop_notification_s) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
@@ -115,15 +114,6 @@ extension GhosttyApp {
             }
             DispatchQueue.main.async {
                 GhosttyApp.shared.onClaudeSessionDetected?(paneID, sessionID)
-            }
-        } else if let body, body.hasPrefix(hoottyMacroDonePrefix) {
-            let signalPaneID = String(body.dropFirst(hoottyMacroDonePrefix.count))
-            guard let signaledID = UUID(uuidString: signalPaneID) else {
-                Log.ghostty.warning("Invalid macro done pane ID: \(signalPaneID)")
-                return true
-            }
-            DispatchQueue.main.async {
-                GhosttyApp.shared.onMacroStepDone?(signaledID)
             }
         } else {
             GhosttyApp.shared.onPaneNeedsAttention?(paneID, .bell)

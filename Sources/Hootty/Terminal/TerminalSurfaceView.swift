@@ -206,7 +206,6 @@ final class TerminalSurfaceView: NSView {
         }
 
         addVar("HOOTTY_PANE_ID", paneID.uuidString)
-        addVar("PIPELINE_SESSION", paneID.uuidString)
 
         // Reset stale Kitty keyboard protocol modes at each bash prompt.
         // `CSI < 9 u` pops up to 9 entries from the keyboard mode stack.
