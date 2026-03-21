@@ -7,7 +7,7 @@ public final class AppModel {
     public let themeManager: ThemeManager
     public let soundManager: SoundManager
     public let workspaceStore: WorkspaceStore
-    public let specModel: SpecModel
+    public let workshopModel: WorkshopModel
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
@@ -21,7 +21,7 @@ public final class AppModel {
 
     public enum AppMode {
         case workspaces
-        case spec
+        case workshop
     }
 
     public var modalState: ModalState = .none
@@ -35,7 +35,7 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, specModel: SpecModel? = nil) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, workshopModel: WorkshopModel? = nil) {
         let resolvedConfigFile = configFile ?? ConfigFile()
         self.configFile = resolvedConfigFile
         resolvedConfigFile.ensureExists()
@@ -43,7 +43,7 @@ public final class AppModel {
         self.themeManager = ThemeManager(configFile: resolvedConfigFile, themeCatalog: catalog)
         self.soundManager = SoundManager(configFile: resolvedConfigFile)
         self.workspaceStore = workspaceStore
-        self.specModel = specModel ?? SpecModel()
+        self.workshopModel = workshopModel ?? WorkshopModel()
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
@@ -204,13 +204,13 @@ public final class AppModel {
         set { configFile.setDefaultTrueBool("hootty-show-worktree-actions", newValue) }
     }
 
-    public var specEnabled: Bool {
-        get { configFile.defaultFalseBool("hootty-module-spec") }
-        set { configFile.setDefaultFalseBool("hootty-module-spec", newValue) }
+    public var workshopEnabled: Bool {
+        get { configFile.defaultFalseBool("hootty-module-workshop") }
+        set { configFile.setDefaultFalseBool("hootty-module-workshop", newValue) }
     }
 
     public var moduleFlags: ModuleFlags {
-        ModuleFlags(spec: specEnabled)
+        ModuleFlags(workshop: workshopEnabled)
     }
 
     public func toggleSidebar() {
@@ -234,9 +234,9 @@ public final class AppModel {
         selectedWorkspaceID = workspaces[prevIdx].id
     }
 
-    /// Refresh Spec state and claims for a specific repo root.
-    public func refreshSpec(repoRoot: String) {
-        specModel.refresh(repoRoot: repoRoot)
-        specModel.refreshClaims(repoRoot: repoRoot)
+    /// Refresh Workshop state and claims for a specific repo root.
+    public func refreshWorkshop(repoRoot: String) {
+        workshopModel.refresh(repoRoot: repoRoot)
+        workshopModel.refreshClaims(repoRoot: repoRoot)
     }
 }

@@ -5,7 +5,7 @@ struct SplitNodeView: View {
     @Bindable var node: SplitNode
     let focusedPaneID: UUID?
     let tokens: DesignTokens
-    var specModel: SpecModel?
+    var workshopModel: WorkshopModel?
     let isInSplit: Bool
     let onFocusPane: (UUID) -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
@@ -20,7 +20,7 @@ struct SplitNodeView: View {
                 pane: pane,
                 isFocused: pane.id == focusedPaneID,
                 tokens: tokens,
-                specModel: specModel,
+                workshopModel: workshopModel,
                 onFocusPane: { onFocusPane(pane.id) },
                 onSplitPane: onSplitPane,
                 onClosePane: onClosePane,
@@ -51,14 +51,14 @@ struct SplitNodeView: View {
 
             ZStack(alignment: .topLeading) {
                 // First pane
-                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, specModel: specModel, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave)
+                SplitNodeView(node: first, focusedPaneID: focusedPaneID, tokens: tokens, workshopModel: workshopModel, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave)
                     .frame(
                         width: isH ? firstSize : geometry.size.width,
                         height: isH ? geometry.size.height : firstSize
                     )
 
                 // Second pane
-                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, specModel: specModel, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave)
+                SplitNodeView(node: second, focusedPaneID: focusedPaneID, tokens: tokens, workshopModel: workshopModel, isInSplit: true, onFocusPane: onFocusPane, onSplitPane: onSplitPane, onClosePane: onClosePane, onSwapPanes: onSwapPanes, onSave: onSave)
                     .frame(
                         width: isH ? secondSize : geometry.size.width,
                         height: isH ? geometry.size.height : secondSize

@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import { join } from "path";
-import { requireSpecDir, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, changePath } from "../lib/workshop-dir";
 import { resolveArtifacts } from "../lib/artifacts";
 import { parseTasks, totalProgress } from "../lib/tasks";
 import { parseYaml } from "../lib/yaml";
@@ -23,7 +23,7 @@ interface ChangeEntry {
 function readChangeMeta(
   dir: string
 ): { created?: string; schema?: string } | null {
-  const metaPath = join(dir, ".spec.yaml");
+  const metaPath = join(dir, ".workshop.yaml");
   if (!existsSync(metaPath)) return null;
   return parseYaml(readFileSync(metaPath, "utf-8"));
 }
@@ -55,7 +55,7 @@ function scanDir(
 }
 
 export async function runList(opts: ListOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
 
   const active = scanDir(paths.changes, false);
   const archived = scanDir(paths.archive, true);
@@ -67,7 +67,7 @@ export async function runList(opts: ListOpts): Promise<void> {
   }
 
   if (all.length === 0) {
-    console.log("No changes. Run `hootty spec new <name>` to create one.");
+    console.log("No changes. Run `hootty workshop new <name>` to create one.");
     return;
   }
 

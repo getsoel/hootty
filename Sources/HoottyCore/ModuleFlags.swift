@@ -1,7 +1,7 @@
 public struct ModuleFlags: Equatable, Sendable {
-    public let spec: Bool
+    public let workshop: Bool
 
-    public init(spec: Bool = false) {
-        self.spec = spec
+    public init(workshop: Bool = false) {
+        self.workshop = workshop
     }
 }

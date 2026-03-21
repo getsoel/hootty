@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { requireSpecDir, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, changePath } from "../lib/workshop-dir";
 import { listChangeNames } from "../lib/changes";
 import { resolveArtifacts, type ArtifactInfo } from "../lib/artifacts";
 import { parseTasks, totalProgress } from "../lib/tasks";
@@ -46,7 +46,7 @@ function printChangeStatus(
 }
 
 export async function runStatus(opts: StatusOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
 
   if (opts.change) {
     const dir = changePath(paths, opts.change);

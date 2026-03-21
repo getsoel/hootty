@@ -1,18 +1,19 @@
 import HoottyCore
 import SwiftUI
 
-/// Compact bar showing Spec status for a pane.
-/// When the pane has a claimed task group, shows: [Change] > [Task Group] [3/7]
-/// Otherwise shows artifact progress dots for active changes.
-struct SpecBarView: View {
-    let specModel: SpecModel
+/// Compact bar showing Workshop status for a pane. Three display modes:
+/// - Claimed with task group: [Change] > [Task Group] [3/7]
+/// - Claimed change only: [Change] + artifact dots
+/// - No claim: overview of all active changes with artifact dots
+struct WorkshopBarView: View {
+    let workshopModel: WorkshopModel
     let repoRoot: String
     let paneID: UUID
     let tokens: DesignTokens
 
     var body: some View {
-        let claim = specModel.claim(forPaneID: paneID.uuidString)
-        let status = specModel.status(for: repoRoot)
+        let claim = workshopModel.claim(forPaneID: paneID.uuidString)
+        let status = workshopModel.status(for: repoRoot)
         let activeChanges = status?.changes.filter { !$0.isArchived } ?? []
 
         if claim != nil || !activeChanges.isEmpty {
@@ -34,39 +35,45 @@ struct SpecBarView: View {
         }
     }
 
-    // MARK: - Claimed Task View
+    // MARK: - Claimed View
 
-    private func claimedView(_ claim: SpecClaim) -> some View {
-        let groups = specModel.taskGroups(forChange: claim.change)
-        let group = groups.first { $0.name == claim.taskGroup }
-
-        return HStack(spacing: Spacing.sm) {
+    private func claimedView(_ claim: WorkshopClaim) -> some View {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: "terminal")
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(tokens.textAccent))
                 .padding(.leading, Spacing.lg)
 
-            Text(SpecChange.formatName(claim.change))
+            Text(WorkshopChange.formatName(claim.change))
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
 
-            Image(systemName: "chevron.right")
-                .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+            if let taskGroup = claim.taskGroup {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: TypeScale.smallSize))
+                    .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
 
-            Text(claim.taskGroup)
-                .font(.system(size: TypeScale.smallSize, weight: .medium))
-                .foregroundStyle(Color(tokens.text))
-                .lineLimit(1)
+                Text(taskGroup)
+                    .font(.system(size: TypeScale.smallSize, weight: .medium))
+                    .foregroundStyle(Color(tokens.text))
+                    .lineLimit(1)
 
-            if let group {
-                progressView(group)
+                let groups = workshopModel.taskGroups(forChange: claim.change)
+                if let group = groups.first(where: { $0.name == taskGroup }) {
+                    progressView(group)
+                }
+            } else {
+                // Change-only claim — show artifact dots
+                let status = workshopModel.status(for: repoRoot)
+                if let change = status?.changes.first(where: { $0.name == claim.change }) {
+                    artifactDots(change.artifacts)
+                }
             }
         }
     }
 
-    private func progressView(_ group: SpecTaskGroup) -> some View {
+    private func progressView(_ group: WorkshopTaskGroup) -> some View {
         Text("\(group.completed)/\(group.total)")
             .font(.system(size: TypeScale.smallSize, design: .monospaced))
             .foregroundStyle(Color(group.completed == group.total ? tokens.textMuted : tokens.textAccent))
@@ -80,7 +87,7 @@ struct SpecBarView: View {
 
     // MARK: - Overview (no claim)
 
-    private func overviewView(_ changes: [SpecChange]) -> some View {
+    private func overviewView(_ changes: [WorkshopChange]) -> some View {
         HStack(spacing: 0) {
             Image(systemName: "doc.text")
                 .font(.system(size: TypeScale.smallSize))
@@ -102,7 +109,7 @@ struct SpecBarView: View {
         }
     }
 
-    private func changeItem(_ change: SpecChange) -> some View {
+    private func changeItem(_ change: WorkshopChange) -> some View {
         HStack(spacing: Spacing.sm) {
             Text(change.displayName)
                 .font(.system(size: TypeScale.smallSize))
@@ -113,7 +120,7 @@ struct SpecBarView: View {
         }
     }
 
-    private func artifactDots(_ artifacts: [SpecArtifact]) -> some View {
+    private func artifactDots(_ artifacts: [WorkshopArtifact]) -> some View {
         HStack(spacing: Spacing.xs) {
             ForEach(artifacts) { artifact in
                 Circle()
@@ -123,7 +130,7 @@ struct SpecBarView: View {
         }
     }
 
-    private func dotColor(_ state: SpecArtifactState) -> Color {
+    private func dotColor(_ state: WorkshopArtifactState) -> Color {
         switch state {
         case .done: Color(tokens.textMuted)
         case .ready: Color(tokens.textAccent)

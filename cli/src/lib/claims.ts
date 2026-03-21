@@ -4,7 +4,7 @@ import { parseYaml, serializeYaml } from "./yaml";
 
 export interface Claim {
   change: string;
-  taskGroup: string;
+  taskGroup?: string;
   claimedAt: string;
 }
 
@@ -26,11 +26,11 @@ export function readClaim(claimsDir: string, paneId: string): Claim | null {
   if (!existsSync(path)) return null;
 
   const raw = parseYaml(readFileSync(path, "utf-8"));
-  if (!raw.change || !raw.taskGroup) return null;
+  if (!raw.change) return null;
 
   return {
     change: raw.change,
-    taskGroup: raw.taskGroup,
+    taskGroup: raw.taskGroup || undefined,
     claimedAt: raw.claimedAt || "",
   };
 }
@@ -43,14 +43,14 @@ export function writeClaim(
 ): void {
   mkdirSync(claimsDir, { recursive: true });
   const path = join(claimsDir, `${paneId}.yaml`);
-  writeFileSync(
-    path,
-    serializeYaml({
-      change: claim.change,
-      taskGroup: claim.taskGroup,
-      claimedAt: claim.claimedAt,
-    })
-  );
+  const data: Record<string, string> = {
+    change: claim.change,
+    claimedAt: claim.claimedAt,
+  };
+  if (claim.taskGroup) {
+    data.taskGroup = claim.taskGroup;
+  }
+  writeFileSync(path, serializeYaml(data));
 }
 
 /** Remove a claim for a specific pane. */

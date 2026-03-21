@@ -1,6 +1,5 @@
-import { existsSync } from "fs";
 import { join } from "path";
-import { requireSpecDir, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, changePath } from "../lib/workshop-dir";
 import { resolvePaneId, readClaim } from "../lib/claims";
 import { parseTasks } from "../lib/tasks";
 import { printJson } from "../lib/output";
@@ -11,7 +10,7 @@ interface CurrentOpts {
 }
 
 export async function runCurrent(opts: CurrentOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
   const paneId = resolvePaneId(opts.pane);
 
   const claim = readClaim(paths.claims, paneId);
@@ -24,18 +23,19 @@ export async function runCurrent(opts: CurrentOpts): Promise<void> {
     return;
   }
 
-  // Read task progress for the claimed group
-  const changeDir = changePath(paths, claim.change);
-  const tasksFile = join(changeDir, "tasks.md");
-  const groups = parseTasks(tasksFile);
-  const group = groups.find((g) => g.name === claim.taskGroup);
+  let group = undefined;
+  if (claim.taskGroup) {
+    const changeDir = changePath(paths, claim.change);
+    const groups = parseTasks(join(changeDir, "tasks.md"));
+    group = groups.find((g) => g.name === claim.taskGroup);
+  }
 
   if (opts.json) {
     printJson({
       claimed: true,
       paneId,
       change: claim.change,
-      taskGroup: claim.taskGroup,
+      taskGroup: claim.taskGroup ?? null,
       claimedAt: claim.claimedAt,
       progress: group
         ? { total: group.total, completed: group.completed, items: group.items }
@@ -43,7 +43,9 @@ export async function runCurrent(opts: CurrentOpts): Promise<void> {
     });
   } else {
     console.log(`Change: ${claim.change}`);
-    console.log(`Task group: ${claim.taskGroup}`);
+    if (claim.taskGroup) {
+      console.log(`Task group: ${claim.taskGroup}`);
+    }
     if (group) {
       console.log(`Progress: ${group.completed}/${group.total}`);
       for (const item of group.items) {

@@ -2,27 +2,27 @@ import { existsSync, readFileSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { parseYaml } from "./yaml";
 
-const SPEC_DIR = "spec";
+const WORKSHOP_DIR = "workshop";
 const HOOTTY_DIR = ".hootty";
 
-export interface SpecConfig {
+export interface WorkshopConfig {
   schema?: string;
   context?: string;
   rules?: Record<string, string[]>;
 }
 
-export interface SpecPaths {
-  /** Project root (parent of spec/) */
+export interface WorkshopPaths {
+  /** Project root (parent of workshop/) */
   root: string;
-  /** spec/ directory */
-  spec: string;
-  /** spec/config.yaml */
+  /** workshop/ directory */
+  workshop: string;
+  /** workshop/config.yaml */
   config: string;
-  /** spec/specs/ (source of truth) */
+  /** workshop/specs/ (source of truth) */
   specs: string;
-  /** spec/changes/ */
+  /** workshop/changes/ */
   changes: string;
-  /** spec/archive/ */
+  /** workshop/archive/ */
   archive: string;
   /** .hootty/ */
   hootty: string;
@@ -30,13 +30,13 @@ export interface SpecPaths {
   claims: string;
 }
 
-/** Walk up from cwd to find spec/ directory. */
-export function findSpecRoot(from?: string): SpecPaths | null {
+/** Walk up from cwd to find workshop/ directory. */
+export function findWorkshopRoot(from?: string): WorkshopPaths | null {
   let dir = resolve(from || process.cwd());
 
   for (let i = 0; i < 50; i++) {
-    const specPath = join(dir, SPEC_DIR);
-    if (existsSync(specPath)) {
+    const workshopPath = join(dir, WORKSHOP_DIR);
+    if (existsSync(workshopPath)) {
       return buildPaths(dir);
     }
     const parent = dirname(dir);
@@ -48,39 +48,39 @@ export function findSpecRoot(from?: string): SpecPaths | null {
 }
 
 /** Build paths for a known project root. */
-export function buildPaths(root: string): SpecPaths {
-  const spec = join(root, SPEC_DIR);
+export function buildPaths(root: string): WorkshopPaths {
+  const workshop = join(root, WORKSHOP_DIR);
   return {
     root,
-    spec,
-    config: join(spec, "config.yaml"),
-    specs: join(spec, "specs"),
-    changes: join(spec, "changes"),
-    archive: join(spec, "archive"),
+    workshop,
+    config: join(workshop, "config.yaml"),
+    specs: join(workshop, "specs"),
+    changes: join(workshop, "changes"),
+    archive: join(workshop, "archive"),
     hootty: join(root, HOOTTY_DIR),
     claims: join(root, HOOTTY_DIR, "claims"),
   };
 }
 
-/** Require spec/ to exist, exit with error if not. */
-export function requireSpecDir(from?: string): SpecPaths {
-  const paths = findSpecRoot(from);
+/** Require workshop/ to exist, exit with error if not. */
+export function requireWorkshopDir(from?: string): WorkshopPaths {
+  const paths = findWorkshopRoot(from);
   if (!paths) {
     console.error(
-      "error: No spec/ directory found. Run `hootty spec init` first."
+      "error: No workshop/ directory found. Run `hootty workshop init` first."
     );
     process.exit(1);
   }
   return paths;
 }
 
-/** Read and parse spec/config.yaml. */
-export function readConfig(paths: SpecPaths): SpecConfig {
+/** Read and parse workshop/config.yaml. */
+export function readConfig(paths: WorkshopPaths): WorkshopConfig {
   if (!existsSync(paths.config)) return {};
   const content = readFileSync(paths.config, "utf-8");
   const raw = parseYaml(content);
 
-  const config: SpecConfig = {
+  const config: WorkshopConfig = {
     schema: raw.schema,
     context: raw.context,
   };
@@ -93,11 +93,11 @@ export function readConfig(paths: SpecPaths): SpecConfig {
 }
 
 /** Get path to a specific change directory. */
-export function changePath(paths: SpecPaths, name: string): string {
+export function changePath(paths: WorkshopPaths, name: string): string {
   return join(paths.changes, name);
 }
 
 /** Get path to an archived change directory. */
-export function archivePath(paths: SpecPaths, name: string): string {
+export function archivePath(paths: WorkshopPaths, name: string): string {
   return join(paths.archive, name);
 }

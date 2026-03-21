@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { requireSpecDir, readConfig, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, readConfig, changePath } from "../lib/workshop-dir";
 import { resolveChange } from "../lib/changes";
 import {
   getArtifactDef,
@@ -54,7 +54,7 @@ function readDependencyContent(
   return content;
 }
 
-/** Read accumulated specs from spec/specs/ for context. */
+/** Read accumulated specs from workshop/specs/ for context. */
 function readAccumulatedSpecs(specsDir: string): string | null {
   if (!existsSync(specsDir)) return null;
 
@@ -141,7 +141,7 @@ Guidelines:
 };
 
 export async function runInstructions(opts: InstructionsOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
 
   if (!ALL_ARTIFACT_IDS.includes(opts.artifactId as any)) {
     printError(

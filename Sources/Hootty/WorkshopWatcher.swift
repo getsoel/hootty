@@ -1,11 +1,11 @@
 import Foundation
 import HoottyCore
 
-/// Watches `spec/` directories for changes using DispatchSource.
-/// Monitors `spec/`, `spec/changes/`, and `spec/archive/` subdirectories
+/// Watches `workshop/` directories for changes using DispatchSource.
+/// Monitors `workshop/`, `workshop/changes/`, and `workshop/archive/` subdirectories
 /// to detect new/removed/archived changes. One watcher per repo root.
 @MainActor
-final class SpecWatcher {
+final class WorkshopWatcher {
     private struct WatchEntry {
         var sources: [DispatchSourceFileSystemObject] = []
     }
@@ -26,24 +26,24 @@ final class SpecWatcher {
         }
     }
 
-    /// Set the callback invoked when any watched `spec/` directory changes.
+    /// Set the callback invoked when any watched `workshop/` directory changes.
     /// The parameter is the repo root path.
     func setOnChange(_ handler: @escaping (String) -> Void) {
         onChange = handler
     }
 
-    /// Start watching the `spec/` and `.hootty/claims/` directories at the given repo root.
+    /// Start watching the `workshop/` and `.hootty/claims/` directories at the given repo root.
     /// Does nothing if already watching this root.
     func startWatching(repoRoot: String) {
         guard entries[repoRoot] == nil else { return }
 
-        let specDir = (repoRoot as NSString).appendingPathComponent(SpecModel.directoryPath)
-        let changesDir = (specDir as NSString).appendingPathComponent("changes")
-        let archiveDir = (specDir as NSString).appendingPathComponent("archive")
-        let claimsDir = (repoRoot as NSString).appendingPathComponent(SpecModel.claimsPath)
+        let workshopDir = (repoRoot as NSString).appendingPathComponent(WorkshopModel.directoryPath)
+        let changesDir = (workshopDir as NSString).appendingPathComponent("changes")
+        let archiveDir = (workshopDir as NSString).appendingPathComponent("archive")
+        let claimsDir = (repoRoot as NSString).appendingPathComponent(WorkshopModel.claimsPath)
 
         var entry = WatchEntry()
-        for dir in [specDir, changesDir, archiveDir, claimsDir] {
+        for dir in [workshopDir, changesDir, archiveDir, claimsDir] {
             if let source = makeSource(dir: dir, repoRoot: repoRoot) {
                 entry.sources.append(source)
             }

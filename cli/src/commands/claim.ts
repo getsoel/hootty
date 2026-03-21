@@ -1,19 +1,19 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import { requireSpecDir, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, changePath } from "../lib/workshop-dir";
 import { resolveChange } from "../lib/changes";
 import { resolvePaneId, writeClaim } from "../lib/claims";
 import { parseTasks } from "../lib/tasks";
 import { printSuccess, printError } from "../lib/output";
 
 interface ClaimOpts {
-  taskGroup: string;
+  taskGroup?: string;
   change?: string;
   pane?: string;
 }
 
 export async function runClaim(opts: ClaimOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
   const paneId = resolvePaneId(opts.pane);
   const changeName = resolveChange(paths.changes, opts.change);
   const changeDir = changePath(paths, changeName);
@@ -23,6 +23,17 @@ export async function runClaim(opts: ClaimOpts): Promise<void> {
     process.exit(1);
   }
 
+  // Change-only claim (no task group)
+  if (!opts.taskGroup) {
+    writeClaim(paths.claims, paneId, {
+      change: changeName,
+      claimedAt: new Date().toISOString(),
+    });
+    printSuccess(`Claimed change "${changeName}"`);
+    return;
+  }
+
+  // Task group claim — validate it exists in tasks.md
   const tasksFile = join(changeDir, "tasks.md");
   const groups = parseTasks(tasksFile);
 
@@ -34,7 +45,7 @@ export async function runClaim(opts: ClaimOpts): Promise<void> {
   const match = groups.find(
     (g) =>
       g.name === opts.taskGroup ||
-      g.name.toLowerCase() === opts.taskGroup.toLowerCase()
+      g.name.toLowerCase() === opts.taskGroup!.toLowerCase()
   );
 
   if (!match) {

@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Data Types
 
-public enum SpecArtifactID: String, CaseIterable, Sendable {
+public enum WorkshopArtifactID: String, CaseIterable, Sendable {
     case proposal
     case specs
     case design
@@ -18,30 +18,30 @@ public enum SpecArtifactID: String, CaseIterable, Sendable {
     }
 }
 
-public enum SpecArtifactState: String, Sendable, Equatable {
+public enum WorkshopArtifactState: String, Sendable, Equatable {
     case blocked
     case ready
     case done
 }
 
-public struct SpecArtifact: Identifiable, Sendable, Equatable {
-    public let id: SpecArtifactID
-    public let state: SpecArtifactState
+public struct WorkshopArtifact: Identifiable, Sendable, Equatable {
+    public let id: WorkshopArtifactID
+    public let state: WorkshopArtifactState
 
     public var displayName: String {
         id.displayName
     }
 
-    public init(id: SpecArtifactID, state: SpecArtifactState) {
+    public init(id: WorkshopArtifactID, state: WorkshopArtifactState) {
         self.id = id
         self.state = state
     }
 }
 
-public struct SpecChange: Identifiable, Sendable, Equatable {
+public struct WorkshopChange: Identifiable, Sendable, Equatable {
     public let name: String
     public let displayName: String
-    public let artifacts: [SpecArtifact]
+    public let artifacts: [WorkshopArtifact]
     public let isArchived: Bool
 
     public var id: String {
@@ -55,7 +55,7 @@ public struct SpecChange: Identifiable, Sendable, Equatable {
             .joined(separator: " ")
     }
 
-    public init(name: String, artifacts: [SpecArtifact], isArchived: Bool = false) {
+    public init(name: String, artifacts: [WorkshopArtifact], isArchived: Bool = false) {
         self.name = name
         self.displayName = Self.formatName(name)
         self.artifacts = artifacts
@@ -63,12 +63,12 @@ public struct SpecChange: Identifiable, Sendable, Equatable {
     }
 }
 
-public struct SpecRepoStatus: Sendable, Equatable {
+public struct WorkshopRepoStatus: Sendable, Equatable {
     public let repoRoot: String
-    public let changes: [SpecChange]
+    public let changes: [WorkshopChange]
     public let isInitialized: Bool
 
-    public init(repoRoot: String, changes: [SpecChange], isInitialized: Bool) {
+    public init(repoRoot: String, changes: [WorkshopChange], isInitialized: Bool) {
         self.repoRoot = repoRoot
         self.changes = changes
         self.isInitialized = isInitialized
@@ -77,12 +77,12 @@ public struct SpecRepoStatus: Sendable, Equatable {
 
 // MARK: - Claims
 
-public struct SpecClaim: Sendable, Equatable {
+public struct WorkshopClaim: Sendable, Equatable {
     public let change: String
-    public let taskGroup: String
+    public let taskGroup: String?
     public let claimedAt: String
 
-    public init(change: String, taskGroup: String, claimedAt: String) {
+    public init(change: String, taskGroup: String? = nil, claimedAt: String) {
         self.change = change
         self.taskGroup = taskGroup
         self.claimedAt = claimedAt
@@ -91,7 +91,7 @@ public struct SpecClaim: Sendable, Equatable {
 
 // MARK: - Task Progress
 
-public struct SpecTaskGroup: Sendable, Equatable {
+public struct WorkshopTaskGroup: Sendable, Equatable {
     public let name: String
     public let total: Int
     public let completed: Int
@@ -107,31 +107,31 @@ public struct SpecTaskGroup: Sendable, Equatable {
 
 @MainActor
 @Observable
-public final class SpecModel {
-    /// Relative path from repo root to the spec directory.
-    public static let directoryPath = "spec"
+public final class WorkshopModel {
+    /// Relative path from repo root to the workshop directory.
+    public static let directoryPath = "workshop"
 
     /// Relative path from repo root to the hootty claims directory.
     public static let claimsPath = ".hootty/claims"
 
-    /// Spec status per repo root.
-    public private(set) var statusByRepo: [String: SpecRepoStatus] = [:]
+    /// Workshop status per repo root.
+    public private(set) var statusByRepo: [String: WorkshopRepoStatus] = [:]
 
     /// Claims per pane ID, keyed by UUID string. Merged across all repo roots.
-    public private(set) var claimsByPaneID: [String: SpecClaim] = [:]
+    public private(set) var claimsByPaneID: [String: WorkshopClaim] = [:]
 
     /// Cached task groups per change name, refreshed alongside claims.
-    public private(set) var taskGroupsByChange: [String: [SpecTaskGroup]] = [:]
+    public private(set) var taskGroupsByChange: [String: [WorkshopTaskGroup]] = [:]
 
     public init() {}
 
-    public nonisolated static func hasSpec(repoRoot: String) -> Bool {
+    public nonisolated static func hasWorkshop(repoRoot: String) -> Bool {
         var isDir: ObjCBool = false
         let path = (repoRoot as NSString).appendingPathComponent(directoryPath)
         return FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue
     }
 
-    public func status(for repoRoot: String) -> SpecRepoStatus? {
+    public func status(for repoRoot: String) -> WorkshopRepoStatus? {
         statusByRepo[repoRoot]
     }
 
@@ -141,28 +141,28 @@ public final class SpecModel {
 
     // MARK: - Refresh
 
-    /// Refresh Spec state by scanning the filesystem.
-    /// Resolves artifact states from file existence using the hardcoded spec-driven schema.
+    /// Refresh Workshop state by scanning the filesystem.
+    /// Resolves artifact states from file existence using the hardcoded workshop-driven schema.
     /// Only updates `statusByRepo` if state actually changed (avoids spurious re-renders).
     public func refresh(repoRoot: String) {
-        let specPath = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
+        let workshopPath = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
 
-        guard FileManager.default.fileExists(atPath: specPath) else {
-            let empty = SpecRepoStatus(repoRoot: repoRoot, changes: [], isInitialized: false)
+        guard FileManager.default.fileExists(atPath: workshopPath) else {
+            let empty = WorkshopRepoStatus(repoRoot: repoRoot, changes: [], isInitialized: false)
             if statusByRepo[repoRoot] != empty {
                 statusByRepo[repoRoot] = empty
             }
             return
         }
 
-        var changes: [SpecChange] = []
-        let changesDir = (specPath as NSString).appendingPathComponent("changes")
+        var changes: [WorkshopChange] = []
+        let changesDir = (workshopPath as NSString).appendingPathComponent("changes")
         changes.append(contentsOf: Self.scanDirectory(changesDir, isArchived: false))
 
-        let archiveDir = (specPath as NSString).appendingPathComponent("archive")
+        let archiveDir = (workshopPath as NSString).appendingPathComponent("archive")
         changes.append(contentsOf: Self.scanDirectory(archiveDir, isArchived: true))
 
-        let newStatus = SpecRepoStatus(repoRoot: repoRoot, changes: changes, isInitialized: true)
+        let newStatus = WorkshopRepoStatus(repoRoot: repoRoot, changes: changes, isInitialized: true)
         if statusByRepo[repoRoot] != newStatus {
             statusByRepo[repoRoot] = newStatus
         }
@@ -170,7 +170,7 @@ public final class SpecModel {
 
     // MARK: - Claims
 
-    public func claim(forPaneID paneID: String) -> SpecClaim? {
+    public func claim(forPaneID paneID: String) -> WorkshopClaim? {
         claimsByPaneID[paneID]
     }
 
@@ -213,11 +213,11 @@ public final class SpecModel {
     }
 
     /// Scan claims directory for all claim files.
-    private nonisolated static func scanClaims(_ claimsDir: String) -> [String: SpecClaim] {
+    private nonisolated static func scanClaims(_ claimsDir: String) -> [String: WorkshopClaim] {
         let fm = FileManager.default
         guard let items = try? fm.contentsOfDirectory(atPath: claimsDir) else { return [:] }
 
-        var claims: [String: SpecClaim] = [:]
+        var claims: [String: WorkshopClaim] = [:]
         for item in items where item.hasSuffix(".yaml") {
             let paneID = String(item.dropLast(5)) // remove .yaml
             let path = (claimsDir as NSString).appendingPathComponent(item)
@@ -225,12 +225,11 @@ public final class SpecModel {
                   let content = String(data: data, encoding: .utf8) else { continue }
 
             let parsed = parseSimpleYaml(content)
-            guard let change = parsed["change"],
-                  let taskGroup = parsed["taskGroup"] else { continue }
+            guard let change = parsed["change"] else { continue }
 
-            claims[paneID] = SpecClaim(
+            claims[paneID] = WorkshopClaim(
                 change: change,
-                taskGroup: taskGroup,
+                taskGroup: parsed["taskGroup"],
                 claimedAt: parsed["claimedAt"] ?? ""
             )
         }
@@ -252,12 +251,12 @@ public final class SpecModel {
     // MARK: - Task Group Parsing
 
     /// Get cached task groups for a change. Returns empty if not cached.
-    public func taskGroups(forChange changeName: String) -> [SpecTaskGroup] {
+    public func taskGroups(forChange changeName: String) -> [WorkshopTaskGroup] {
         taskGroupsByChange[changeName] ?? []
     }
 
     /// Read task groups from disk for a change's tasks.md.
-    private nonisolated func readTaskGroups(repoRoot: String, changeName: String) -> [SpecTaskGroup] {
+    private nonisolated func readTaskGroups(repoRoot: String, changeName: String) -> [WorkshopTaskGroup] {
         let base = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
         for subdir in ["changes", "archive"] {
             let tasksPath = (base as NSString)
@@ -272,8 +271,8 @@ public final class SpecModel {
     }
 
     /// Parse tasks.md content into task groups.
-    private nonisolated static func parseTaskGroups(_ content: String) -> [SpecTaskGroup] {
-        var groups: [SpecTaskGroup] = []
+    private nonisolated static func parseTaskGroups(_ content: String) -> [WorkshopTaskGroup] {
+        var groups: [WorkshopTaskGroup] = []
         var currentName: String?
         var total = 0
         var completed = 0
@@ -282,7 +281,7 @@ public final class SpecModel {
             if line.hasPrefix("## ") {
                 // Flush previous group
                 if let name = currentName {
-                    groups.append(SpecTaskGroup(name: name, total: total, completed: completed))
+                    groups.append(WorkshopTaskGroup(name: name, total: total, completed: completed))
                 }
                 currentName = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
                 total = 0
@@ -296,34 +295,34 @@ public final class SpecModel {
         }
 
         if let name = currentName {
-            groups.append(SpecTaskGroup(name: name, total: total, completed: completed))
+            groups.append(WorkshopTaskGroup(name: name, total: total, completed: completed))
         }
         return groups
     }
 
     // MARK: - Private Helpers
 
-    /// Scan a directory for change subdirectories, returning SpecChange for each.
-    private nonisolated static func scanDirectory(_ dirPath: String, isArchived: Bool) -> [SpecChange] {
+    /// Scan a directory for change subdirectories, returning a WorkshopChange for each.
+    private nonisolated static func scanDirectory(_ dirPath: String, isArchived: Bool) -> [WorkshopChange] {
         let fm = FileManager.default
         guard let items = try? fm.contentsOfDirectory(atPath: dirPath) else { return [] }
 
-        return items.sorted().compactMap { item -> SpecChange? in
+        return items.sorted().compactMap { item -> WorkshopChange? in
             guard !item.hasPrefix(".") else { return nil }
             let changePath = (dirPath as NSString).appendingPathComponent(item)
             var isDir: ObjCBool = false
             guard fm.fileExists(atPath: changePath, isDirectory: &isDir), isDir.boolValue else { return nil }
             let artifacts = resolveArtifacts(changePath: changePath)
-            return SpecChange(name: item, artifacts: artifacts, isArchived: isArchived)
+            return WorkshopChange(name: item, artifacts: artifacts, isArchived: isArchived)
         }
     }
 
-    // MARK: - Artifact Resolution (spec-driven schema, hardcoded)
+    // MARK: - Artifact Resolution (workshop-driven schema, hardcoded)
 
-    /// Resolve artifact states from filesystem for the spec-driven schema.
+    /// Resolve artifact states from filesystem for the workshop-driven schema.
     /// DAG: proposal → specs → tasks, proposal → design → tasks
     /// Uses a single `contentsOfDirectory` per change to minimize syscalls.
-    private nonisolated static func resolveArtifacts(changePath: String) -> [SpecArtifact] {
+    private nonisolated static func resolveArtifacts(changePath: String) -> [WorkshopArtifact] {
         let fm = FileManager.default
         let entries = Set((try? fm.contentsOfDirectory(atPath: changePath)) ?? [])
 
@@ -343,15 +342,15 @@ public final class SpecModel {
         let designDone = entries.contains("design.md")
         let tasksDone = entries.contains("tasks.md")
 
-        func state(done: Bool, depsReady: Bool) -> SpecArtifactState {
+        func state(done: Bool, depsReady: Bool) -> WorkshopArtifactState {
             done ? .done : (depsReady ? .ready : .blocked)
         }
 
         return [
-            SpecArtifact(id: .proposal, state: state(done: proposalDone, depsReady: true)),
-            SpecArtifact(id: .specs, state: state(done: specsDone, depsReady: proposalDone)),
-            SpecArtifact(id: .design, state: state(done: designDone, depsReady: proposalDone)),
-            SpecArtifact(id: .tasks, state: state(done: tasksDone, depsReady: specsDone && designDone))
+            WorkshopArtifact(id: .proposal, state: state(done: proposalDone, depsReady: true)),
+            WorkshopArtifact(id: .specs, state: state(done: specsDone, depsReady: proposalDone)),
+            WorkshopArtifact(id: .design, state: state(done: designDone, depsReady: proposalDone)),
+            WorkshopArtifact(id: .tasks, state: state(done: tasksDone, depsReady: specsDone && designDone))
         ]
     }
 
@@ -359,7 +358,7 @@ public final class SpecModel {
 
     /// Read the content of an artifact file for a change.
     /// Searches both `changes/` and `archive/` directories.
-    public nonisolated func readArtifactContent(repoRoot: String, changeName: String, artifactID: SpecArtifactID) -> String? {
+    public nonisolated func readArtifactContent(repoRoot: String, changeName: String, artifactID: WorkshopArtifactID) -> String? {
         let base = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
 
         for subdir in ["changes", "archive"] {
@@ -372,7 +371,7 @@ public final class SpecModel {
         return nil
     }
 
-    private nonisolated func readArtifactFile(changePath: String, artifactID: SpecArtifactID) -> String? {
+    private nonisolated func readArtifactFile(changePath: String, artifactID: WorkshopArtifactID) -> String? {
         let filePath: String
         switch artifactID {
         case .proposal:

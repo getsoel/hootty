@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { requireSpecDir, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, changePath } from "../lib/workshop-dir";
 import { serializeYaml } from "../lib/yaml";
 import { printSuccess, printError } from "../lib/output";
 
@@ -13,7 +13,7 @@ export async function runNew(name: string): Promise<void> {
     process.exit(1);
   }
 
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
   const dir = changePath(paths, name);
 
   if (existsSync(dir)) {
@@ -27,7 +27,7 @@ export async function runNew(name: string): Promise<void> {
 
   // Write per-change metadata
   writeFileSync(
-    `${dir}/.spec.yaml`,
+    `${dir}/.workshop.yaml`,
     serializeYaml({
       schema: "spec-driven",
       created: new Date().toISOString().split("T")[0],
@@ -35,7 +35,7 @@ export async function runNew(name: string): Promise<void> {
   );
 
   printSuccess(`Created change: ${name}`);
-  printSuccess(`  spec/changes/${name}/`);
+  printSuccess(`  workshop/changes/${name}/`);
   printSuccess("");
   printSuccess("Next: create artifacts in order:");
   printSuccess("  1. proposal.md  (why and what)");

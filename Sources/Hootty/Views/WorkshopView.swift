@@ -1,7 +1,7 @@
 import HoottyCore
 import SwiftUI
 
-struct SpecView: View {
+struct WorkshopView: View {
     @Bindable var appModel: AppModel
     let tokens: DesignTokens
 
@@ -92,7 +92,7 @@ struct SpecView: View {
             Text("No active changes")
                 .font(.system(size: TypeScale.bodySize))
                 .foregroundStyle(Color(tokens.textMuted))
-            Text("Run `hootty spec init` in a repo to get started")
+            Text("Run `hootty workshop init` in a repo to get started")
                 .font(.system(size: TypeScale.captionSize))
                 .foregroundStyle(Color(tokens.textMuted).opacity(0.6))
                 .multilineTextAlignment(.center)
@@ -118,7 +118,7 @@ struct SpecView: View {
 
             ForEach(entry.changes) { change in
                 let key = "\(entry.repoRoot)|\(change.name)"
-                SpecChangeCard(
+                WorkshopChangeCard(
                     change: change,
                     tokens: tokens,
                     isExpanded: expandedChangeKey == key,
@@ -128,7 +128,7 @@ struct SpecView: View {
                         }
                     },
                     onReadArtifact: { artifactID in
-                        appModel.specModel.readArtifactContent(
+                        appModel.workshopModel.readArtifactContent(
                             repoRoot: entry.repoRoot,
                             changeName: change.name,
                             artifactID: artifactID
@@ -147,7 +147,7 @@ struct SpecView: View {
     // MARK: - Data
 
     private var allRepoRoots: [String] {
-        Array(appModel.specModel.statusByRepo.keys).sorted()
+        Array(appModel.workshopModel.statusByRepo.keys).sorted()
     }
 
     private func filteredEntries(repos: [String]) -> [RepoEntry] {
@@ -158,7 +158,7 @@ struct SpecView: View {
         }
 
         return filtered.compactMap { repo in
-            let status = appModel.specModel.status(for: repo)
+            let status = appModel.workshopModel.status(for: repo)
             guard let status, !status.changes.isEmpty else { return nil }
             return RepoEntry(repoRoot: repo, changes: status.changes)
         }
@@ -173,23 +173,23 @@ struct SpecView: View {
 
 private struct RepoEntry {
     let repoRoot: String
-    let changes: [SpecChange]
+    let changes: [WorkshopChange]
 }
 
 // MARK: - Change Card
 
-private struct SpecChangeCard: View {
-    let change: SpecChange
+private struct WorkshopChangeCard: View {
+    let change: WorkshopChange
     let tokens: DesignTokens
     let isExpanded: Bool
     let onToggleExpand: () -> Void
-    let onReadArtifact: (SpecArtifactID) -> String?
+    let onReadArtifact: (WorkshopArtifactID) -> String?
 
-    @State private var hoveredArtifactID: SpecArtifactID?
+    @State private var hoveredArtifactID: WorkshopArtifactID?
     @State private var selectedArtifact: SelectedArtifact?
 
     private struct SelectedArtifact: Equatable {
-        let id: SpecArtifactID
+        let id: WorkshopArtifactID
         let content: String
     }
 
@@ -264,7 +264,7 @@ private struct SpecChangeCard: View {
         }
     }
 
-    private func artifactColor(state: SpecArtifactState) -> Color {
+    private func artifactColor(state: WorkshopArtifactState) -> Color {
         switch state {
         case .done: Color(tokens.textMuted)
         case .ready: Color(tokens.textAccent)
@@ -290,7 +290,7 @@ private struct SpecChangeCard: View {
 
     // MARK: - DAG Visualization
 
-    // Layout is hardcoded to the spec-driven schema:
+    // Layout is hardcoded to the workshop-driven schema:
     //   [Proposal] → [Specs]  → [Tasks]
     //              → [Design] ↗
 
@@ -326,7 +326,7 @@ private struct SpecChangeCard: View {
         }
     }
 
-    private func artifactNode(_ artifact: SpecArtifact) -> some View {
+    private func artifactNode(_ artifact: WorkshopArtifact) -> some View {
         let isHovered = hoveredArtifactID == artifact.id
         let isSelected = selectedArtifact?.id == artifact.id
 
@@ -364,7 +364,7 @@ private struct SpecChangeCard: View {
         .disabled(artifact.state != .done)
     }
 
-    private func artifactStateIcon(_ state: SpecArtifactState) -> some View {
+    private func artifactStateIcon(_ state: WorkshopArtifactState) -> some View {
         Group {
             switch state {
             case .done:
@@ -381,7 +381,7 @@ private struct SpecChangeCard: View {
         .font(.system(size: TypeScale.captionSize))
     }
 
-    private func nodeBackground(state: SpecArtifactState, isHovered: Bool, isSelected: Bool) -> Color {
+    private func nodeBackground(state: WorkshopArtifactState, isHovered: Bool, isSelected: Bool) -> Color {
         if isSelected {
             return Color(tokens.elementSelected)
         }

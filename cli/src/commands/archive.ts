@@ -7,7 +7,7 @@ import {
   renameSync,
 } from "fs";
 import { join } from "path";
-import { requireSpecDir, changePath } from "../lib/spec-dir";
+import { requireWorkshopDir, changePath } from "../lib/workshop-dir";
 import { allArtifactsDone } from "../lib/artifacts";
 import { parseTasks, totalProgress } from "../lib/tasks";
 import { printSuccess, printError } from "../lib/output";
@@ -50,7 +50,7 @@ function mergeSpecs(changeSpecsDir: string, mainSpecsDir: string): number {
 }
 
 export async function runArchive(opts: ArchiveOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
   const changeDir = changePath(paths, opts.name);
 
   if (!existsSync(changeDir)) {
@@ -82,7 +82,7 @@ export async function runArchive(opts: ArchiveOpts): Promise<void> {
   const changeSpecsDir = join(changeDir, "specs");
   const merged = mergeSpecs(changeSpecsDir, paths.specs);
   if (merged > 0) {
-    printSuccess(`Merged ${merged} spec(s) into spec/specs/`);
+    printSuccess(`Merged ${merged} spec(s) into workshop/specs/`);
   }
 
   // Move change to archive
@@ -95,5 +95,5 @@ export async function runArchive(opts: ArchiveOpts): Promise<void> {
   mkdirSync(paths.archive, { recursive: true });
   renameSync(changeDir, archiveDir);
 
-  printSuccess(`Archived "${opts.name}" to spec/archive/${opts.name}/`);
+  printSuccess(`Archived "${opts.name}" to workshop/archive/${opts.name}/`);
 }

@@ -1,4 +1,4 @@
-import { requireSpecDir } from "../lib/spec-dir";
+import { requireWorkshopDir } from "../lib/workshop-dir";
 import { resolvePaneId, removeClaim, readClaim } from "../lib/claims";
 import { printSuccess, printError } from "../lib/output";
 
@@ -7,7 +7,7 @@ interface ReleaseOpts {
 }
 
 export async function runRelease(opts: ReleaseOpts): Promise<void> {
-  const paths = requireSpecDir();
+  const paths = requireWorkshopDir();
   const paneId = resolvePaneId(opts.pane);
 
   const existing = readClaim(paths.claims, paneId);

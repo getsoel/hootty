@@ -13,12 +13,12 @@ import { runCurrent } from "./commands/current";
 const VERSION = "0.1.0";
 
 function printHelp(): void {
-  console.log(`hootty spec — Spec-driven development for Hootty
+  console.log(`hootty workshop — Workshop-driven development for Hootty
 
-Usage: hootty spec <command> [options]
+Usage: hootty workshop <command> [options]
 
 Setup:
-  init                              Initialize spec/ directory
+  init                              Initialize workshop/ directory
   new <name>                        Create a new change
 
 Status:
@@ -28,8 +28,8 @@ Status:
                                     Get creation instructions for an artifact
 
 Claims:
-  claim <task-group> [--change <name>] [--pane <id>]
-                                    Claim a task group for a pane
+  claim [<task-group>] [--change <name>] [--pane <id>]
+                                    Claim a change (or task group) for a pane
   release [--pane <id>]             Release current claim
   current [--pane <id>] [--json]    Show current claim
 
@@ -42,11 +42,11 @@ Other:
 }
 
 function parseArgs(argv: string[]): { command: string; args: string[] } {
-  // Handle: `hootty spec <cmd>` or direct `spec <cmd>` or just `<cmd>`
+  // Handle: `hootty workshop <cmd>` or direct `workshop <cmd>` or just `<cmd>`
   let rest = argv.slice(2); // skip bun/node and script path
 
-  // If first arg is "spec", skip it (called as `hootty spec <cmd>`)
-  if (rest[0] === "spec") {
+  // If first arg is "workshop", skip it (called as `hootty workshop <cmd>`)
+  if (rest[0] === "workshop") {
     rest = rest.slice(1);
   }
 
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
       break;
     case "new":
       if (!args[0]) {
-        console.error("Usage: hootty spec new <name>");
+        console.error("Usage: hootty workshop new <name>");
         process.exit(1);
       }
       await runNew(args[0]);
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
     case "instructions":
       if (!args[0]) {
         console.error(
-          "Usage: hootty spec instructions <artifact-id> [--change <name>]"
+          "Usage: hootty workshop instructions <artifact-id> [--change <name>]"
         );
         process.exit(1);
       }
@@ -102,7 +102,7 @@ async function main(): Promise<void> {
       break;
     case "archive":
       if (!args[0]) {
-        console.error("Usage: hootty spec archive <name> [--yes]");
+        console.error("Usage: hootty workshop archive <name> [--yes]");
         process.exit(1);
       }
       await runArchive({
@@ -110,19 +110,15 @@ async function main(): Promise<void> {
         yes: hasFlag(args, "--yes"),
       });
       break;
-    case "claim":
-      if (!args[0]) {
-        console.error(
-          "Usage: hootty spec claim <task-group> [--change <name>]"
-        );
-        process.exit(1);
-      }
+    case "claim": {
+      const taskGroup = args[0]?.startsWith("--") ? undefined : args[0];
       await runClaim({
-        taskGroup: args[0],
+        taskGroup,
         change: getFlag(args, "--change"),
         pane: getFlag(args, "--pane"),
       });
       break;
+    }
     case "release":
       await runRelease({ pane: getFlag(args, "--pane") });
       break;
@@ -133,7 +129,7 @@ async function main(): Promise<void> {
       });
       break;
     case "version":
-      console.log(`hootty-spec ${VERSION}`);
+      console.log(`hootty-workshop ${VERSION}`);
       break;
     case "help":
     case "--help":
