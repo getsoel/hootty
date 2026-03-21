@@ -23,7 +23,7 @@ Sources/
     include/module.modulemap   -- SPM module map
     shims.c                    -- placeholder for SPM
   HoottyCore/                -- testable library target (no UI dependencies)
-    AppModel.swift             -- @Observable app state, workspace/theme/sound/pipeline management, appMode/detailMode
+    AppModel.swift             -- @Observable app state, workspace/theme/sound management, appMode
     Workspace.swift            -- @Observable: id, name, rootNode (SplitNode), focusedPaneID
     Pane.swift                 -- @Observable: id, name, isRunning, shell, workingDirectory
     SplitNode.swift            -- @Observable binary tree: leaf(Pane) | split(direction, first, second)
@@ -38,10 +38,7 @@ Sources/
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
     PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd)
     ModuleFlags.swift           -- Module toggle struct bundled through view hierarchy (see docs/MODULES.md)
-    PipelineModel.swift        -- @Observable pipeline claim/board state per pane/repo
-    PipelineReader.swift       -- Reads pipeline config and state from .hootty/pipeline/
-    PipelineState.swift        -- Pipeline data structures (stages, config, jobs, claims)
-    PipelineWriter.swift       -- Writes job files and .state.json mutations (move, add, remove, pause)
+    SpecModel.swift            -- @Observable Spec state per repo, artifact resolution
     SoundManager.swift         -- Sound trigger playback management
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp
@@ -50,7 +47,7 @@ Sources/
     CrashHandler.swift         -- Crash log writer (~/Library/Logs/Hootty/)
     Log.swift                  -- os.Logger wrapper (subsystem: com.soel.hootty)
     SafeSubscript.swift        -- Safe array subscript extension (returns nil on out-of-bounds)
-    PipelineWatcher.swift      -- DispatchSource file watcher for pipeline state changes
+    SpecWatcher.swift          -- DispatchSource file watcher for spec directory changes
     Views/
       ContentView.swift        -- Main layout: switches between workspaces (sidebar + detail) and templates view
       WorkspaceSidebar.swift   -- Workspace list with status indicators
@@ -64,12 +61,11 @@ Sources/
       TerminalPaneView.swift   -- NSViewRepresentable wrapping TerminalSurfaceView per Pane
       AnimatedBorderModifier.swift -- Animated gradient border for attention state
       BarIconButton.swift      -- Reusable square icon button/menu for horizontal bars
-      CapsulePickerView.swift  -- Reusable capsule segmented control (used by titlebar, sidebar, pipelines)
+      CapsulePickerView.swift  -- Reusable capsule segmented control (used by titlebar, sidebar)
       SearchModalView.swift    -- Reusable search modal container (used by command palette, theme picker)
-      PipelineBoardFactory.swift -- AppModel extension constructing PipelineBoardView with callbacks
       CommandPaletteView.swift -- Searchable command palette with keyboard navigation
-      PipelineBarView.swift    -- Job claim bar with stage progress dots
-      PipelineBoardView.swift  -- Kanban board grouped by pipeline stages
+      SpecBarView.swift        -- Compact Spec artifact progress bar per pane
+      SpecView.swift           -- Full Spec changes view (app-level mode)
       SplitLayoutThumbnail.swift -- Canvas-drawn minimap of split layout
       StatusDotView.swift      -- Colored status dot indicator
       TemplatesView.swift      -- Templates feature UI
@@ -97,8 +93,7 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 - Action callbacks (title, pwd, exit) → update Pane model → Workspace aggregates → SwiftUI reacts
 - Split panes: Workspace.rootNode is a SplitNode binary tree; each leaf holds a Pane with its own surface
 - Commands: AppCommand enum → CommandRegistry (maps to actions) → menus, palette, ghostty callbacks all dispatch through `commandRegistry.execute()`
-- PipelineWatcher monitors `.hootty/pipeline/.state.json` → PipelineModel updates → PipelineBarView/PipelineBoardView react
-- PipelineModel delegates mutations (move, add, remove, pause) to PipelineWriter → writes job files and .state.json
+- SpecWatcher monitors `spec/` directories → SpecModel.refresh() → SpecBarView/SpecView react
 
 ### Deep-dive docs (read on demand)
 - `docs/COMMANDS.md` — read when adding commands, modifying keyboard shortcuts, or working on the command palette
@@ -109,7 +104,6 @@ Uses [libghostty](https://github.com/ghostty-org/ghostty) for full terminal emul
 - `docs/CONFIG.md` — read when working on the config file system or adding new settings
 - `docs/RULES.md` — read when adding new `.claude/rules/` files or modifying progressive disclosure structure
 - `docs/MODULES.md` — read when adding a new module, modifying module flags, or working on module guard points
-- `docs/specs/PIPELINE_SPEC.md` — read when working on pipeline board, claim logic, or job state
 
 ### Naming: Tab vs Pane vs Group
 - **Tab**: UI presentation concept — items in the tab bar. Use in tab bar context: "Rename Tab", "Close Tab"

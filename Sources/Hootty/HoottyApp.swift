@@ -54,7 +54,7 @@ struct HoottyApp: App {
     @State private var appModel: AppModel
     @State private var commandRegistry: CommandRegistry
     @State private var headWatcher = GitHEADWatcher()
-    @State private var opsxWatcher = OpsxWatcher()
+    @State private var specWatcher = SpecWatcher()
 
     // MARK: - Command Registration
 
@@ -137,8 +137,23 @@ struct HoottyApp: App {
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
-        commandRegistry.register(.toggleOpsx) { [appModel] in
-            appModel.opsxEnabled.toggle()
+        commandRegistry.register(.toggleSpec) { [appModel, specWatcher] in
+            appModel.specEnabled.toggle()
+            if appModel.specEnabled {
+                // Bootstrap watchers for repos already open in panes
+                specWatcher.setOnChange { [appModel] repoRoot in
+                    appModel.refreshSpec(repoRoot: repoRoot)
+                }
+                for workspace in appModel.workspaces {
+                    for pane in workspace.allPanes {
+                        if let repoRoot = pane.repoRoot,
+                           !specWatcher.watchedRepoRoots.contains(repoRoot),
+                           SpecModel.hasSpec(repoRoot: repoRoot) {
+                            specWatcher.startWatching(repoRoot: repoRoot)
+                        }
+                    }
+                }
+            }
         }
 
         // Wire the registry into GhosttyApp for action callback routing
@@ -154,13 +169,13 @@ struct HoottyApp: App {
         }
     }
 
-    private static func cleanupOpsxWatcher(_ watcher: OpsxWatcher, repoRoot: String, appModel: AppModel) {
+    private static func cleanupSpecWatcher(_ watcher: SpecWatcher, repoRoot: String, appModel: AppModel) {
         let hasRemainingPanes = appModel.workspaces.contains { workspace in
             workspace.allPanes.contains { $0.repoRoot == repoRoot }
         }
         if !hasRemainingPanes {
             watcher.stopWatching(repoRoot: repoRoot)
-            appModel.opsxModel.removeStatus(for: repoRoot)
+            appModel.specModel.removeStatus(for: repoRoot)
         }
     }
 
@@ -179,7 +194,7 @@ struct HoottyApp: App {
         WindowGroup {
             ContentView(appModel: appModel, commandRegistry: commandRegistry)
                 .frame(minWidth: 700, minHeight: 400)
-                .onAppear { [headWatcher, opsxWatcher] in
+                .onAppear { [headWatcher, specWatcher] in
                     // Bootstrap HEAD watchers for persisted repos
                     for workspace in appModel.workspaces {
                         for pane in workspace.allPanes {
@@ -191,17 +206,17 @@ struct HoottyApp: App {
                         }
                     }
 
-                    // Bootstrap OPSX watchers for repos with openspec/
-                    if appModel.opsxEnabled {
-                        opsxWatcher.setOnChange { [appModel] repoRoot in
-                            appModel.refreshOpsx(repoRoot: repoRoot)
+                    // Bootstrap Spec watchers for repos with spec/
+                    if appModel.specEnabled {
+                        specWatcher.setOnChange { [appModel] repoRoot in
+                            appModel.refreshSpec(repoRoot: repoRoot)
                         }
                         for workspace in appModel.workspaces {
                             for pane in workspace.allPanes {
                                 if let repoRoot = pane.repoRoot,
-                                   !opsxWatcher.watchedRepoRoots.contains(repoRoot),
-                                   OpsxModel.hasOpenSpec(repoRoot: repoRoot) {
-                                    opsxWatcher.startWatching(repoRoot: repoRoot)
+                                   !specWatcher.watchedRepoRoots.contains(repoRoot),
+                                   SpecModel.hasSpec(repoRoot: repoRoot) {
+                                    specWatcher.startWatching(repoRoot: repoRoot)
                                 }
                             }
                         }
@@ -249,7 +264,7 @@ struct HoottyApp: App {
                             appModel.saveWorkspaces()
                         }
                     }
-                    GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher, opsxWatcher] paneID in
+                    GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher, specWatcher] paneID in
                         let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
                         GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                         guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
@@ -257,13 +272,13 @@ struct HoottyApp: App {
                         appModel.saveWorkspaces()
                         if let root = repoRoot {
                             Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                            Self.cleanupOpsxWatcher(opsxWatcher, repoRoot: root, appModel: appModel)
+                            Self.cleanupSpecWatcher(specWatcher, repoRoot: root, appModel: appModel)
                         }
                     }
                     GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
                         appModel.handleTitleChange(paneID, title: title)
                     }
-                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, opsxWatcher] paneID, pwd in
+                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, specWatcher] paneID, pwd in
                         appModel.handlePwdChanged(paneID, pwd: pwd)
                         guard let (_, pane) = appModel.findPane(id: paneID),
                               let repoRoot = pane.repoRoot else { return }
@@ -272,11 +287,11 @@ struct HoottyApp: App {
                            let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
                             headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
                         }
-                        // Register OPSX watcher for repos with openspec/
-                        if appModel.opsxEnabled,
-                           !opsxWatcher.watchedRepoRoots.contains(repoRoot),
-                           OpsxModel.hasOpenSpec(repoRoot: repoRoot) {
-                            opsxWatcher.startWatching(repoRoot: repoRoot)
+                        // Register Spec watcher for repos with spec/
+                        if appModel.specEnabled,
+                           !specWatcher.watchedRepoRoots.contains(repoRoot),
+                           SpecModel.hasSpec(repoRoot: repoRoot) {
+                            specWatcher.startWatching(repoRoot: repoRoot)
                         }
                     }
                     GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
@@ -284,7 +299,7 @@ struct HoottyApp: App {
                             Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
                         }
                     }
-                    GhosttyApp.shared.onCloseTab = { [appModel, headWatcher, opsxWatcher] in
+                    GhosttyApp.shared.onCloseTab = { [appModel, headWatcher, specWatcher] in
                         guard let workspace = appModel.selectedWorkspace,
                               let focusedPaneID = workspace.focusedPaneID else { return }
                         let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
@@ -293,7 +308,7 @@ struct HoottyApp: App {
                         appModel.saveWorkspaces()
                         if let root = repoRoot {
                             Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                            Self.cleanupOpsxWatcher(opsxWatcher, repoRoot: root, appModel: appModel)
+                            Self.cleanupSpecWatcher(specWatcher, repoRoot: root, appModel: appModel)
                         }
                     }
                 }

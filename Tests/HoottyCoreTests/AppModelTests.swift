@@ -72,12 +72,12 @@ struct AppModelTests {
 
     @Test func moduleFlagsBridgesConfigToggles() {
         let model = makeModel()
-        #expect(model.moduleFlags == ModuleFlags(opsx: false))
+        #expect(model.moduleFlags == ModuleFlags(spec: false))
 
-        model.opsxEnabled = true
-        #expect(model.moduleFlags == ModuleFlags(opsx: true))
+        model.specEnabled = true
+        #expect(model.moduleFlags == ModuleFlags(spec: true))
 
-        model.opsxEnabled = false
-        #expect(model.moduleFlags == ModuleFlags(opsx: false))
+        model.specEnabled = false
+        #expect(model.moduleFlags == ModuleFlags(spec: false))
     }
 }

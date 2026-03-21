@@ -1,4 +1,4 @@
-.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint
+.PHONY: build test run debug setup clean release dmg install uninstall format format-check lint cli
 
 APP_NAME := Hootty
 INSTALL_DIR := /Applications
@@ -88,3 +88,6 @@ format-check:
 
 lint:
 	swiftlint lint Sources/Hootty Sources/HoottyCore Tests/HoottyCoreTests
+
+cli:
+	cd cli && bun install --frozen-lockfile && bun build --compile --target=bun-darwin-arm64 src/index.ts --outfile ../Sources/Hootty/Resources/bin/hootty

@@ -6,6 +6,7 @@ struct PaneContentView: View {
     var pane: Pane
     let isFocused: Bool
     let tokens: DesignTokens
+    var specModel: SpecModel?
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
@@ -30,6 +31,10 @@ struct PaneContentView: View {
                 onClosePane: onClosePane,
                 onSave: onSave
             )
+
+            if let specModel, let repoRoot = pane.repoRoot {
+                SpecBarView(specModel: specModel, repoRoot: repoRoot, paneID: pane.id, tokens: tokens)
+            }
 
             TerminalPaneView(pane: pane, isFocused: isFocused, onFocusPane: onFocusPane)
         }

@@ -9,7 +9,7 @@ enum BarIconSizing {
     case fixed(CGFloat)
 }
 
-/// A square icon button used in horizontal bars (sidebar header, tab bar, board header, pipeline bar).
+/// A square icon button used in horizontal bars (sidebar header, tab bar, board header, Spec bar).
 /// Owns its own hover state, shows a rounded hover background, and sets the pointing-hand cursor.
 struct BarIconButton: View {
     let systemImage: String

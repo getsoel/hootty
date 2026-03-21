@@ -90,7 +90,7 @@ struct ContentView: View {
                 )
             }
         }
-        .onChange(of: appModel.opsxEnabled) { _, enabled in
+        .onChange(of: appModel.specEnabled) { _, enabled in
             if !enabled {
                 appModel.appMode = .workspaces
             }
@@ -171,12 +171,12 @@ struct ContentView: View {
 
     @ViewBuilder
     private var appModePicker: some View {
-        if appModel.opsxEnabled {
+        if appModel.specEnabled {
             CapsulePickerView(
-                options: [AppModel.AppMode.workspaces, .opsx],
+                options: [AppModel.AppMode.workspaces, .spec],
                 selection: $appModel.appMode,
                 tokens: tokens,
-                label: { $0 == .workspaces ? "Workspaces" : "OPSX" }
+                label: { $0 == .workspaces ? "Workspaces" : "Spec" }
             )
         }
     }
@@ -185,12 +185,12 @@ struct ContentView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        if appModel.opsxEnabled {
+        if appModel.specEnabled {
             switch appModel.appMode {
             case .workspaces:
                 workspacesContent
-            case .opsx:
-                OpsxView(appModel: appModel, tokens: tokens)
+            case .spec:
+                SpecView(appModel: appModel, tokens: tokens)
             }
         } else {
             workspacesContent
@@ -278,6 +278,7 @@ struct ContentView: View {
             node: workspace.rootNode,
             focusedPaneID: workspace.focusedPaneID,
             tokens: tokens,
+            specModel: appModel.specEnabled ? appModel.specModel : nil,
             isInSplit: false,
             onFocusPane: { paneID in
                 appModel.sidebarHasFocus = false

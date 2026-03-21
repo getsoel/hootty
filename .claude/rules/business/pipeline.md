@@ -1,7 +1,7 @@
 ---
-globs: Sources/Hootty/Views/ContentView.swift, Sources/Hootty/Views/WorkspaceSidebar.swift, Sources/Hootty/Views/PipelineBoardView.swift, Sources/Hootty/Views/PipelineBarView.swift, Sources/Hootty/Views/PipelinesView.swift
+globs: Sources/Hootty/Views/ContentView.swift, Sources/Hootty/Views/SpecView.swift, Sources/Hootty/Views/SpecBarView.swift, Sources/Hootty/Views/PaneGroupView.swift
 ---
 
-The titlebar has a top-level [Workspaces | Pipelines] mode picker (AppModel.appMode). Workspaces mode shows the sidebar + detail layout. Pipelines mode shows PipelinesView with its own [Boards | Templates] sub-tabs (AppModel.pipelineMode).
+The titlebar has a top-level [Workspaces | Spec] mode picker (AppModel.appMode), shown when the Spec module is enabled. Workspaces mode shows the sidebar + detail layout. Spec mode shows SpecView with change cards grouped by repo.
 
-The sidebar tab picker (Terminals / Board) controls the main detail area, not the sidebar content. The sidebar workspace tree always remains visible regardless of which tab is active. Board view replaces the terminal split panes in the detail area.
+SpecBarView is a compact per-pane bar showing artifact progress dots for the pane's repo. It sits between PaneBar and TerminalPaneView, and is only shown when Spec is enabled and the pane has a repo with active changes.
