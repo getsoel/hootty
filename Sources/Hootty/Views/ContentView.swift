@@ -102,6 +102,8 @@ struct ContentView: View {
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
+            moduleFlags: appModel.moduleFlags,
+            appMode: $appModel.appMode,
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
                 appModel.selectedWorkspaceID = workspace.id
@@ -157,8 +159,6 @@ struct ContentView: View {
             // Leave space for traffic lights
             Color.clear.frame(width: 78)
 
-            appModePicker
-
             Spacer()
         }
         .frame(height: Layout.barHeight)
@@ -169,32 +169,10 @@ struct ContentView: View {
         }
     }
 
-    @ViewBuilder
-    private var appModePicker: some View {
-        if appModel.workshopEnabled {
-            CapsulePickerView(
-                options: [AppModel.AppMode.workspaces, .workshop],
-                selection: $appModel.appMode,
-                tokens: tokens,
-                label: { $0 == .workspaces ? "Workspaces" : "Workshop" }
-            )
-        }
-    }
-
     // MARK: - Main Content
 
-    @ViewBuilder
     private var mainContent: some View {
-        if appModel.workshopEnabled {
-            switch appModel.appMode {
-            case .workspaces:
-                workspacesContent
-            case .workshop:
-                WorkshopView(appModel: appModel, tokens: tokens)
-            }
-        } else {
-            workspacesContent
-        }
+        workspacesContent
     }
 
     private var workspacesContent: some View {
@@ -264,7 +242,9 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if let workspace = selectedWorkspace {
+        if appModel.workshopEnabled, appModel.appMode == .workshop {
+            WorkshopView(appModel: appModel, tokens: tokens)
+        } else if let workspace = selectedWorkspace {
             terminalsDetail(workspace: workspace)
         } else {
             Text("Select or create a workspace")
@@ -301,6 +281,15 @@ struct ContentView: View {
             onSwapPanes: { sourceID, targetID in
                 workspace.swapPanes(sourceID, targetID)
                 appModel.saveWorkspaces()
+            },
+            onEditWorkshopArtifact: { repoRoot, changeName, artifactID in
+                guard let filePath = appModel.workshopModel.artifactFilePath(
+                    repoRoot: repoRoot, changeName: changeName, artifactID: artifactID
+                ) else { return }
+
+                appModel.workshopFilePath = filePath
+                appModel.workshopSourcePaneID = workspace.focusedPaneID
+                appModel.appMode = .workshop
             },
             onSave: { appModel.saveWorkspaces() }
         )

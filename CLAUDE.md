@@ -38,7 +38,7 @@ Sources/
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
     PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd)
     ModuleFlags.swift           -- Module toggle struct bundled through view hierarchy (see docs/MODULES.md)
-    WorkshopModel.swift        -- @Observable Workshop state per repo, artifact resolution
+    WorkshopModel.swift        -- @Observable Workshop state per repo, artifact resolution (intent/requirements/design/tasks)
     SoundManager.swift         -- Sound trigger playback management
   Hootty/
     HoottyApp.swift          -- @main entry, initializes GhosttyApp

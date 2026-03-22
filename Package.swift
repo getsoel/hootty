@@ -5,7 +5,10 @@ import PackageDescription
 let package = Package(
     name: "Hootty",
     platforms: [.macOS(.v14)],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/ChimeHQ/Neon", branch: "main"),
+        .package(url: "https://github.com/tree-sitter-grammars/tree-sitter-markdown", from: "0.5.0"),
+    ],
     targets: [
         .target(
             name: "CGhostty",
@@ -33,7 +36,11 @@ let package = Package(
         ),
         .executableTarget(
             name: "Hootty",
-            dependencies: ["CGhostty", "HoottyCore"],
+            dependencies: [
+                "CGhostty", "HoottyCore",
+                .product(name: "Neon", package: "Neon"),
+                .product(name: "TreeSitterMarkdown", package: "tree-sitter-markdown"),
+            ],
             path: "Sources/Hootty",
             exclude: ["Info.plist"],
             resources: [.copy("Resources/bin"), .copy("Resources/Themes"), .copy("Resources/terminfo"), .copy("Resources/shell-integration")],

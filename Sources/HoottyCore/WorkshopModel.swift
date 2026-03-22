@@ -3,15 +3,15 @@ import Foundation
 // MARK: - Data Types
 
 public enum WorkshopArtifactID: String, CaseIterable, Sendable {
-    case proposal
-    case specs
+    case intent
+    case requirements
     case design
     case tasks
 
     public var displayName: String {
         switch self {
-        case .proposal: "Proposal"
-        case .specs: "Specs"
+        case .intent: "Intent"
+        case .requirements: "Requirements"
         case .design: "Design"
         case .tasks: "Tasks"
         }
@@ -49,8 +49,15 @@ public struct WorkshopChange: Identifiable, Sendable, Equatable {
     }
 
     /// Convert a kebab-case name to title case (e.g., "add-user-auth" → "Add User Auth").
+    /// Strips leading date prefix (YYYY-MM-DD-) from archived change names.
     public static func formatName(_ name: String) -> String {
-        name.split(separator: "-")
+        let stripped = if name.count > 11,
+                          let range = name.range(of: #"^\d{4}-\d{2}-\d{2}-"#, options: .regularExpression) {
+            String(name[range.upperBound...])
+        } else {
+            name
+        }
+        return stripped.split(separator: "-")
             .map { $0.prefix(1).uppercased() + $0.dropFirst() }
             .joined(separator: " ")
     }
@@ -114,6 +121,9 @@ public final class WorkshopModel {
     /// Relative path from repo root to the hootty claims directory.
     public static let claimsPath = ".hootty/claims"
 
+    /// Relative path from repo root to the hootty stale tracking directory.
+    public static let stalePath = ".hootty/stale"
+
     /// Workshop status per repo root.
     public private(set) var statusByRepo: [String: WorkshopRepoStatus] = [:]
 
@@ -122,6 +132,9 @@ public final class WorkshopModel {
 
     /// Cached task groups per change name, refreshed alongside claims.
     public private(set) var taskGroupsByChange: [String: [WorkshopTaskGroup]] = [:]
+
+    /// Artifacts marked stale (edited since last review), keyed by change name.
+    public private(set) var staleArtifacts: [String: Set<WorkshopArtifactID>] = [:]
 
     public init() {}
 
@@ -156,8 +169,8 @@ public final class WorkshopModel {
         }
 
         var changes: [WorkshopChange] = []
-        let changesDir = (workshopPath as NSString).appendingPathComponent("changes")
-        changes.append(contentsOf: Self.scanDirectory(changesDir, isArchived: false))
+        let activeDir = (workshopPath as NSString).appendingPathComponent("active")
+        changes.append(contentsOf: Self.scanDirectory(activeDir, isArchived: false))
 
         let archiveDir = (workshopPath as NSString).appendingPathComponent("archive")
         changes.append(contentsOf: Self.scanDirectory(archiveDir, isArchived: true))
@@ -206,10 +219,37 @@ public final class WorkshopModel {
         }
     }
 
+    /// Write a claim file for a pane and update in-memory state.
+    public func writeClaim(repoRoot: String, paneID: String, change: String, taskGroup: String? = nil) {
+        let claimsDir = (repoRoot as NSString).appendingPathComponent(Self.claimsPath)
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: claimsDir, withIntermediateDirectories: true)
+
+        let iso = ISO8601DateFormatter()
+        let now = iso.string(from: Date())
+        var lines = ["change: \(change)", "claimedAt: \(now)"]
+        if let taskGroup {
+            lines.insert("taskGroup: \(taskGroup)", at: 1)
+        }
+        let content = lines.joined(separator: "\n")
+        let path = (claimsDir as NSString).appendingPathComponent("\(paneID).yaml")
+        try? content.write(toFile: path, atomically: true, encoding: .utf8)
+
+        claimsByPaneID[paneID] = WorkshopClaim(change: change, taskGroup: taskGroup, claimedAt: now)
+    }
+
+    /// Remove a claim file for a pane and update in-memory state.
+    public func removeClaim(repoRoot: String, paneID: String) {
+        let claimsDir = (repoRoot as NSString).appendingPathComponent(Self.claimsPath)
+        let path = (claimsDir as NSString).appendingPathComponent("\(paneID).yaml")
+        try? FileManager.default.removeItem(atPath: path)
+        claimsByPaneID.removeValue(forKey: paneID)
+    }
+
     private nonisolated static func changeExistsInRepo(_ changeName: String, repoRoot: String) -> Bool {
         let base = (repoRoot as NSString).appendingPathComponent(directoryPath)
-        let changesDir = ((base as NSString).appendingPathComponent("changes") as NSString).appendingPathComponent(changeName)
-        return FileManager.default.fileExists(atPath: changesDir)
+        let activeDir = ((base as NSString).appendingPathComponent("active") as NSString).appendingPathComponent(changeName)
+        return FileManager.default.fileExists(atPath: activeDir)
     }
 
     /// Scan claims directory for all claim files.
@@ -258,7 +298,7 @@ public final class WorkshopModel {
     /// Read task groups from disk for a change's tasks.md.
     private nonisolated func readTaskGroups(repoRoot: String, changeName: String) -> [WorkshopTaskGroup] {
         let base = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
-        for subdir in ["changes", "archive"] {
+        for subdir in ["active", "archive"] {
             let tasksPath = (base as NSString)
                 .appendingPathComponent(subdir)
                 .appending("/\(changeName)/tasks.md")
@@ -320,22 +360,22 @@ public final class WorkshopModel {
     // MARK: - Artifact Resolution (workshop-driven schema, hardcoded)
 
     /// Resolve artifact states from filesystem for the workshop-driven schema.
-    /// DAG: proposal → specs → tasks, proposal → design → tasks
+    /// DAG: intent → requirements → design → tasks (linear chain)
     /// Uses a single `contentsOfDirectory` per change to minimize syscalls.
     private nonisolated static func resolveArtifacts(changePath: String) -> [WorkshopArtifact] {
         let fm = FileManager.default
         let entries = Set((try? fm.contentsOfDirectory(atPath: changePath)) ?? [])
 
-        let proposalDone = entries.contains("proposal.md")
+        let intentDone = entries.contains("intent.md")
 
-        let specsDone: Bool = {
-            let specsDir = (changePath as NSString).appendingPathComponent("specs")
-            guard let dirs = try? fm.contentsOfDirectory(atPath: specsDir) else { return false }
+        let reqsDone: Bool = {
+            let reqsDir = (changePath as NSString).appendingPathComponent("requirements")
+            guard let dirs = try? fm.contentsOfDirectory(atPath: reqsDir) else { return false }
             return dirs.contains { subdir in
                 var isDir: ObjCBool = false
-                let subdirPath = (specsDir as NSString).appendingPathComponent(subdir)
+                let subdirPath = (reqsDir as NSString).appendingPathComponent(subdir)
                 guard fm.fileExists(atPath: subdirPath, isDirectory: &isDir), isDir.boolValue else { return false }
-                return fm.fileExists(atPath: (subdirPath as NSString).appendingPathComponent("spec.md"))
+                return fm.fileExists(atPath: (subdirPath as NSString).appendingPathComponent("req.md"))
             }
         }()
 
@@ -347,11 +387,47 @@ public final class WorkshopModel {
         }
 
         return [
-            WorkshopArtifact(id: .proposal, state: state(done: proposalDone, depsReady: true)),
-            WorkshopArtifact(id: .specs, state: state(done: specsDone, depsReady: proposalDone)),
-            WorkshopArtifact(id: .design, state: state(done: designDone, depsReady: proposalDone)),
-            WorkshopArtifact(id: .tasks, state: state(done: tasksDone, depsReady: specsDone && designDone))
+            WorkshopArtifact(id: .intent, state: state(done: intentDone, depsReady: true)),
+            WorkshopArtifact(id: .requirements, state: state(done: reqsDone, depsReady: intentDone)),
+            WorkshopArtifact(id: .design, state: state(done: designDone, depsReady: reqsDone)),
+            WorkshopArtifact(id: .tasks, state: state(done: tasksDone, depsReady: designDone))
         ]
+    }
+
+    // MARK: - Requirement File Listing
+
+    public struct RequirementFile: Identifiable, Sendable {
+        public let name: String
+        public let path: String
+        public var id: String {
+            path
+        }
+    }
+
+    /// List individual requirement files for a change's requirements/ directory.
+    /// Returns requirement files sorted alphabetically by subdirectory name.
+    public nonisolated func requirementFiles(repoRoot: String, changeName: String) -> [RequirementFile] {
+        let base = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
+        let fm = FileManager.default
+        for subdir in ["active", "archive"] {
+            let reqsDir = ((base as NSString).appendingPathComponent(subdir) as NSString)
+                .appendingPathComponent(changeName)
+                .appending("/requirements")
+            guard let items = try? fm.contentsOfDirectory(atPath: reqsDir) else { continue }
+            var results: [RequirementFile] = []
+            for item in items.sorted() {
+                guard !item.hasPrefix(".") else { continue }
+                let subdirPath = (reqsDir as NSString).appendingPathComponent(item)
+                var isDir: ObjCBool = false
+                guard fm.fileExists(atPath: subdirPath, isDirectory: &isDir), isDir.boolValue else { continue }
+                let reqPath = (subdirPath as NSString).appendingPathComponent("req.md")
+                if fm.fileExists(atPath: reqPath) {
+                    results.append(RequirementFile(name: WorkshopChange.formatName(item), path: reqPath))
+                }
+            }
+            if !results.isEmpty { return results }
+        }
+        return []
     }
 
     // MARK: - Content Reading
@@ -359,35 +435,146 @@ public final class WorkshopModel {
     /// Read the content of an artifact file for a change.
     /// Searches both `changes/` and `archive/` directories.
     public nonisolated func readArtifactContent(repoRoot: String, changeName: String, artifactID: WorkshopArtifactID) -> String? {
+        guard let path = artifactFilePath(repoRoot: repoRoot, changeName: changeName, artifactID: artifactID),
+              let data = FileManager.default.contents(atPath: path) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    /// Resolve the on-disk file path for an artifact.
+    /// Searches both `changes/` and `archive/` directories.
+    public nonisolated func artifactFilePath(repoRoot: String, changeName: String, artifactID: WorkshopArtifactID) -> String? {
         let base = (repoRoot as NSString).appendingPathComponent(Self.directoryPath)
 
-        for subdir in ["changes", "archive"] {
-            let parent = (base as NSString).appendingPathComponent(subdir)
-            let changePath = (parent as NSString).appendingPathComponent(changeName)
-            if let content = readArtifactFile(changePath: changePath, artifactID: artifactID) {
-                return content
+        for subdir in ["active", "archive"] {
+            let changePath = ((base as NSString).appendingPathComponent(subdir) as NSString)
+                .appendingPathComponent(changeName)
+            if let path = resolveArtifactFilePath(changePath: changePath, artifactID: artifactID) {
+                return path
             }
         }
         return nil
     }
 
-    private nonisolated func readArtifactFile(changePath: String, artifactID: WorkshopArtifactID) -> String? {
-        let filePath: String
+    private nonisolated func resolveArtifactFilePath(changePath: String, artifactID: WorkshopArtifactID) -> String? {
+        let fm = FileManager.default
+        let path: String
         switch artifactID {
-        case .proposal:
-            filePath = (changePath as NSString).appendingPathComponent("proposal.md")
-        case .specs:
-            let specsDir = (changePath as NSString).appendingPathComponent("specs")
-            guard let items = try? FileManager.default.contentsOfDirectory(atPath: specsDir),
+        case .intent:
+            path = (changePath as NSString).appendingPathComponent("intent.md")
+        case .requirements:
+            let reqsDir = (changePath as NSString).appendingPathComponent("requirements")
+            guard let items = try? fm.contentsOfDirectory(atPath: reqsDir),
                   let first = items.sorted().first(where: { $0.hasSuffix(".md") }) else { return nil }
-            filePath = (specsDir as NSString).appendingPathComponent(first)
+            path = (reqsDir as NSString).appendingPathComponent(first)
         case .design:
-            filePath = (changePath as NSString).appendingPathComponent("design.md")
+            path = (changePath as NSString).appendingPathComponent("design.md")
         case .tasks:
-            filePath = (changePath as NSString).appendingPathComponent("tasks.md")
+            path = (changePath as NSString).appendingPathComponent("tasks.md")
+        }
+        return fm.fileExists(atPath: path) ? path : nil
+    }
+
+    // MARK: - Stale Tracking
+
+    /// Check if an artifact has been edited since its last review.
+    public func isStale(changeName: String, artifactID: WorkshopArtifactID) -> Bool {
+        staleArtifacts[changeName]?.contains(artifactID) ?? false
+    }
+
+    /// Mark an artifact as stale (edited in the markdown editor).
+    public func markArtifactStale(repoRoot: String, changeName: String, artifactID: WorkshopArtifactID) {
+        var stale = staleArtifacts[changeName] ?? []
+        guard !stale.contains(artifactID) else { return }
+        stale.insert(artifactID)
+        staleArtifacts[changeName] = stale
+        writeStaleState(repoRoot: repoRoot, changeName: changeName, stale: stale)
+    }
+
+    /// Clear the stale flag for an artifact (after review).
+    public func markArtifactReviewed(repoRoot: String, changeName: String, artifactID: WorkshopArtifactID) {
+        guard var stale = staleArtifacts[changeName], stale.contains(artifactID) else { return }
+        stale.remove(artifactID)
+        if stale.isEmpty {
+            staleArtifacts.removeValue(forKey: changeName)
+        } else {
+            staleArtifacts[changeName] = stale
+        }
+        writeStaleState(repoRoot: repoRoot, changeName: changeName, stale: stale)
+    }
+
+    /// Refresh stale state from disk for a repo.
+    public func refreshStale(repoRoot: String) {
+        guard let status = statusByRepo[repoRoot] else { return }
+        var newStale = staleArtifacts
+        for change in status.changes {
+            let stale = readStaleState(repoRoot: repoRoot, changeName: change.name)
+            if stale.isEmpty {
+                newStale.removeValue(forKey: change.name)
+            } else {
+                newStale[change.name] = stale
+            }
+        }
+        if newStale != staleArtifacts {
+            staleArtifacts = newStale
+        }
+    }
+
+    private nonisolated func readStaleState(repoRoot: String, changeName: String) -> Set<WorkshopArtifactID> {
+        let path = ((repoRoot as NSString).appendingPathComponent(Self.stalePath) as NSString)
+            .appendingPathComponent("\(changeName).yaml")
+        guard let data = FileManager.default.contents(atPath: path),
+              let content = String(data: data, encoding: .utf8) else { return [] }
+        let parsed = Self.parseSimpleYaml(content)
+        var stale: Set<WorkshopArtifactID> = []
+        for id in WorkshopArtifactID.allCases where parsed[id.rawValue] == "true" {
+            stale.insert(id)
+        }
+        return stale
+    }
+
+    private nonisolated func writeStaleState(repoRoot: String, changeName: String, stale: Set<WorkshopArtifactID>) {
+        let staleDir = (repoRoot as NSString).appendingPathComponent(Self.stalePath)
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: staleDir, withIntermediateDirectories: true)
+
+        let path = (staleDir as NSString).appendingPathComponent("\(changeName).yaml")
+        if stale.isEmpty {
+            try? fm.removeItem(atPath: path)
+            return
+        }
+        let lines = WorkshopArtifactID.allCases
+            .filter { stale.contains($0) }
+            .map { "\($0.rawValue): true" }
+        try? lines.joined(separator: "\n").write(toFile: path, atomically: true, encoding: .utf8)
+    }
+
+    // MARK: - File Path Resolution
+
+    /// Resolve a file path back to its artifact context (repo root, change name, artifact ID).
+    public nonisolated func resolveArtifactContext(filePath: String) -> (repoRoot: String, changeName: String, artifactID: WorkshopArtifactID)? {
+        // Find "workshop/" boundary to extract repo root
+        guard let workshopRange = filePath.range(of: "/workshop/") else { return nil }
+        let repoRoot = String(filePath[filePath.startIndex ..< workshopRange.lowerBound])
+
+        // Path after "workshop/" — e.g. "active/add-auth/intent.md"
+        let relative = String(filePath[workshopRange.upperBound...])
+        let components = relative.split(separator: "/").map(String.init)
+
+        // Expect: ["active"|"archive", changeName, ...]
+        guard components.count >= 3,
+              components[0] == "active" || components[0] == "archive" else { return nil }
+        let changeName = components[1]
+        let artifactFile = components[2]
+
+        let artifactID: WorkshopArtifactID
+        switch artifactFile {
+        case "intent.md": artifactID = .intent
+        case "design.md": artifactID = .design
+        case "tasks.md": artifactID = .tasks
+        case "requirements": artifactID = .requirements
+        default: return nil
         }
 
-        guard let data = FileManager.default.contents(atPath: filePath) else { return nil }
-        return String(data: data, encoding: .utf8)
+        return (repoRoot: repoRoot, changeName: changeName, artifactID: artifactID)
     }
 }

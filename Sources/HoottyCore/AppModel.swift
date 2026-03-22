@@ -29,6 +29,12 @@ public final class AppModel {
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
 
+    /// File path currently open in the Workshop markdown editor.
+    public var workshopFilePath: String?
+
+    /// Pane that triggered the current Workshop editor session (for back navigation).
+    public var workshopSourcePaneID: UUID?
+
     public static let sidebarMinWidth: CGFloat = 140
     public static let sidebarMaxWidth: CGFloat = 400
     public var selectedWorkspace: Workspace? {
@@ -238,5 +244,6 @@ public final class AppModel {
     public func refreshWorkshop(repoRoot: String) {
         workshopModel.refresh(repoRoot: repoRoot)
         workshopModel.refreshClaims(repoRoot: repoRoot)
+        workshopModel.refreshStale(repoRoot: repoRoot)
     }
 }

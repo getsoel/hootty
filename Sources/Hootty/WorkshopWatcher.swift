@@ -2,7 +2,7 @@ import Foundation
 import HoottyCore
 
 /// Watches `workshop/` directories for changes using DispatchSource.
-/// Monitors `workshop/`, `workshop/changes/`, and `workshop/archive/` subdirectories
+/// Monitors `workshop/`, `workshop/active/`, and `workshop/archive/` subdirectories
 /// to detect new/removed/archived changes. One watcher per repo root.
 @MainActor
 final class WorkshopWatcher {
@@ -38,12 +38,13 @@ final class WorkshopWatcher {
         guard entries[repoRoot] == nil else { return }
 
         let workshopDir = (repoRoot as NSString).appendingPathComponent(WorkshopModel.directoryPath)
-        let changesDir = (workshopDir as NSString).appendingPathComponent("changes")
+        let activeDir = (workshopDir as NSString).appendingPathComponent("active")
         let archiveDir = (workshopDir as NSString).appendingPathComponent("archive")
         let claimsDir = (repoRoot as NSString).appendingPathComponent(WorkshopModel.claimsPath)
+        let staleDir = (repoRoot as NSString).appendingPathComponent(WorkshopModel.stalePath)
 
         var entry = WatchEntry()
-        for dir in [workshopDir, changesDir, archiveDir, claimsDir] {
+        for dir in [workshopDir, activeDir, archiveDir, claimsDir, staleDir] {
             if let source = makeSource(dir: dir, repoRoot: repoRoot) {
                 entry.sources.append(source)
             }
