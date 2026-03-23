@@ -188,16 +188,32 @@ public final class WorkshopModel {
     }
 
     /// Refresh claims by scanning `.hootty/claims/` and merging into the global map.
+    /// Auto-releases claims for changes no longer in `active/` (e.g., shipped/archived).
     /// Also caches task groups for any claimed changes.
     public func refreshClaims(repoRoot: String) {
         let claimsDir = (repoRoot as NSString).appendingPathComponent(Self.claimsPath)
-        let repoClaims = Self.scanClaims(claimsDir)
+        let fm = FileManager.default
+        var repoClaims = Self.scanClaims(claimsDir)
+
+        // Auto-release claims for changes that no longer exist in active/
+        for (paneID, claim) in repoClaims where !Self.changeExistsInRepo(claim.change, repoRoot: repoRoot) {
+            let path = (claimsDir as NSString).appendingPathComponent("\(paneID).yaml")
+            try? fm.removeItem(atPath: path)
+            repoClaims.removeValue(forKey: paneID)
+        }
 
         // Merge: remove stale claims from this repo, add/update current ones.
         var merged = claimsByPaneID
         for (paneID, existing) in merged {
-            // Remove claims whose change belongs to this repo but isn't in the new scan
+            // Remove claims whose file was deleted and change belongs to this repo
             if repoClaims[paneID] == nil, Self.changeExistsInRepo(existing.change, repoRoot: repoRoot) {
+                merged.removeValue(forKey: paneID)
+            }
+        }
+        // Also remove in-memory claims for shipped changes (file just deleted above)
+        for (paneID, existing) in merged {
+            if !Self.changeExistsInRepo(existing.change, repoRoot: repoRoot),
+               repoClaims[paneID] == nil {
                 merged.removeValue(forKey: paneID)
             }
         }
