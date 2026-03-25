@@ -251,6 +251,7 @@ public final class ConfigFile {
         theme = Catppuccin Mocha
         font-family = Menlo
         font-family = Apple Symbols
+        scrollback-limit = 10000
 
         # Hootty settings
         # hootty-bell-sound = Ping
