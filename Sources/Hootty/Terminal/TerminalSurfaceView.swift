@@ -39,6 +39,9 @@ final class SurfaceCallbackContext {
 final class TerminalSurfaceView: NSView {
     // MARK: - Properties
 
+    /// Live count of allocated surfaces (increment in init, decrement in deinit).
+    static var liveCount: Int = 0
+
     private(set) var surface: ghostty_surface_t?
     var cellSize: NSSize = .zero
 
@@ -80,6 +83,7 @@ final class TerminalSurfaceView: NSView {
         self.initialWorkingDirectory = workingDirectory
         self.parentSurface = parentSurface
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+        Self.liveCount += 1
 
         wantsLayer = true
         layer?.masksToBounds = true
@@ -93,6 +97,7 @@ final class TerminalSurfaceView: NSView {
     }
 
     deinit {
+        Self.liveCount -= 1
         trackingAreas.forEach { removeTrackingArea($0) }
         NotificationCenter.default.removeObserver(self)
 

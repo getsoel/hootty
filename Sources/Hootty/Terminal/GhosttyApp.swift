@@ -86,7 +86,13 @@ final class GhosttyApp {
     }
 
     func removeCachedSurfaceView(for paneID: UUID) {
-        surfaceViews.removeValue(forKey: paneID)
+        if let view = surfaceViews.removeValue(forKey: paneID) {
+            // Clear focusedSurface if it points to this surface (prevents dangling pointer
+            // when the view is removed without resigning first responder)
+            if let surface = view.surface, focusedSurface == surface {
+                focusedSurface = nil
+            }
+        }
         pendingParentSurfaces.removeValue(forKey: paneID)
         pendingCommands.removeValue(forKey: paneID)
     }

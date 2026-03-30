@@ -145,6 +145,13 @@ public final class ConfigFile {
         if let override = themeOverride {
             filtered.insert("theme = \(override)", at: 0)
         }
+        // Ensure shell-integration-features includes SSH support if not explicitly set
+        let hasShellFeatures = filtered.contains { line in
+            Self.parseConfigLine(line)?.key == "shell-integration-features"
+        }
+        if !hasShellFeatures {
+            filtered.append("shell-integration-features = cursor,title,path,sudo,ssh-env,ssh-terminfo")
+        }
         let result = filtered.joined(separator: "\n")
         if result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             let themeName = themeOverride ?? "Catppuccin Mocha"
@@ -252,6 +259,7 @@ public final class ConfigFile {
         font-family = Menlo
         font-family = Apple Symbols
         scrollback-limit = 10000
+        shell-integration-features = cursor,title,path,sudo,ssh-env,ssh-terminfo
 
         # Hootty settings
         # hootty-bell-sound = Ping

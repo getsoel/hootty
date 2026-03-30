@@ -6,6 +6,7 @@ struct HoottyApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.regular)
         CrashHandler.install()
+        MemoryLogger.install()
         Log.lifecycle.info("Hootty starting...")
 
         // Wire git debug logging through os.Logger
@@ -63,13 +64,18 @@ struct HoottyApp: App {
             let workspace = appModel.addWorkspace()
             appModel.selectedWorkspaceID = workspace.id
         }
-        commandRegistry.register(.closeWorkspace) { [appModel] in
+        commandRegistry.register(.closeWorkspace) { [appModel, headWatcher, workshopWatcher] in
             guard let workspace = appModel.selectedWorkspace else { return }
             let id = workspace.id
+            let repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
             GhosttyApp.shared.cleanupWorkspace(workspace)
             appModel.removeWorkspace(id: id)
             if appModel.selectedWorkspaceID == id {
                 appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+            }
+            for root in repoRoots {
+                Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
             }
         }
         commandRegistry.register(.splitRight) { [appModel] in
@@ -130,7 +136,12 @@ struct HoottyApp: App {
         commandRegistry.register(.refreshBranches) {
             // Branch list is now computed on-demand when the picker opens
         }
-        commandRegistry.register(.resetWorkspaces) { [appModel] in
+        commandRegistry.register(.resetWorkspaces) { [appModel, headWatcher, workshopWatcher] in
+            for workspace in appModel.workspaces {
+                GhosttyApp.shared.cleanupWorkspace(workspace)
+            }
+            headWatcher.stopAll()
+            workshopWatcher.stopAll()
             appModel.resetWorkspaces()
         }
         commandRegistry.register(.editConfig) { [appModel] in
@@ -192,126 +203,133 @@ struct HoottyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView(appModel: appModel, commandRegistry: commandRegistry)
-                .frame(minWidth: 700, minHeight: 400)
-                .onAppear { [headWatcher, workshopWatcher] in
-                    // Bootstrap HEAD watchers for persisted repos
-                    for workspace in appModel.workspaces {
-                        for pane in workspace.allPanes {
-                            if let repoRoot = pane.repoRoot,
-                               !headWatcher.watchedRepoRoots.contains(repoRoot),
-                               let gitDir = GitWorktreeManager.gitCommonDir(for: pane.workingDirectory) {
-                                headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
-                            }
-                        }
-                    }
-
-                    // Bootstrap Workshop watchers for repos with workshop/
-                    if appModel.workshopEnabled {
-                        workshopWatcher.setOnChange { [appModel] repoRoot in
-                            appModel.refreshWorkshop(repoRoot: repoRoot)
-                        }
-                        for workspace in appModel.workspaces {
-                            for pane in workspace.allPanes {
-                                if let repoRoot = pane.repoRoot,
-                                   !workshopWatcher.watchedRepoRoots.contains(repoRoot),
-                                   WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
-                                    workshopWatcher.startWatching(repoRoot: repoRoot)
-                                }
-                            }
-                        }
-                    }
-
-                    if GhosttyApp.shared.onNewTab == nil {
-                        NotificationCenter.default.addObserver(
-                            forName: NSApplication.willTerminateNotification,
-                            object: nil,
-                            queue: .main
-                        ) { [appModel] _ in
-                            appModel.saveWorkspaces()
-                        }
-                    }
-
-                    GhosttyApp.shared.onNewTab = { [appModel] in
-                        let workspace = appModel.addWorkspace()
-                        appModel.selectedWorkspaceID = workspace.id
-                    }
-                    GhosttyApp.shared.onBellRang = { [appModel] paneID in
-                        let didSet = appModel.handleBell(paneID)
-                        if didSet {
-                            appModel.soundManager.play(.bell)
-                        }
-                    }
-                    GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID, kind in
-                        let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
-                        if didSet {
-                            appModel.soundManager.play(.bell)
-                        }
-                    }
-                    GhosttyApp.shared.onClaudeSessionDetected = { [appModel] paneID, sessionID in
-                        if let (_, pane) = appModel.findPane(id: paneID) {
-                            pane.claudeSessionID = sessionID
-                            appModel.debouncedSave()
-                        }
-                    }
-                    GhosttyApp.shared.onNewSplit = { [appModel] paneID, direction, parentSurface in
-                        guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
-                        workspace.focusPane(id: paneID)
-                        if let newPane = workspace.splitFocusedPane(direction: direction) {
-                            if let parentSurface {
-                                GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
-                            }
-                            appModel.saveWorkspaces()
-                        }
-                    }
-                    GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher, workshopWatcher] paneID in
-                        let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
-                        GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                        guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
-                        workspace.removePane(id: paneID)
-                        appModel.saveWorkspaces()
-                        if let root = repoRoot {
-                            Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                            Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
-                        }
-                    }
-                    GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
-                        appModel.handleTitleChange(paneID, title: title)
-                    }
-                    GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, workshopWatcher] paneID, pwd in
-                        appModel.handlePwdChanged(paneID, pwd: pwd)
-                        guard let (_, pane) = appModel.findPane(id: paneID),
-                              let repoRoot = pane.repoRoot else { return }
-                        // Register HEAD watcher for newly discovered repos
-                        if !headWatcher.watchedRepoRoots.contains(repoRoot),
-                           let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
+            ContentView(
+                appModel: appModel,
+                commandRegistry: commandRegistry,
+                onCleanupRepoWatchers: { [headWatcher, workshopWatcher, appModel] repoRoot in
+                    Self.cleanupHeadWatcher(headWatcher, repoRoot: repoRoot, appModel: appModel)
+                    Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: repoRoot, appModel: appModel)
+                }
+            )
+            .frame(minWidth: 700, minHeight: 400)
+            .onAppear { [headWatcher, workshopWatcher] in
+                // Bootstrap HEAD watchers for persisted repos
+                for workspace in appModel.workspaces {
+                    for pane in workspace.allPanes {
+                        if let repoRoot = pane.repoRoot,
+                           !headWatcher.watchedRepoRoots.contains(repoRoot),
+                           let gitDir = GitWorktreeManager.gitCommonDir(for: pane.workingDirectory) {
                             headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
-                        }
-                        // Register Workshop watcher for repos with workshop/
-                        if appModel.workshopEnabled,
-                           !workshopWatcher.watchedRepoRoots.contains(repoRoot),
-                           WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
-                            workshopWatcher.startWatching(repoRoot: repoRoot)
-                        }
-                    }
-                    GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
-                        if exitCode > 128 {
-                            Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
-                        }
-                    }
-                    GhosttyApp.shared.onCloseTab = { [appModel, headWatcher, workshopWatcher] in
-                        guard let workspace = appModel.selectedWorkspace,
-                              let focusedPaneID = workspace.focusedPaneID else { return }
-                        let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
-                        GhosttyApp.shared.removeCachedSurfaceView(for: focusedPaneID)
-                        workspace.removePane(id: focusedPaneID)
-                        appModel.saveWorkspaces()
-                        if let root = repoRoot {
-                            Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                            Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
                         }
                     }
                 }
+
+                // Bootstrap Workshop watchers for repos with workshop/
+                if appModel.workshopEnabled {
+                    workshopWatcher.setOnChange { [appModel] repoRoot in
+                        appModel.refreshWorkshop(repoRoot: repoRoot)
+                    }
+                    for workspace in appModel.workspaces {
+                        for pane in workspace.allPanes {
+                            if let repoRoot = pane.repoRoot,
+                               !workshopWatcher.watchedRepoRoots.contains(repoRoot),
+                               WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
+                                workshopWatcher.startWatching(repoRoot: repoRoot)
+                            }
+                        }
+                    }
+                }
+
+                if GhosttyApp.shared.onNewTab == nil {
+                    NotificationCenter.default.addObserver(
+                        forName: NSApplication.willTerminateNotification,
+                        object: nil,
+                        queue: .main
+                    ) { [appModel] _ in
+                        appModel.saveWorkspaces()
+                    }
+                }
+
+                GhosttyApp.shared.onNewTab = { [appModel] in
+                    let workspace = appModel.addWorkspace()
+                    appModel.selectedWorkspaceID = workspace.id
+                }
+                GhosttyApp.shared.onBellRang = { [appModel] paneID in
+                    let didSet = appModel.handleBell(paneID)
+                    if didSet {
+                        appModel.soundManager.play(.bell)
+                    }
+                }
+                GhosttyApp.shared.onPaneNeedsAttention = { [appModel] paneID, kind in
+                    let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
+                    if didSet {
+                        appModel.soundManager.play(.bell)
+                    }
+                }
+                GhosttyApp.shared.onClaudeSessionDetected = { [appModel] paneID, sessionID in
+                    if let (_, pane) = appModel.findPane(id: paneID) {
+                        pane.claudeSessionID = sessionID
+                        appModel.debouncedSave()
+                    }
+                }
+                GhosttyApp.shared.onNewSplit = { [appModel] paneID, direction, parentSurface in
+                    guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
+                    workspace.focusPane(id: paneID)
+                    if let newPane = workspace.splitFocusedPane(direction: direction) {
+                        if let parentSurface {
+                            GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                        }
+                        appModel.saveWorkspaces()
+                    }
+                }
+                GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher, workshopWatcher] paneID in
+                    let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
+                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                    guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
+                    workspace.removePane(id: paneID)
+                    appModel.saveWorkspaces()
+                    if let root = repoRoot {
+                        Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                        Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
+                    }
+                }
+                GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
+                    appModel.handleTitleChange(paneID, title: title)
+                }
+                GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, workshopWatcher] paneID, pwd in
+                    appModel.handlePwdChanged(paneID, pwd: pwd)
+                    guard let (_, pane) = appModel.findPane(id: paneID),
+                          let repoRoot = pane.repoRoot else { return }
+                    // Register HEAD watcher for newly discovered repos
+                    if !headWatcher.watchedRepoRoots.contains(repoRoot),
+                       let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
+                        headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
+                    }
+                    // Register Workshop watcher for repos with workshop/
+                    if appModel.workshopEnabled,
+                       !workshopWatcher.watchedRepoRoots.contains(repoRoot),
+                       WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
+                        workshopWatcher.startWatching(repoRoot: repoRoot)
+                    }
+                }
+                GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
+                    if exitCode > 128 {
+                        Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
+                    }
+                }
+                GhosttyApp.shared.onCloseTab = { [appModel, headWatcher, workshopWatcher] in
+                    guard let workspace = appModel.selectedWorkspace,
+                          let focusedPaneID = workspace.focusedPaneID else { return }
+                    let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
+                    GhosttyApp.shared.removeCachedSurfaceView(for: focusedPaneID)
+                    workspace.removePane(id: focusedPaneID)
+                    appModel.saveWorkspaces()
+                    if let root = repoRoot {
+                        Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                        Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
+                    }
+                }
+            }
         }
         .windowStyle(.hiddenTitleBar)
         .commands {

@@ -4,9 +4,14 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var appModel: AppModel
     var commandRegistry: CommandRegistry
+    /// Called after pane/workspace removal to clean up file watchers for a repo root.
+    var onCleanupRepoWatchers: ((String) -> Void)?
     @GestureState private var dragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorPaneID: UUID?
+    @State private var memoryMB: Int = 0
+    @State private var memorySamples: [MemorySample] = []
+    @State private var memorySampleIndex: Int = 0
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -81,6 +86,16 @@ struct ContentView: View {
                 )
             }
         }
+        .overlay {
+            if appModel.modalState == .memoryLog {
+                ActivityMonitorView(
+                    tokens: tokens,
+                    samples: memorySamples,
+                    appModel: appModel,
+                    onDismiss: { appModel.modalState = .none }
+                )
+            }
+        }
         .onChange(of: appModel.modalState) { _, state in
             if state == .themePicker {
                 appModel.themeManager.themeCatalog.loadPreviews()
@@ -109,12 +124,19 @@ struct ContentView: View {
                 appModel.selectedWorkspaceID = workspace.id
             },
             onRemoveWorkspace: { id in
+                let repoRoots: Set<String>
                 if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
+                    repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
                     GhosttyApp.shared.cleanupWorkspace(workspace)
+                } else {
+                    repoRoots = []
                 }
                 appModel.removeWorkspace(id: id)
                 if appModel.selectedWorkspaceID == id {
                     appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+                }
+                for root in repoRoots {
+                    onCleanupRepoWatchers?(root)
                 }
             },
             onMoveWorkspace: { id, toIndex in
@@ -128,9 +150,13 @@ struct ContentView: View {
             },
             onRemovePane: { workspaceID, paneID in
                 if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                    let repoRoot = workspace.findPane(id: paneID)?.repoRoot
                     GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                     workspace.removePane(id: paneID)
                     appModel.saveWorkspaces()
+                    if let root = repoRoot {
+                        onCleanupRepoWatchers?(root)
+                    }
                 }
             },
             onCreateWorktree: { workspaceID, repoRoot, branch in
@@ -160,12 +186,28 @@ struct ContentView: View {
             Color.clear.frame(width: 78)
 
             Spacer()
+
+            if memoryMB > 0 {
+                Text("\(memoryMB) MB")
+                    .font(.system(size: TypeScale.smallSize).monospacedDigit())
+                    .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
+                    .contentShape(Rectangle())
+                    .onTapGesture { appModel.modalState = .memoryLog }
+            }
         }
+        .padding(.trailing, Spacing.md)
         .frame(height: Layout.barHeight)
         .frame(maxWidth: .infinity)
         .background(Color(tokens.tabBarBackground))
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color(tokens.border)).frame(height: 1)
+        }
+        .task {
+            recordMemorySample()
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                recordMemorySample()
+            }
         }
     }
 
@@ -274,9 +316,13 @@ struct ContentView: View {
                 }
             },
             onClosePane: { paneID in
+                let repoRoot = workspace.findPane(id: paneID)?.repoRoot
                 GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                 workspace.removePane(id: paneID)
                 appModel.saveWorkspaces()
+                if let root = repoRoot {
+                    onCleanupRepoWatchers?(root)
+                }
             },
             onSwapPanes: { sourceID, targetID in
                 workspace.swapPanes(sourceID, targetID)
@@ -356,5 +402,55 @@ struct ContentView: View {
             leading.identifier = trafficLightConstraintID
             NSLayoutConstraint.activate([top, leading])
         }
+    }
+
+    // MARK: - Memory
+
+    private static let maxSamples = 300
+
+    private func recordMemorySample() {
+        let mb = Self.physicalFootprintMB()
+        let panes = appModel.workspaces.reduce(0) { $0 + $1.allPanes.count }
+        let surfaces = TerminalSurfaceView.liveCount
+        let prevMB = memorySamples.last?.memoryMB
+
+        var sample = MemorySample(
+            timestamp: Date(),
+            memoryMB: mb,
+            paneCount: panes,
+            surfaceCount: surfaces
+        )
+        if let prevMB {
+            sample.deltaMB = mb - prevMB
+        }
+
+        memorySamples.append(sample)
+        if memorySamples.count > Self.maxSamples {
+            memorySamples.removeFirst(memorySamples.count - Self.maxSamples)
+        }
+        memoryMB = mb
+
+        MemoryLogger.record(
+            sampleIndex: memorySampleIndex,
+            memoryMB: mb,
+            paneCount: panes,
+            surfaceCount: surfaces,
+            deltaMB: sample.deltaMB
+        )
+        memorySampleIndex += 1
+    }
+
+    private static func physicalFootprintMB() -> Int {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size
+        )
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return 0 }
+        return Int(info.phys_footprint / 1_048_576)
     }
 }
