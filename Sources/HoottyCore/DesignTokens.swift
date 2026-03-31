@@ -96,6 +96,9 @@ public struct DesignTokens {
     /// Color overlay applied to non-focused panes. Black at 30% opacity to uniformly darken everything underneath.
     public let unfocusedDimColor: NSColor
 
+    /// Cycling group accent colors for workspace groups in the sidebar.
+    public let groupColors: [NSColor]
+
     /// Returns the appropriate status color for an attention kind.
     public func attentionColor(for kind: AttentionKind) -> NSColor {
         switch kind {
@@ -137,7 +140,15 @@ public struct DesignTokens {
             tabBarBackground: theme.background,
             tabActive: theme.background,
             scrim: NSColor.black.withAlphaComponent(0.3),
-            unfocusedDimColor: NSColor.black.withAlphaComponent(0.5)
+            unfocusedDimColor: NSColor.black.withAlphaComponent(0.5),
+            groupColors: [
+                theme.palette[4], // blue
+                theme.palette[5], // pink
+                theme.palette[6], // teal
+                theme.palette[3], // yellow
+                theme.palette[2], // green
+                theme.palette[1] // red
+            ]
         )
     }
 

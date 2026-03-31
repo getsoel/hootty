@@ -138,28 +138,36 @@ struct WorkspaceSidebar: View {
     private var workspaceList: some View {
         ScrollView {
             VStack(spacing: 0) {
-                ForEach(workspaces) { workspace in
-                    WorkspaceRow(
-                        workspace: workspace,
-                        isSelected: workspace.id == selectedWorkspaceID,
-                        tokens: tokens,
-                        onSelect: { selectedWorkspaceID = workspace.id },
-                        onRename: { id, name in
-                            editingName = name
-                            renameTargetID = id
-                            showRenameWorkspaceAlert = true
-                        },
-                        onRemove: onRemoveWorkspace,
-                        onMove: { sourceID, edge in
-                            guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                            let insertIndex = edge == .top ? targetIndex : targetIndex + 1
-                            onMoveWorkspace(sourceID, insertIndex)
-                        },
-                        dropTargetWorkspaceID: $dropTargetWorkspaceID,
-                        dropEdge: $dropEdge,
-                        workspaceRowHeight: $workspaceRowHeight
-                    )
-                    workspacePaneList(workspace)
+                ForEach(Array(workspaces.enumerated()), id: \.element.id) { index, workspace in
+                    let groupColor = tokens.groupColors[index % tokens.groupColors.count]
+                    VStack(spacing: 0) {
+                        WorkspaceRow(
+                            workspace: workspace,
+                            isSelected: workspace.id == selectedWorkspaceID,
+                            tokens: tokens,
+                            onSelect: { selectedWorkspaceID = workspace.id },
+                            onRename: { id, name in
+                                editingName = name
+                                renameTargetID = id
+                                showRenameWorkspaceAlert = true
+                            },
+                            onRemove: onRemoveWorkspace,
+                            onMove: { sourceID, edge in
+                                guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                                let insertIndex = edge == .top ? targetIndex : targetIndex + 1
+                                onMoveWorkspace(sourceID, insertIndex)
+                            },
+                            dropTargetWorkspaceID: $dropTargetWorkspaceID,
+                            dropEdge: $dropEdge,
+                            workspaceRowHeight: $workspaceRowHeight
+                        )
+                        workspacePaneList(workspace)
+                    }
+                    .overlay(alignment: .leading) {
+                        Rectangle()
+                            .fill(Color(groupColor))
+                            .frame(width: 2)
+                    }
                 }
             }
         }
