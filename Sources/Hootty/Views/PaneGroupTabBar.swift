@@ -16,7 +16,7 @@ struct PaneBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, tokens: tokens)
+            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isClaudeSession: pane.claudeSessionID != nil, tokens: tokens)
                 .frame(maxHeight: .infinity)
                 .padding(.leading, Spacing.md)
 

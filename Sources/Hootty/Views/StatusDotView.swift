@@ -4,6 +4,7 @@ import SwiftUI
 struct StatusDotView: View {
     let attentionKind: AttentionKind?
     let isThinking: Bool
+    let isClaudeSession: Bool
     let tokens: DesignTokens
 
     var body: some View {
@@ -25,6 +26,9 @@ struct StatusDotView: View {
                         .foregroundStyle(Color(tokens.statusThinking))
                         .rotationEffect(.degrees(cycle))
                 }
+            } else if isClaudeSession {
+                Image(systemName: "bubble.left")
+                    .foregroundStyle(Color(tokens.textMuted))
             } else {
                 Image(systemName: "apple.terminal")
                     .foregroundStyle(Color(tokens.textMuted))

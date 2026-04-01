@@ -190,7 +190,7 @@ struct WorkspaceSidebar: View {
                     depth: depth,
                     tokens: tokens,
                     onSelect: {
-                        sidebarHasFocus = true
+                        sidebarHasFocus = false
                         onSelectPane(workspace.id, pane.id)
                     },
                     onRename: { id, name in
