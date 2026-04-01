@@ -10,13 +10,15 @@ enum TreeLayout {
 struct TreeLinesBackground: View {
     let depth: Int
     let tokens: DesignTokens
+    var groupColor: NSColor?
 
     var body: some View {
         Canvas { context, size in
             guard depth > 0 else { return }
             let cw = TreeLayout.columnWidth
             let leadingPad = Spacing.md
-            let lineColor = Color(tokens.textMuted).opacity(0.3)
+            let lineColor = groupColor.map { Color($0).opacity(0.5) }
+                ?? Color(tokens.textMuted).opacity(0.3)
             for level in 1 ... depth {
                 let x = leadingPad + (CGFloat(level) - 0.5) * cw
                 var path = Path()

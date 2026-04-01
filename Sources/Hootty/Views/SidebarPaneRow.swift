@@ -9,6 +9,7 @@ struct SidebarPaneRow: View {
     let layoutRects: [UUID: CGRect]
     let depth: Int
     let tokens: DesignTokens
+    var groupColor: NSColor?
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
     var onClose: (UUID) -> Void
@@ -56,7 +57,7 @@ struct SidebarPaneRow: View {
                     .strokeBorder(Color(tokens.borderFocused), lineWidth: 1)
             }
         }
-        .background(TreeLinesBackground(depth: depth, tokens: tokens))
+        .background(TreeLinesBackground(depth: depth, tokens: tokens, groupColor: groupColor))
         .onContinuousHover { phase in
             switch phase {
             case .active:

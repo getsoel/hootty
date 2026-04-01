@@ -128,11 +128,13 @@ struct WorkspaceSidebar: View {
             VStack(spacing: 0) {
                 ForEach(Array(workspaces.enumerated()), id: \.element.id) { index, workspace in
                     let groupColor = tokens.groupColors[index % tokens.groupColors.count]
+                    let isActive = workspace.id == selectedWorkspaceID
                     VStack(spacing: 0) {
                         WorkspaceRow(
                             workspace: workspace,
-                            isSelected: workspace.id == selectedWorkspaceID,
+                            isSelected: isActive,
                             tokens: tokens,
+                            groupColor: isActive ? groupColor : nil,
                             onSelect: { selectedWorkspaceID = workspace.id },
                             onRename: { id, name in
                                 editingName = name
@@ -149,17 +151,12 @@ struct WorkspaceSidebar: View {
                             dropEdge: $dropEdge,
                             workspaceRowHeight: $workspaceRowHeight
                         )
-                        workspacePaneList(workspace)
+                        workspacePaneList(workspace, groupColor: isActive ? groupColor : nil)
                     }
                     .overlay(alignment: .leading) {
-                        let isActive = workspace.id == selectedWorkspaceID
                         Rectangle()
                             .fill(Color(groupColor))
                             .frame(width: 2)
-                            .shadow(
-                                color: isActive ? Color(groupColor).opacity(0.5) : .clear,
-                                radius: isActive ? 6 : 0
-                            )
                     }
                 }
             }
@@ -167,7 +164,7 @@ struct WorkspaceSidebar: View {
     }
 
     @ViewBuilder
-    private func workspacePaneList(_ workspace: Workspace) -> some View {
+    private func workspacePaneList(_ workspace: Workspace, groupColor: NSColor?) -> some View {
         let canClose = workspace.allPanes.count > 1
         let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
         let hasBranches = workspace.hasBranchSections
@@ -177,7 +174,7 @@ struct WorkspaceSidebar: View {
         let headBranchRepos = Set(sections.filter(\.isHead).compactMap(\.repoRoot))
         ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
             if hasBranches {
-                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens)
+                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens, groupColor: groupColor)
             }
 
             ForEach(section.panes) { pane in
@@ -189,6 +186,7 @@ struct WorkspaceSidebar: View {
                     layoutRects: layoutRects,
                     depth: depth,
                     tokens: tokens,
+                    groupColor: groupColor,
                     onSelect: {
                         sidebarHasFocus = false
                         onSelectPane(workspace.id, pane.id)
@@ -212,7 +210,7 @@ struct WorkspaceSidebar: View {
                     || sections[index + 1].isHead
                     || sections[index + 1].repoRoot != repoRoot
                 if isLastForRepo {
-                    createWorktreeRow(workspace: workspace, repoRoot: repoRoot, depth: depth - 1)
+                    createWorktreeRow(workspace: workspace, repoRoot: repoRoot, depth: depth - 1, groupColor: groupColor)
                 }
             }
         }
@@ -290,7 +288,7 @@ struct WorkspaceSidebar: View {
 
     // MARK: - Worktree Action Row
 
-    private func createWorktreeRow(workspace: Workspace, repoRoot: String, depth: Int) -> some View {
+    private func createWorktreeRow(workspace: Workspace, repoRoot: String, depth: Int, groupColor: NSColor?) -> some View {
         let hoverKey = "\(workspace.id)|\(repoRoot)"
         let isHovered = hoveredWorktreeAction == hoverKey
         return HStack(spacing: 6) {
@@ -313,7 +311,7 @@ struct WorkspaceSidebar: View {
             Rectangle()
                 .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
         )
-        .background(TreeLinesBackground(depth: depth, tokens: tokens))
+        .background(TreeLinesBackground(depth: depth, tokens: tokens, groupColor: groupColor))
         .onContinuousHover { phase in
             switch phase {
             case .active:
