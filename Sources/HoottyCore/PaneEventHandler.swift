@@ -24,9 +24,22 @@ public final class PaneEventHandler {
         return body(workspace, pane)
     }
 
+    /// Transition a pane out of the thinking state. If it was thinking and is now
+    /// unfocused (and not manually flagged), sets `.done` attention.
+    private func endThinking(_ workspace: Workspace, _ pane: Pane) {
+        let wasThinking = pane.isThinking
+        pane.isThinking = false
+        if wasThinking {
+            let isFocused = workspace.id == selectedWorkspaceID()
+                && workspace.focusedPaneID == pane.id
+            if !isFocused, !pane.isFlagged { pane.attentionKind = .done }
+        }
+    }
+
     @discardableResult
     public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
         withPane(id: paneID) { workspace, pane in
+            guard !pane.isFlagged else { return false }
             let isFocusedPane = workspace.id == selectedWorkspaceID()
                 && workspace.focusedPaneID == paneID
             if !isFocusedPane {
@@ -40,7 +53,7 @@ public final class PaneEventHandler {
     @discardableResult
     public func handleBell(_ paneID: UUID) -> Bool {
         withPane(id: paneID) { _, pane in
-            guard !pane.isThinking else { return false }
+            guard !pane.isThinking, !pane.isFlagged else { return false }
             pane.attentionKind = .bell
             return true
         } ?? false
@@ -48,14 +61,11 @@ public final class PaneEventHandler {
 
     public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
         withPane(id: paneID) { workspace, pane in
-            let wasThinking = pane.isThinking
-            pane.isThinking = isThinking
             if isThinking {
-                pane.attentionKind = nil
-            } else if wasThinking {
-                let isFocused = workspace.id == selectedWorkspaceID()
-                    && workspace.focusedPaneID == paneID
-                if !isFocused { pane.attentionKind = .done }
+                pane.isThinking = true
+                if !pane.isFlagged { pane.attentionKind = nil }
+            } else {
+                endThinking(workspace, pane)
             }
         }
     }
@@ -66,7 +76,7 @@ public final class PaneEventHandler {
                 // Title no longer matches Claude pattern — clear auto-detected session
                 if pane.claudeSessionID == "auto" {
                     pane.claudeSessionID = nil
-                    pane.isThinking = false
+                    endThinking(workspace, pane)
                 }
                 return
             }
@@ -78,15 +88,9 @@ public final class PaneEventHandler {
             switch state {
             case .thinking:
                 pane.isThinking = true
-                pane.attentionKind = nil
+                if !pane.isFlagged { pane.attentionKind = nil }
             case .idle:
-                let wasThinking = pane.isThinking
-                if wasThinking { pane.isThinking = false }
-                if wasThinking {
-                    let isFocused = workspace.id == selectedWorkspaceID()
-                        && workspace.focusedPaneID == pane.id
-                    if !isFocused { pane.attentionKind = .done }
-                }
+                endThinking(workspace, pane)
             }
         }
     }

@@ -82,6 +82,9 @@ public struct DesignTokens {
     /// Done attention state — Claude finished thinking (green).
     public let statusDone: NSColor
 
+    /// Manual flag attention state (yellow).
+    public let statusFlag: NSColor
+
     // MARK: - Component-Specific
 
     /// Tab bar background. Same as background (Mantle).
@@ -104,6 +107,7 @@ public struct DesignTokens {
         switch kind {
         case .bell: statusBell
         case .done: statusDone
+        case .flag: statusFlag
         }
     }
 
@@ -137,6 +141,7 @@ public struct DesignTokens {
             statusThinking: theme.palette[4],
             statusBell: theme.palette[2],
             statusDone: theme.palette[2],
+            statusFlag: theme.palette[3],
             tabBarBackground: theme.background,
             tabActive: theme.background,
             scrim: NSColor.black.withAlphaComponent(0.3),

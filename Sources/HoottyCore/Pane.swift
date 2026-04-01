@@ -5,6 +5,8 @@ public enum AttentionKind: String, Codable, Sendable {
     case bell
     /// Claude finished thinking, needs input (cleared by next user interaction).
     case done
+    /// Manually flagged by user (cleared by next user interaction).
+    case flag
 }
 
 @MainActor
@@ -19,6 +21,11 @@ public final class Pane: Identifiable {
 
     public var needsAttention: Bool {
         attentionKind != nil
+    }
+
+    /// Whether the pane has a manual flag that automated events should not override.
+    public var isFlagged: Bool {
+        attentionKind == .flag
     }
 
     public var shell: String

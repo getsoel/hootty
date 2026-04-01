@@ -682,6 +682,47 @@ struct TitleBasedClaudeDetection {
         #expect(pane.isThinking == false)
     }
 
+    @Test func claudeExitWhileThinkingSetsDoneOnUnfocusedPane() throws {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        // p1 is now unfocused
+
+        // Claude starts thinking (auto-detected)
+        model.handleTitleChange(p1.id, title: "\u{280B} Thinking . project")
+        #expect(p1.claudeSessionID == "auto")
+        #expect(p1.isThinking == true)
+
+        // Claude exits — title reverts to shell prompt (skips idle state)
+        model.handleTitleChange(p1.id, title: "zsh")
+        #expect(p1.claudeSessionID == nil)
+        #expect(p1.isThinking == false)
+        #expect(p1.attentionKind == .done)
+    }
+
+    @Test func claudeExitWhileThinkingOnFocusedPaneDoesNotSetDone() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let pane = ws.allPanes[0]
+        ws.focusPane(id: pane.id)
+
+        // Claude starts thinking (auto-detected)
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
+        #expect(pane.isThinking == true)
+
+        // Claude exits on focused pane — no done attention
+        model.handleTitleChange(pane.id, title: "zsh")
+        #expect(pane.claudeSessionID == nil)
+        #expect(pane.isThinking == false)
+        #expect(pane.attentionKind == nil)
+    }
+
     @Test func titleIdleSetsDoneOnUnfocusedPane() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
@@ -787,6 +828,108 @@ struct TitleBasedClaudeDetection {
         model.handleTitleChange(pane.id, title: "\u{2733} project")
         #expect(pane.isThinking == false)
         #expect(pane.attentionKind == nil)
+    }
+}
+
+// MARK: - Suite G2: Manual Flag Attention
+
+@MainActor
+struct ManualFlagAttention {
+    @Test func flagToggleOnFocusedPane() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+        let pane = ws.allPanes[0]
+        ws.focusPane(id: pane.id)
+
+        #expect(pane.attentionKind == nil)
+        pane.attentionKind = .flag
+        #expect(pane.attentionKind == .flag)
+
+        // Toggle off
+        pane.attentionKind = nil
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func flagNotClearedByThinkingStart() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+        let pane = ws.allPanes[0]
+        pane.claudeSessionID = "test"
+
+        pane.attentionKind = .flag
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
+        #expect(pane.isThinking == true)
+        #expect(pane.attentionKind == .flag)
+    }
+
+    @Test func flagNotOverriddenByBell() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+
+        pane.attentionKind = .flag
+        let didSet = model.handleBell(pane.id)
+        #expect(didSet == false)
+        #expect(pane.attentionKind == .flag)
+    }
+
+    @Test func flagNotOverriddenByNeedsAttention() throws {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        ws.focusPane(id: p1.id)
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        // p1 is now unfocused
+
+        p1.attentionKind = .flag
+        let didSet = model.handlePaneNeedsAttention(p1.id, kind: .bell)
+        #expect(didSet == false)
+        #expect(p1.attentionKind == .flag)
+    }
+
+    @Test func flagNotOverriddenByDone() throws {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+
+        let p1 = ws.allPanes[0]
+        p1.claudeSessionID = "test"
+        ws.focusPane(id: p1.id)
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        // p1 is now unfocused
+
+        p1.attentionKind = .flag
+        model.handleTitleChange(p1.id, title: "\u{280B} Thinking...")
+        #expect(p1.attentionKind == .flag)
+
+        model.handleTitleChange(p1.id, title: "\u{2733} project")
+        #expect(p1.attentionKind == .flag)
+    }
+
+    @Test func flagClearedByFocusPane() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+
+        pane.attentionKind = .flag
+        ws.focusPane(id: pane.id)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func flagVisibleInWorkspaceAttentionOnFocusedPane() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+        let pane = ws.allPanes[0]
+        ws.focusPane(id: pane.id)
+
+        #expect(ws.attentionKind == nil)
+        pane.attentionKind = .flag
+        #expect(ws.attentionKind == .flag)
     }
 }
 
