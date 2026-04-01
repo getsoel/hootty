@@ -62,7 +62,7 @@ final class TerminalSurfaceView: NSView {
     private var parentSurface: ghostty_surface_t?
     private var surfaceCreated = false
     private var callbackContext: SurfaceCallbackContext?
-    private var paneID: UUID
+    var paneID: UUID
 
     // Pending text queue (for text sent before surface is ready)
     private var pendingTextQueue: [Data] = []
@@ -194,57 +194,9 @@ final class TerminalSurfaceView: NSView {
 
     // MARK: - Hootty Env Vars
 
-    private static let hoottyBinPath: String? = HoottyBundle.resourceBundle?.url(forResource: "bin", withExtension: nil)?.path
+    static let hoottyBinPath: String? = HoottyBundle.resourceBundle?.url(forResource: "bin", withExtension: nil)?.path
 
-    /// Inject HOOTTY_PANE_ID and prepend our bin/ to PATH in the surface config.
-    /// Returns allocated C strings that must be freed after `ghostty_surface_new`.
-    private func applyHoottyEnvVars(to config: inout ghostty_surface_config_s) -> (cStrings: [UnsafeMutablePointer<CChar>], envArray: UnsafeMutablePointer<ghostty_env_var_s>) {
-        var cStrings: [UnsafeMutablePointer<CChar>] = []
-        var envVars: [ghostty_env_var_s] = []
-
-        func addVar(_ key: String, _ value: String) {
-            let k = strdup(key)!
-            let v = strdup(value)!
-            cStrings.append(k)
-            cStrings.append(v)
-            envVars.append(ghostty_env_var_s(key: k, value: v))
-        }
-
-        addVar("HOOTTY_PANE_ID", paneID.uuidString)
-
-        // Reset stale Kitty keyboard protocol modes at each bash prompt.
-        // `CSI < 9 u` pops up to 9 entries from the keyboard mode stack.
-        // Safe on an empty stack (entries are already .disabled). Only bash processes PROMPT_COMMAND.
-        let kittyReset = "printf '\\e[<9u'"
-        let existingPromptCmd = ProcessInfo.processInfo.environment["PROMPT_COMMAND"] ?? ""
-        if existingPromptCmd.isEmpty {
-            addVar("PROMPT_COMMAND", kittyReset)
-        } else {
-            addVar("PROMPT_COMMAND", "\(kittyReset);\(existingPromptCmd)")
-        }
-
-        if let binPath = Self.hoottyBinPath {
-            let current = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
-            addVar("PATH", "\(binPath):\(current)")
-        }
-
-        let arr = UnsafeMutablePointer<ghostty_env_var_s>.allocate(capacity: envVars.count)
-        for (i, ev) in envVars.enumerated() {
-            arr[i] = ev
-        }
-        config.env_vars = arr
-        config.env_var_count = envVars.count
-
-        return (cStrings, arr)
-    }
-
-    /// Free allocations from `applyHoottyEnvVars`.
-    private func freeEnvVarAllocations(_ cStrings: [UnsafeMutablePointer<CChar>], _ envArray: UnsafeMutablePointer<ghostty_env_var_s>) {
-        for ptr in cStrings {
-            free(ptr)
-        }
-        envArray.deallocate()
-    }
+    // Env var injection is in TerminalSurfaceView+EnvVars.swift
 
     private func applyPlatformConfig(_ config: inout ghostty_surface_config_s, userdata: UnsafeMutableRawPointer) {
         config.userdata = userdata
@@ -620,55 +572,7 @@ extension TerminalSurfaceView: NSTextInputClient {
     }
 }
 
-// MARK: - Drag and Drop
-
-extension TerminalSurfaceView {
-    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-        let pb = sender.draggingPasteboard
-        if pb.canReadObject(forClasses: [NSURL.self], options: nil) ||
-            pb.types?.contains(.string) == true {
-            return .copy
-        }
-        return []
-    }
-
-    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-        let pb = sender.draggingPasteboard
-
-        // Resolve drag content (same priority as before)
-        let resolved: String? = if let urls = pb.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true
-        ]) as? [URL], !urls.isEmpty {
-            urls.map { shellEscape($0.path) }.joined(separator: " ")
-        } else if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
-                  let url = urls.first {
-            shellEscape(url.absoluteString)
-        } else if let str = pb.string(forType: .string), !str.isEmpty {
-            str
-        } else {
-            nil
-        }
-
-        guard let content = resolved, let surface else { return false }
-
-        onFocusRequest?()
-        window?.makeFirstResponder(self)
-
-        // Route through ghostty's paste path for bracketed paste wrapping.
-        // Set override so readClipboard returns this content instead of the system pasteboard.
-        GhosttyApp.shared.pendingPasteOverride = content
-        let action = "paste_from_clipboard"
-        let ok = ghostty_surface_binding_action(surface, action, UInt(action.utf8.count))
-        if !ok {
-            // Fallback: clear override and send directly
-            GhosttyApp.shared.pendingPasteOverride = nil
-            content.withCString { ptr in
-                ghostty_surface_text(surface, ptr, UInt(content.utf8.count))
-            }
-        }
-        return true
-    }
-}
+// Drag and Drop is in TerminalSurfaceView+DragDrop.swift
 
 // MARK: - NSScreen displayID
 

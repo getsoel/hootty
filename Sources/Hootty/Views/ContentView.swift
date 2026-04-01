@@ -9,9 +9,7 @@ struct ContentView: View {
     @GestureState private var dragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorPaneID: UUID?
-    @State private var memoryMB: Int = 0
-    @State private var memorySamples: [MemorySample] = []
-    @State private var memorySampleIndex: Int = 0
+    @State private var memoryMonitor = MemoryMonitor()
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -90,7 +88,7 @@ struct ContentView: View {
             if appModel.modalState == .memoryLog {
                 ActivityMonitorView(
                     tokens: tokens,
-                    samples: memorySamples,
+                    samples: memoryMonitor.samples,
                     appModel: appModel,
                     onDismiss: { appModel.modalState = .none }
                 )
@@ -180,8 +178,8 @@ struct ContentView: View {
 
             Spacer()
 
-            if memoryMB > 0 {
-                Text("\(memoryMB) MB")
+            if memoryMonitor.memoryMB > 0 {
+                Text("\(memoryMonitor.memoryMB) MB")
                     .font(.system(size: TypeScale.smallSize).monospacedDigit())
                     .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
                     .contentShape(Rectangle())
@@ -196,10 +194,10 @@ struct ContentView: View {
             Rectangle().fill(Color(tokens.border)).frame(height: 1)
         }
         .task {
-            recordMemorySample()
+            memoryMonitor.recordSample(appModel: appModel)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
-                recordMemorySample()
+                memoryMonitor.recordSample(appModel: appModel)
             }
         }
     }
@@ -383,55 +381,5 @@ struct ContentView: View {
             leading.identifier = trafficLightConstraintID
             NSLayoutConstraint.activate([top, leading])
         }
-    }
-
-    // MARK: - Memory
-
-    private static let maxSamples = 300
-
-    private func recordMemorySample() {
-        let mb = Self.physicalFootprintMB()
-        let panes = appModel.workspaces.reduce(0) { $0 + $1.allPanes.count }
-        let surfaces = TerminalSurfaceView.liveCount
-        let prevMB = memorySamples.last?.memoryMB
-
-        var sample = MemorySample(
-            timestamp: Date(),
-            memoryMB: mb,
-            paneCount: panes,
-            surfaceCount: surfaces
-        )
-        if let prevMB {
-            sample.deltaMB = mb - prevMB
-        }
-
-        memorySamples.append(sample)
-        if memorySamples.count > Self.maxSamples {
-            memorySamples.removeFirst(memorySamples.count - Self.maxSamples)
-        }
-        memoryMB = mb
-
-        MemoryLogger.record(
-            sampleIndex: memorySampleIndex,
-            memoryMB: mb,
-            paneCount: panes,
-            surfaceCount: surfaces,
-            deltaMB: sample.deltaMB
-        )
-        memorySampleIndex += 1
-    }
-
-    private static func physicalFootprintMB() -> Int {
-        var info = task_vm_info_data_t()
-        var count = mach_msg_type_number_t(
-            MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size
-        )
-        let result = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
-            }
-        }
-        guard result == KERN_SUCCESS else { return 0 }
-        return Int(info.phys_footprint / 1_048_576)
     }
 }

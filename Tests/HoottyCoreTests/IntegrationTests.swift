@@ -6,20 +6,12 @@ import Testing
 
 @MainActor
 private func makeModel() -> (AppModel, URL) {
-    let url = FileManager.default.temporaryDirectory
-        .appendingPathComponent(UUID().uuidString + ".json")
-    let cfgURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("hootty-test-\(UUID().uuidString)")
-        .appendingPathComponent("config")
-    return (AppModel(workspaceStore: WorkspaceStore(fileURL: url), configFile: ConfigFile(fileURL: cfgURL)), url)
+    TestHelpers.makeModelWithURL()
 }
 
 @MainActor
 private func reloadModel(from url: URL) -> AppModel {
-    let cfgURL = FileManager.default.temporaryDirectory
-        .appendingPathComponent("hootty-test-\(UUID().uuidString)")
-        .appendingPathComponent("config")
-    return AppModel(workspaceStore: WorkspaceStore(fileURL: url), configFile: ConfigFile(fileURL: cfgURL))
+    TestHelpers.reloadModel(from: url)
 }
 
 // MARK: - Suite A: Workspace Lifecycle

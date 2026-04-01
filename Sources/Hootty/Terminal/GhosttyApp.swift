@@ -2,6 +2,21 @@ import AppKit
 import CGhostty
 import HoottyCore
 
+/// Events dispatched from ghostty callbacks to the app layer.
+/// Consolidates the many individual callback closures into a single dispatch point.
+enum GhosttyEvent {
+    case newTab
+    case bellRang(UUID)
+    case paneNeedsAttention(UUID, AttentionKind)
+    case claudeSessionDetected(paneID: UUID, sessionID: String)
+    case newSplit(paneID: UUID, direction: SplitDirection, parentSurface: ghostty_surface_t?)
+    case closeSurface(UUID)
+    case closeTab
+    case commandFinished(paneID: UUID, exitCode: Int16)
+    case pwdChanged(paneID: UUID, path: String)
+    case titleChanged(paneID: UUID, title: String)
+}
+
 /// Singleton wrapper around ghostty_app_t. One per application lifetime.
 /// Manages global ghostty state, configuration, and runtime callbacks.
 @MainActor
@@ -21,35 +36,8 @@ final class GhosttyApp {
     /// Command registry for routing ghostty actions to app commands.
     weak var commandRegistry: CommandRegistry?
 
-    /// Called when ghostty dispatches a new_tab action (e.g. Cmd+T keybinding).
-    var onNewTab: (() -> Void)?
-
-    /// Called when a surface rings the terminal bell (BEL character).
-    var onBellRang: ((UUID) -> Void)?
-
-    /// Called when a surface sends a desktop notification (attention events).
-    var onPaneNeedsAttention: ((UUID, AttentionKind) -> Void)?
-
-    /// Called when a Claude Code session ID is detected via OSC 9 (paneID, sessionID).
-    var onClaudeSessionDetected: ((UUID, String) -> Void)?
-
-    /// Called when ghostty dispatches a new_split action (e.g. keybinding).
-    var onNewSplit: ((UUID, SplitDirection, ghostty_surface_t?) -> Void)?
-
-    /// Called when a surface should be closed (process exit, close keybinding, etc.).
-    var onCloseSurface: ((UUID) -> Void)?
-
-    /// Called when ghostty dispatches a close_tab action.
-    var onCloseTab: (() -> Void)?
-
-    /// Called when a command finishes in a surface (shell integration required). (paneID, exitCode)
-    var onCommandFinished: ((UUID, Int16) -> Void)?
-
-    /// Called when a surface's working directory changes (paneID, newPath).
-    var onPwdChanged: ((UUID, String) -> Void)?
-
-    /// Called when a surface's title changes (paneID, title).
-    var onTitleChanged: ((UUID, String) -> Void)?
+    /// Single event handler for all ghostty events. Set once by HoottyApp.
+    var onEvent: ((GhosttyEvent) -> Void)?
 
     /// Pending paste content set by drag-and-drop to route through ghostty's paste path
     /// (which applies bracketed paste wrapping). Consumed by `readClipboard`.
@@ -357,7 +345,7 @@ final class GhosttyApp {
     /// Close a specific pane by ID. Called from action callbacks and process exit.
     static func requestCloseSurface(paneID: UUID) {
         DispatchQueue.main.async {
-            GhosttyApp.shared.onCloseSurface?(paneID)
+            GhosttyApp.shared.onEvent?(.closeSurface(paneID))
         }
     }
 }

@@ -257,30 +257,20 @@ struct WorkspaceSidebar: View {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    private var allNavigableItems: [(workspaceID: UUID, paneID: UUID)] {
-        workspaces.flatMap { ws in
-            ws.allPanes.map { (ws.id, $0.id) }
-        }
-    }
-
     private func moveCursor(direction: Int) {
-        let items = allNavigableItems
-        guard !items.isEmpty else { return }
-        let currentID = sidebarCursorPaneID ?? selectedWorkspace?.focusedPaneID
-        guard let currentID,
-              let idx = items.firstIndex(where: { $0.paneID == currentID })
-        else {
-            if let first = items.first { sidebarCursorPaneID = first.paneID }
-            return
-        }
-        let newIdx = idx + direction
-        guard newIdx >= 0, newIdx < items.count else { return }
-        sidebarCursorPaneID = items[newIdx].paneID
+        sidebarCursorPaneID = SidebarKeyboardNav.moveCursor(
+            direction: direction,
+            workspaces: workspaces,
+            selectedWorkspaceID: selectedWorkspaceID,
+            currentCursorPaneID: sidebarCursorPaneID
+        )
     }
 
     private func confirmCursor() {
-        if let cursorID = sidebarCursorPaneID,
-           let item = allNavigableItems.first(where: { $0.paneID == cursorID }) {
+        if let item = SidebarKeyboardNav.confirmCursor(
+            cursorPaneID: sidebarCursorPaneID,
+            workspaces: workspaces
+        ) {
             onSelectPane(item.workspaceID, item.paneID)
         }
         sidebarHasFocus = false

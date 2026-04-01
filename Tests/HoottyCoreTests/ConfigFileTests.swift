@@ -5,12 +5,11 @@ import Testing
 @MainActor
 struct ConfigFileTests {
     private func tempDir() -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
+        TestHelpers.tempDir()
     }
 
     private func tempFileURL() -> URL {
-        tempDir().appendingPathComponent("config")
+        TestHelpers.tempFileURL()
     }
 
     // MARK: - Parsing

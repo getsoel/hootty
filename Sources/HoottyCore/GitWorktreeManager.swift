@@ -48,6 +48,7 @@ public struct GitWorktreeInfo: Sendable {
 /// Thin wrapper around `git worktree` CLI commands.
 /// Caches frequently-queried results (branch, repoRoot, isWorktree) per directory
 /// with a short TTL to avoid repeated subprocess calls on rapid pwd changes.
+@MainActor
 public enum GitWorktreeManager {
     // MARK: - Cache
 
@@ -60,7 +61,7 @@ public enum GitWorktreeManager {
 
     /// Logging hook — set by the app layer to route through os.Logger.
     /// Signature: (level: "debug"|"warning", message: String) → Void
-    public static var logHandler: ((String, String) -> Void)?
+    public nonisolated(unsafe) static var logHandler: ((String, String) -> Void)?
 
     private static var branchCache: [String: CacheEntry<String?>] = [:]
     private static var repoRootCache: [String: CacheEntry<String?>] = [:]
@@ -206,7 +207,7 @@ public enum GitWorktreeManager {
     // MARK: - Branch Parsing
 
     /// Visible for testing.
-    public static func parseBranchList(_ output: String) -> (local: [BranchRef], remote: [BranchRef], head: String?) {
+    public nonisolated static func parseBranchList(_ output: String) -> (local: [BranchRef], remote: [BranchRef], head: String?) {
         var locals: [BranchRef] = []
         var remotes: [BranchRef] = []
         var head: String?
@@ -276,7 +277,7 @@ public enum GitWorktreeManager {
     // MARK: - Private
 
     @discardableResult
-    private static func run(_ args: [String]) -> String? {
+    private nonisolated static func run(_ args: [String]) -> String? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = args
@@ -304,7 +305,7 @@ public enum GitWorktreeManager {
         }
     }
 
-    private static func parseWorktreeList(_ output: String) -> [GitWorktreeInfo] {
+    private nonisolated static func parseWorktreeList(_ output: String) -> [GitWorktreeInfo] {
         var results: [GitWorktreeInfo] = []
         var currentPath: String?
         var currentBranch: String?

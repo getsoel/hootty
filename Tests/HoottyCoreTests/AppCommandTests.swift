@@ -31,16 +31,8 @@ struct AppCommandTests {
 
 @MainActor
 struct WorkspaceNavigationTests {
-    private func makeModel() -> AppModel {
-        let wsURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
-        let cfgURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
-            .appendingPathComponent("config")
-        return AppModel(workspaceStore: WorkspaceStore(fileURL: wsURL), configFile: ConfigFile(fileURL: cfgURL))
-    }
-
     @Test func selectNextWorkspaceAdvances() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let first = model.workspaces[0]
         let second = model.addWorkspace()
         model.selectedWorkspaceID = first.id
@@ -50,7 +42,7 @@ struct WorkspaceNavigationTests {
     }
 
     @Test func selectNextWorkspaceWrapsToFirst() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let first = model.workspaces[0]
         let second = model.addWorkspace()
         model.selectedWorkspaceID = second.id
@@ -60,7 +52,7 @@ struct WorkspaceNavigationTests {
     }
 
     @Test func selectPreviousWorkspaceGoesBack() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let first = model.workspaces[0]
         let second = model.addWorkspace()
         model.selectedWorkspaceID = second.id
@@ -70,7 +62,7 @@ struct WorkspaceNavigationTests {
     }
 
     @Test func selectPreviousWorkspaceWrapsToLast() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let first = model.workspaces[0]
         let second = model.addWorkspace()
         model.selectedWorkspaceID = first.id

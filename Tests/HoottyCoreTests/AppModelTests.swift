@@ -4,22 +4,14 @@ import Testing
 
 @MainActor
 struct AppModelTests {
-    private func makeModel() -> AppModel {
-        let wsURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
-        let cfgURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
-            .appendingPathComponent("config")
-        return AppModel(workspaceStore: WorkspaceStore(fileURL: wsURL), configFile: ConfigFile(fileURL: cfgURL))
-    }
-
     @Test func removeWorkspaceByIDNoOpForUnknownID() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         model.removeWorkspace(id: UUID())
         #expect(model.workspaces.count == 1)
     }
 
     @Test func handlePaneAttentionIgnoresFocusedPane() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let workspace = model.workspaces[0]
         let pane = workspace.allPanes[0]
         model.selectedWorkspaceID = workspace.id
@@ -29,7 +21,7 @@ struct AppModelTests {
     }
 
     @Test func moveWorkspaceSameIndexNoOp() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let first = model.workspaces[0]
         let second = model.addWorkspace()
         let third = model.addWorkspace()
@@ -39,7 +31,7 @@ struct AppModelTests {
     }
 
     @Test func moveWorkspaceInvalidIDNoOp() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         let first = model.workspaces[0]
         let second = model.addWorkspace()
         model.moveWorkspace(id: UUID(), toIndex: 0)
@@ -47,7 +39,7 @@ struct AppModelTests {
     }
 
     @Test func addWorkspaceFillsGapAfterDeletion() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         // Initial workspace is "Workspace 1"
         #expect(model.workspaces[0].name == "Workspace 1")
         let w2 = model.addWorkspace()
@@ -62,7 +54,7 @@ struct AppModelTests {
     }
 
     @Test func addWorkspaceSkipsCustomNames() {
-        let model = makeModel()
+        let model = TestHelpers.makeModel()
         // Rename the initial workspace to something custom
         model.workspaces[0].name = "My Terminal"
         let w = model.addWorkspace()

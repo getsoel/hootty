@@ -4,14 +4,8 @@ import Testing
 
 @MainActor
 struct SoundManagerTests {
-    private func tempFileURL() -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
-            .appendingPathComponent("config")
-    }
-
     private func makeManager(fileURL: URL? = nil) -> (SoundManager, ConfigFile) {
-        let url = fileURL ?? tempFileURL()
+        let url = fileURL ?? TestHelpers.tempFileURL()
         let configFile = ConfigFile(fileURL: url)
         let manager = SoundManager(configFile: configFile)
         return (manager, configFile)
@@ -23,7 +17,7 @@ struct SoundManagerTests {
     }
 
     @Test func settingSoundPersistsToConfigFile() {
-        let url = tempFileURL()
+        let url = TestHelpers.tempFileURL()
         let (manager, _) = makeManager(fileURL: url)
         manager.bellSound = "Ping"
 
@@ -33,7 +27,7 @@ struct SoundManagerTests {
     }
 
     @Test func settingNilRemovesSound() {
-        let url = tempFileURL()
+        let url = TestHelpers.tempFileURL()
         let (manager1, _) = makeManager(fileURL: url)
         manager1.bellSound = "Ping"
 

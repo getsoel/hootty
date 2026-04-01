@@ -35,7 +35,7 @@ extension GhosttyApp {
             return handleDesktopNotification(target: target, v: action.action.desktop_notification)
         case GHOSTTY_ACTION_NEW_TAB:
             DispatchQueue.main.async {
-                GhosttyApp.shared.onNewTab?()
+                GhosttyApp.shared.onEvent?(.newTab)
             }
             return true
         case GHOSTTY_ACTION_NEW_SPLIT:
@@ -44,7 +44,7 @@ extension GhosttyApp {
             return true
         case GHOSTTY_ACTION_CLOSE_TAB:
             DispatchQueue.main.async {
-                GhosttyApp.shared.onCloseTab?()
+                GhosttyApp.shared.onEvent?(.closeTab)
             }
             return true
         case GHOSTTY_ACTION_CLOSE_WINDOW:
@@ -93,7 +93,7 @@ extension GhosttyApp {
 
     private static func handleBell(target: ghostty_target_s) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
-        GhosttyApp.shared.onBellRang?(ctx.paneID)
+        GhosttyApp.shared.onEvent?(.bellRang(ctx.paneID))
         return true
     }
 
@@ -113,10 +113,10 @@ extension GhosttyApp {
                 return true
             }
             DispatchQueue.main.async {
-                GhosttyApp.shared.onClaudeSessionDetected?(paneID, sessionID)
+                GhosttyApp.shared.onEvent?(.claudeSessionDetected(paneID: paneID, sessionID: sessionID))
             }
         } else {
-            GhosttyApp.shared.onPaneNeedsAttention?(paneID, .bell)
+            GhosttyApp.shared.onEvent?(.paneNeedsAttention(paneID, .bell))
         }
         return true
     }
@@ -128,7 +128,7 @@ extension GhosttyApp {
         let paneID = ctx.paneID
         DispatchQueue.main.async {
             ctx.view?.titleDidChange?(titleStr)
-            GhosttyApp.shared.onTitleChanged?(paneID, titleStr)
+            GhosttyApp.shared.onEvent?(.titleChanged(paneID: paneID, title: titleStr))
         }
         return true
     }
@@ -140,7 +140,7 @@ extension GhosttyApp {
         let paneID = ctx.paneID
         DispatchQueue.main.async {
             ctx.view?.pwdDidChange?(pwdStr)
-            GhosttyApp.shared.onPwdChanged?(paneID, pwdStr)
+            GhosttyApp.shared.onEvent?(.pwdChanged(paneID: paneID, path: pwdStr))
         }
         return true
     }
@@ -182,7 +182,7 @@ extension GhosttyApp {
         let surface = target.target.surface
         let direction: SplitDirection = (v == GHOSTTY_SPLIT_DIRECTION_DOWN || v == GHOSTTY_SPLIT_DIRECTION_UP) ? .vertical : .horizontal
         DispatchQueue.main.async {
-            GhosttyApp.shared.onNewSplit?(paneID, direction, surface)
+            GhosttyApp.shared.onEvent?(.newSplit(paneID: paneID, direction: direction, parentSurface: surface))
         }
         return true
     }
@@ -200,7 +200,7 @@ extension GhosttyApp {
         let paneID = ctx.paneID
         let exitCode = v.exit_code
         DispatchQueue.main.async {
-            GhosttyApp.shared.onCommandFinished?(paneID, exitCode)
+            GhosttyApp.shared.onEvent?(.commandFinished(paneID: paneID, exitCode: exitCode))
         }
         return true
     }

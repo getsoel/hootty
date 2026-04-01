@@ -4,12 +4,6 @@ import Testing
 
 @MainActor
 struct ThemeManagerTests {
-    private func tempFileURL() -> URL {
-        FileManager.default.temporaryDirectory
-            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
-            .appendingPathComponent("config")
-    }
-
     private func makeTempThemesDir() throws -> URL {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("hootty-test-themes-\(UUID().uuidString)")
@@ -23,14 +17,14 @@ struct ThemeManagerTests {
     }
 
     @Test func defaultThemeIsCatppuccinMocha() throws {
-        let configFile = ConfigFile(fileURL: tempFileURL())
+        let configFile = ConfigFile(fileURL: TestHelpers.tempFileURL())
         let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         #expect(manager.selectedThemeName == "Catppuccin Mocha")
     }
 
     @Test func setResolvedThemeUpdatesTheme() throws {
-        let configFile = ConfigFile(fileURL: tempFileURL())
+        let configFile = ConfigFile(fileURL: TestHelpers.tempFileURL())
         let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         let otherTheme = try #require(TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent))
@@ -39,7 +33,7 @@ struct ThemeManagerTests {
     }
 
     @Test func selectedThemeNamePersistsToConfigFile() throws {
-        let url = tempFileURL()
+        let url = TestHelpers.tempFileURL()
         let configFile = ConfigFile(fileURL: url)
         let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
@@ -57,7 +51,7 @@ struct ThemeManagerTests {
             atomically: true, encoding: .utf8
         )
 
-        let url = tempFileURL()
+        let url = TestHelpers.tempFileURL()
         let configFile1 = ConfigFile(fileURL: url)
         configFile1.set("theme", value: "Dracula")
         configFile1.save()
@@ -69,7 +63,7 @@ struct ThemeManagerTests {
     }
 
     @Test func changingThemeNameDoesNotAutoUpdateTheme() throws {
-        let configFile = ConfigFile(fileURL: tempFileURL())
+        let configFile = ConfigFile(fileURL: TestHelpers.tempFileURL())
         let catalog = try ThemeCatalog(themesDirectory: makeTempThemesDir())
         let manager = ThemeManager(configFile: configFile, themeCatalog: catalog)
         let initialTheme = manager.theme
@@ -91,7 +85,7 @@ struct ThemeManagerTests {
     }
 
     @Test func migratesOldConfigOnInit() throws {
-        let url = tempFileURL()
+        let url = TestHelpers.tempFileURL()
         let configFile = ConfigFile(fileURL: url)
         configFile.set("theme", value: "catppuccin-latte")
         configFile.save()
