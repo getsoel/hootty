@@ -38,9 +38,6 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     /// Branches
     case refreshBranches
 
-    /// Modules
-    case toggleWorkshop
-
     // App
     case resetWorkspaces
     case editConfig
@@ -72,7 +69,6 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .changeTheme: "Change Theme..."
         case .refreshTerminal: "Refresh Terminal"
         case .refreshBranches: "Refresh Branches"
-        case .toggleWorkshop: "Toggle Workshop (Experimental)"
         case .resetWorkspaces: "Reset Workspaces"
         case .editConfig: "Edit Configuration..."
         }

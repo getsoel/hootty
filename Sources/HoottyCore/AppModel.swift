@@ -7,7 +7,6 @@ public final class AppModel {
     public let themeManager: ThemeManager
     public let soundManager: SoundManager
     public let workspaceStore: WorkspaceStore
-    public let workshopModel: WorkshopModel
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
@@ -20,21 +19,9 @@ public final class AppModel {
         case memoryLog
     }
 
-    public enum AppMode {
-        case workspaces
-        case workshop
-    }
-
     public var modalState: ModalState = .none
-    public var appMode: AppMode = .workspaces
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
-
-    /// File path currently open in the Workshop markdown editor.
-    public var workshopFilePath: String?
-
-    /// Pane that triggered the current Workshop editor session (for back navigation).
-    public var workshopSourcePaneID: UUID?
 
     public static let sidebarMinWidth: CGFloat = 140
     public static let sidebarMaxWidth: CGFloat = 400
@@ -42,7 +29,7 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil, workshopModel: WorkshopModel? = nil) {
+    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil) {
         let resolvedConfigFile = configFile ?? ConfigFile()
         self.configFile = resolvedConfigFile
         resolvedConfigFile.ensureExists()
@@ -50,7 +37,6 @@ public final class AppModel {
         self.themeManager = ThemeManager(configFile: resolvedConfigFile, themeCatalog: catalog)
         self.soundManager = SoundManager(configFile: resolvedConfigFile)
         self.workspaceStore = workspaceStore
-        self.workshopModel = workshopModel ?? WorkshopModel()
         if let snapshot = workspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
@@ -211,15 +197,6 @@ public final class AppModel {
         set { configFile.setDefaultTrueBool("hootty-show-worktree-actions", newValue) }
     }
 
-    public var workshopEnabled: Bool {
-        get { configFile.defaultFalseBool("hootty-module-workshop") }
-        set { configFile.setDefaultFalseBool("hootty-module-workshop", newValue) }
-    }
-
-    public var moduleFlags: ModuleFlags {
-        ModuleFlags(workshop: workshopEnabled)
-    }
-
     public func toggleSidebar() {
         sidebarVisible.toggle()
         saveWorkspaces()
@@ -239,12 +216,5 @@ public final class AppModel {
               let idx = workspaces.firstIndex(where: { $0.id == current }) else { return }
         let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
         selectedWorkspaceID = workspaces[prevIdx].id
-    }
-
-    /// Refresh Workshop state and claims for a specific repo root.
-    public func refreshWorkshop(repoRoot: String) {
-        workshopModel.refresh(repoRoot: repoRoot)
-        workshopModel.refreshClaims(repoRoot: repoRoot)
-        workshopModel.refreshStale(repoRoot: repoRoot)
     }
 }

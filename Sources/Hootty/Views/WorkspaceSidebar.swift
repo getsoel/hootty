@@ -6,8 +6,6 @@ struct WorkspaceSidebar: View {
     let workspaces: [Workspace]
     @Binding var selectedWorkspaceID: UUID?
     let tokens: DesignTokens
-    let moduleFlags: ModuleFlags
-    @Binding var appMode: AppModel.AppMode
     var onAddWorkspace: () -> Void
     var onRemoveWorkspace: (UUID) -> Void
     var onMoveWorkspace: (UUID, Int) -> Void
@@ -119,20 +117,10 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    @ViewBuilder
     private var sidebarTabPicker: some View {
-        if moduleFlags.workshop {
-            CapsulePickerView(
-                options: [AppModel.AppMode.workspaces, .workshop],
-                selection: $appMode,
-                tokens: tokens,
-                label: { $0 == .workspaces ? "Workspaces" : "Workshop" }
-            )
-        } else {
-            Text("Workspaces")
-                .font(.system(size: TypeScale.captionSize, weight: .semibold))
-                .foregroundStyle(Color(tokens.textMuted))
-        }
+        Text("Workspaces")
+            .font(.system(size: TypeScale.captionSize, weight: .semibold))
+            .foregroundStyle(Color(tokens.textMuted))
     }
 
     private var workspaceList: some View {
@@ -164,9 +152,14 @@ struct WorkspaceSidebar: View {
                         workspacePaneList(workspace)
                     }
                     .overlay(alignment: .leading) {
+                        let isActive = workspace.id == selectedWorkspaceID
                         Rectangle()
                             .fill(Color(groupColor))
                             .frame(width: 2)
+                            .shadow(
+                                color: isActive ? Color(groupColor).opacity(0.5) : .clear,
+                                radius: isActive ? 6 : 0
+                            )
                     }
                 }
             }

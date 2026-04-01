@@ -6,12 +6,10 @@ struct PaneContentView: View {
     var pane: Pane
     let isFocused: Bool
     let tokens: DesignTokens
-    var workshopModel: WorkshopModel?
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
-    var onEditWorkshopArtifact: ((String, String, WorkshopArtifactID) -> Void)?
     let onSave: () -> Void
     @State private var isDropTarget = false
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
@@ -32,18 +30,6 @@ struct PaneContentView: View {
                 onClosePane: onClosePane,
                 onSave: onSave
             )
-
-            if let workshopModel, let repoRoot = pane.repoRoot {
-                WorkshopBarView(
-                    workshopModel: workshopModel,
-                    repoRoot: repoRoot,
-                    paneID: pane.id,
-                    tokens: tokens,
-                    onEditArtifact: onEditWorkshopArtifact.map { callback in
-                        { changeName, artifactID in callback(repoRoot, changeName, artifactID) }
-                    }
-                )
-            }
 
             TerminalPaneView(pane: pane, isFocused: isFocused, onFocusPane: onFocusPane)
         }

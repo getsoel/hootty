@@ -55,7 +55,6 @@ struct HoottyApp: App {
     @State private var appModel: AppModel
     @State private var commandRegistry: CommandRegistry
     @State private var headWatcher = GitHEADWatcher()
-    @State private var workshopWatcher = WorkshopWatcher()
 
     // MARK: - Command Registration
 
@@ -64,7 +63,7 @@ struct HoottyApp: App {
             let workspace = appModel.addWorkspace()
             appModel.selectedWorkspaceID = workspace.id
         }
-        commandRegistry.register(.closeWorkspace) { [appModel, headWatcher, workshopWatcher] in
+        commandRegistry.register(.closeWorkspace) { [appModel, headWatcher] in
             guard let workspace = appModel.selectedWorkspace else { return }
             let id = workspace.id
             let repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
@@ -75,7 +74,6 @@ struct HoottyApp: App {
             }
             for root in repoRoots {
                 Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
             }
         }
         commandRegistry.register(.splitRight) { [appModel] in
@@ -136,37 +134,17 @@ struct HoottyApp: App {
         commandRegistry.register(.refreshBranches) {
             // Branch list is now computed on-demand when the picker opens
         }
-        commandRegistry.register(.resetWorkspaces) { [appModel, headWatcher, workshopWatcher] in
+        commandRegistry.register(.resetWorkspaces) { [appModel, headWatcher] in
             for workspace in appModel.workspaces {
                 GhosttyApp.shared.cleanupWorkspace(workspace)
             }
             headWatcher.stopAll()
-            workshopWatcher.stopAll()
             appModel.resetWorkspaces()
         }
         commandRegistry.register(.editConfig) { [appModel] in
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
-        commandRegistry.register(.toggleWorkshop) { [appModel, workshopWatcher] in
-            appModel.workshopEnabled.toggle()
-            if appModel.workshopEnabled {
-                // Bootstrap watchers for repos already open in panes
-                workshopWatcher.setOnChange { [appModel] repoRoot in
-                    appModel.refreshWorkshop(repoRoot: repoRoot)
-                }
-                for workspace in appModel.workspaces {
-                    for pane in workspace.allPanes {
-                        if let repoRoot = pane.repoRoot,
-                           !workshopWatcher.watchedRepoRoots.contains(repoRoot),
-                           WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
-                            workshopWatcher.startWatching(repoRoot: repoRoot)
-                        }
-                    }
-                }
-            }
-        }
-
         // Wire the registry into GhosttyApp for action callback routing
         GhosttyApp.shared.commandRegistry = commandRegistry
     }
@@ -177,16 +155,6 @@ struct HoottyApp: App {
         }
         if !hasRemainingPanes {
             watcher.stopWatching(repoRoot: repoRoot)
-        }
-    }
-
-    private static func cleanupWorkshopWatcher(_ watcher: WorkshopWatcher, repoRoot: String, appModel: AppModel) {
-        let hasRemainingPanes = appModel.workspaces.contains { workspace in
-            workspace.allPanes.contains { $0.repoRoot == repoRoot }
-        }
-        if !hasRemainingPanes {
-            watcher.stopWatching(repoRoot: repoRoot)
-            appModel.workshopModel.removeStatus(for: repoRoot)
         }
     }
 
@@ -206,13 +174,12 @@ struct HoottyApp: App {
             ContentView(
                 appModel: appModel,
                 commandRegistry: commandRegistry,
-                onCleanupRepoWatchers: { [headWatcher, workshopWatcher, appModel] repoRoot in
+                onCleanupRepoWatchers: { [headWatcher, appModel] repoRoot in
                     Self.cleanupHeadWatcher(headWatcher, repoRoot: repoRoot, appModel: appModel)
-                    Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: repoRoot, appModel: appModel)
                 }
             )
             .frame(minWidth: 700, minHeight: 400)
-            .onAppear { [headWatcher, workshopWatcher] in
+            .onAppear { [headWatcher] in
                 // Bootstrap HEAD watchers for persisted repos
                 for workspace in appModel.workspaces {
                     for pane in workspace.allPanes {
@@ -220,22 +187,6 @@ struct HoottyApp: App {
                            !headWatcher.watchedRepoRoots.contains(repoRoot),
                            let gitDir = GitWorktreeManager.gitCommonDir(for: pane.workingDirectory) {
                             headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
-                        }
-                    }
-                }
-
-                // Bootstrap Workshop watchers for repos with workshop/
-                if appModel.workshopEnabled {
-                    workshopWatcher.setOnChange { [appModel] repoRoot in
-                        appModel.refreshWorkshop(repoRoot: repoRoot)
-                    }
-                    for workspace in appModel.workspaces {
-                        for pane in workspace.allPanes {
-                            if let repoRoot = pane.repoRoot,
-                               !workshopWatcher.watchedRepoRoots.contains(repoRoot),
-                               WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
-                                workshopWatcher.startWatching(repoRoot: repoRoot)
-                            }
                         }
                     }
                 }
@@ -282,7 +233,7 @@ struct HoottyApp: App {
                         appModel.saveWorkspaces()
                     }
                 }
-                GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher, workshopWatcher] paneID in
+                GhosttyApp.shared.onCloseSurface = { [appModel, headWatcher] paneID in
                     let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
                     GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
                     guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
@@ -290,13 +241,12 @@ struct HoottyApp: App {
                     appModel.saveWorkspaces()
                     if let root = repoRoot {
                         Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                        Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
                     }
                 }
                 GhosttyApp.shared.onTitleChanged = { [appModel] paneID, title in
                     appModel.handleTitleChange(paneID, title: title)
                 }
-                GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher, workshopWatcher] paneID, pwd in
+                GhosttyApp.shared.onPwdChanged = { [appModel, headWatcher] paneID, pwd in
                     appModel.handlePwdChanged(paneID, pwd: pwd)
                     guard let (_, pane) = appModel.findPane(id: paneID),
                           let repoRoot = pane.repoRoot else { return }
@@ -305,19 +255,13 @@ struct HoottyApp: App {
                        let gitDir = GitWorktreeManager.gitCommonDir(for: pwd) {
                         headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
                     }
-                    // Register Workshop watcher for repos with workshop/
-                    if appModel.workshopEnabled,
-                       !workshopWatcher.watchedRepoRoots.contains(repoRoot),
-                       WorkshopModel.hasWorkshop(repoRoot: repoRoot) {
-                        workshopWatcher.startWatching(repoRoot: repoRoot)
-                    }
                 }
                 GhosttyApp.shared.onCommandFinished = { paneID, exitCode in
                     if exitCode > 128 {
                         Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
                     }
                 }
-                GhosttyApp.shared.onCloseTab = { [appModel, headWatcher, workshopWatcher] in
+                GhosttyApp.shared.onCloseTab = { [appModel, headWatcher] in
                     guard let workspace = appModel.selectedWorkspace,
                           let focusedPaneID = workspace.focusedPaneID else { return }
                     let repoRoot = workspace.findPane(id: focusedPaneID)?.repoRoot
@@ -326,7 +270,6 @@ struct HoottyApp: App {
                     appModel.saveWorkspaces()
                     if let root = repoRoot {
                         Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
-                        Self.cleanupWorkshopWatcher(workshopWatcher, repoRoot: root, appModel: appModel)
                     }
                 }
             }

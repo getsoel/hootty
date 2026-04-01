@@ -105,11 +105,6 @@ struct ContentView: View {
                 )
             }
         }
-        .onChange(of: appModel.workshopEnabled) { _, enabled in
-            if !enabled {
-                appModel.appMode = .workspaces
-            }
-        }
     }
 
     private var sidebar: some View {
@@ -117,8 +112,6 @@ struct ContentView: View {
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
-            moduleFlags: appModel.moduleFlags,
-            appMode: $appModel.appMode,
             onAddWorkspace: {
                 let workspace = appModel.addWorkspace()
                 appModel.selectedWorkspaceID = workspace.id
@@ -284,9 +277,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var detailView: some View {
-        if appModel.workshopEnabled, appModel.appMode == .workshop {
-            WorkshopView(appModel: appModel, tokens: tokens)
-        } else if let workspace = selectedWorkspace {
+        if let workspace = selectedWorkspace {
             terminalsDetail(workspace: workspace)
         } else {
             Text("Select or create a workspace")
@@ -300,7 +291,6 @@ struct ContentView: View {
             node: workspace.rootNode,
             focusedPaneID: workspace.focusedPaneID,
             tokens: tokens,
-            workshopModel: appModel.workshopEnabled ? appModel.workshopModel : nil,
             isInSplit: false,
             onFocusPane: { paneID in
                 appModel.sidebarHasFocus = false
@@ -327,15 +317,6 @@ struct ContentView: View {
             onSwapPanes: { sourceID, targetID in
                 workspace.swapPanes(sourceID, targetID)
                 appModel.saveWorkspaces()
-            },
-            onEditWorkshopArtifact: { repoRoot, changeName, artifactID in
-                guard let filePath = appModel.workshopModel.artifactFilePath(
-                    repoRoot: repoRoot, changeName: changeName, artifactID: artifactID
-                ) else { return }
-
-                appModel.workshopFilePath = filePath
-                appModel.workshopSourcePaneID = workspace.focusedPaneID
-                appModel.appMode = .workshop
             },
             onSave: { appModel.saveWorkspaces() }
         )

@@ -46,4 +46,4 @@ When visually balancing left/right elements in an HStack (e.g., status indicator
 
 When a UI mode switch (e.g., tab picker) affects content in sibling views (sidebar picker controlling detail area), lift the state to the shared model (`AppModel`) and pass bindings — never use local `@State` in one view to control rendering in another.
 
-For square icon buttons in horizontal bars (sidebar header, tab bar, board header, Workshop bar), use `BarIconButton` (or `BarIconMenu` for menu-style). Never hand-roll the hover-state/cursor/background pattern inline. Use `Layout.barHeight` for all bar heights — never hardcode `38`.
+For square icon buttons in horizontal bars (sidebar header, tab bar, board header), use `BarIconButton` (or `BarIconMenu` for menu-style). Never hand-roll the hover-state/cursor/background pattern inline. Use `Layout.barHeight` for all bar heights — never hardcode `38`.

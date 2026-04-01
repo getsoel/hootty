@@ -192,7 +192,7 @@ public enum Spacing {
 // MARK: - Layout Constants
 
 public enum Layout {
-    /// Standard bar height for all horizontal bars (titlebar, sidebar header, tab bar, board header, Workshop bar).
+    /// Standard bar height for all horizontal bars (titlebar, sidebar header, tab bar, board header).
     public static let barHeight: CGFloat = 38
 
     /// Small element rounding (cards, inputs, badges, hover backgrounds).
