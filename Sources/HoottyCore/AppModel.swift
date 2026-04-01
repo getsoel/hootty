@@ -17,6 +17,7 @@ public final class AppModel {
         case commandPalette
         case themePicker
         case memoryLog
+        case flagNote
     }
 
     public var modalState: ModalState = .none

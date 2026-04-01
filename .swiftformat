@@ -6,5 +6,5 @@
 --self init-only
 --commas inline
 --importgrouping testable-last
---exclude Sources/CGhostty,ghostty,.build,Vendors,.hootty
+--exclude Sources/CGhostty,ghostty,.build,Vendors
 --disable wrapMultilineStatementBraces

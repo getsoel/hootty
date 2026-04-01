@@ -86,7 +86,9 @@ struct TerminalPaneView: NSViewRepresentable {
             }
         }
         view.onUserInteraction = { [weak pane] in
-            if pane?.attentionKind != nil {
+            if pane?.isFlagged == true {
+                pane?.clearFlag()
+            } else if pane?.attentionKind != nil {
                 pane?.attentionKind = nil
             }
         }

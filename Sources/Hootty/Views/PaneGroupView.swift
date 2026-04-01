@@ -52,22 +52,29 @@ struct PaneContentView: View {
                 Rectangle()
                     .stroke(Color(tokens.borderFocused), lineWidth: 2)
                     .allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if let note = pane.flagNote, terminalHasFocus {
+                VStack {
+                    panePill(strokeColor: Color(tokens.statusFlag)) {
+                        Image(systemName: "flag.fill")
+                            .foregroundStyle(Color(tokens.statusFlag))
+                            .font(.system(size: TypeScale.captionSize))
+                        Text(note)
+                            .font(.system(size: TypeScale.bodySize, weight: .medium))
+                            .foregroundStyle(Color(tokens.text))
+                    }
+                    Spacer()
+                }
+                .padding(.top, Spacing.xl)
+                .frame(maxWidth: .infinity)
+                .allowsHitTesting(false)
             } else if sidebarHasFocus, sidebarCursorPaneID == pane.id {
-                VStack(spacing: 0) {
+                panePill(strokeColor: Color(tokens.borderFocused)) {
                     Text("Press Enter to focus")
                         .font(.system(size: TypeScale.bodySize, weight: .medium))
                         .foregroundStyle(Color(tokens.text))
-                        .padding(.horizontal, Spacing.xl)
-                        .padding(.vertical, Spacing.md)
-                        .background(
-                            RoundedRectangle(cornerRadius: Layout.cornerRadiusLg)
-                                .fill(Color(tokens.surface))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: Layout.cornerRadiusLg)
-                                        .stroke(Color(tokens.borderFocused).opacity(0.5), lineWidth: 1)
-                                )
-                                .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
-                        )
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .allowsHitTesting(false)
@@ -98,5 +105,22 @@ struct PaneContentView: View {
             }
             return true
         }
+    }
+
+    private func panePill(strokeColor: Color, @ViewBuilder content: () -> some View) -> some View {
+        HStack(spacing: Spacing.sm) {
+            content()
+        }
+        .padding(.horizontal, Spacing.xl)
+        .padding(.vertical, Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Layout.cornerRadiusLg)
+                .fill(Color(tokens.surface))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Layout.cornerRadiusLg)
+                        .stroke(strokeColor.opacity(0.5), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
+        )
     }
 }

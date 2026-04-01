@@ -94,6 +94,20 @@ struct ContentView: View {
                 )
             }
         }
+        .overlay {
+            if appModel.modalState == .flagNote {
+                FlagNoteInputView(
+                    tokens: tokens,
+                    onSubmit: { note in
+                        if let pane = appModel.selectedWorkspace?.focusedPane {
+                            pane.setFlag(note: note.isEmpty ? nil : note)
+                        }
+                        appModel.modalState = .none
+                    },
+                    onDismiss: { appModel.modalState = .none }
+                )
+            }
+        }
         .onChange(of: appModel.modalState) { _, state in
             if state == .themePicker {
                 appModel.themeManager.themeCatalog.loadPreviews()

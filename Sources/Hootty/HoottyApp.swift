@@ -117,7 +117,11 @@ struct HoottyApp: App {
         }
         commandRegistry.register(.flagPane) { [appModel] in
             guard let pane = appModel.selectedWorkspace?.focusedPane else { return }
-            pane.attentionKind = pane.attentionKind == .flag ? nil : .flag
+            if pane.isFlagged {
+                pane.clearFlag()
+            } else {
+                appModel.modalState = .flagNote
+            }
         }
         commandRegistry.register(.toggleSidebar) { [appModel] in
             appModel.toggleSidebar()

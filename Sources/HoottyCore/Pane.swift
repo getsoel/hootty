@@ -17,6 +17,7 @@ public final class Pane: Identifiable {
     public var customName: String?
     public var isRunning = true
     public var attentionKind: AttentionKind?
+    public var flagNote: String?
     public var isThinking = false
 
     public var needsAttention: Bool {
@@ -26,6 +27,16 @@ public final class Pane: Identifiable {
     /// Whether the pane has a manual flag that automated events should not override.
     public var isFlagged: Bool {
         attentionKind == .flag
+    }
+
+    public func setFlag(note: String? = nil) {
+        attentionKind = .flag
+        flagNote = note
+    }
+
+    public func clearFlag() {
+        attentionKind = nil
+        flagNote = nil
     }
 
     public var shell: String
