@@ -1,0 +1,14 @@
+schema: spec-driven
+
+# Project context (optional)
+# Shown to AI when creating artifacts. Add your tech stack, conventions, etc.
+# context: |
+#   Tech stack: TypeScript, React, Node.js
+#   We use conventional commits
+
+# Per-artifact rules (optional)
+# rules:
+#   proposal:
+#     - Keep proposals under 500 words
+#   tasks:
+#     - Break tasks into chunks of max 2 hours

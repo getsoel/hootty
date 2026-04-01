@@ -1,0 +1,6 @@
+#!/bin/bash
+# Hootty CwdChanged hook — reads Claude Code hook JSON from stdin,
+# extracts the new cwd, and emits OSC 7 so ghostty updates the pane's
+# working directory (enabling worktree detection in the sidebar).
+CWD=$(sed -n 's/.*"cwd":"\([^"]*\)".*/\1/p' | head -1)
+[ -n "$CWD" ] && printf '\e]7;file://%s%s\a' "$(hostname)" "$CWD"

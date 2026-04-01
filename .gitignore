@@ -33,3 +33,4 @@ repomix-output.xml
 # Documentation (generated/internal)
 docs/
 cli/node_modules/
+.workshop/
