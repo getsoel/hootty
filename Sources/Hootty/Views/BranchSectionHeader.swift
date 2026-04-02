@@ -6,13 +6,12 @@ struct BranchSectionHeader: View {
     let section: SidebarSection
     let isSelected: Bool
     let tokens: DesignTokens
-    var groupColor: NSColor?
 
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: iconName)
                 .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(groupColor ?? (isSelected ? tokens.text : tokens.textMuted)))
+                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
 
             if let displayLabel = section.displayLabel {
@@ -30,7 +29,7 @@ struct BranchSectionHeader: View {
         .padding(.vertical, Spacing.smd)
         .padding(.trailing, Spacing.md)
         .padding(.leading, Spacing.md + TreeLayout.columnWidth)
-        .background(TreeLinesBackground(depth: 1, tokens: tokens, groupColor: groupColor))
+        .background(TreeLinesBackground(depth: 1, tokens: tokens))
         .contextMenu {
             if !section.isHead, let branch = section.branch,
                let worktreePath = section.panes.compactMap(\.worktreePath).first {

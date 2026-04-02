@@ -20,9 +20,9 @@ struct PaneBar: View {
                 .frame(maxHeight: .infinity)
                 .padding(.leading, Spacing.md)
 
-            Text(pane.displayName)
+            Text(pane.flagNote ?? pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted))
+                .foregroundStyle(Color(pane.isFlagged ? tokens.statusFlag : tokens.textMuted))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .padding(.leading, Spacing.sm)

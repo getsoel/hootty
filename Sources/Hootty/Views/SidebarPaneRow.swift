@@ -9,7 +9,6 @@ struct SidebarPaneRow: View {
     let layoutRects: [UUID: CGRect]
     let depth: Int
     let tokens: DesignTokens
-    var groupColor: NSColor?
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
     var onClose: (UUID) -> Void
@@ -21,9 +20,9 @@ struct SidebarPaneRow: View {
             StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isClaudeSession: pane.claudeSessionID != nil, tokens: tokens)
                 .frame(width: TreeLayout.columnWidth)
 
-            Text(pane.displayName)
+            Text(pane.flagNote ?? pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
+                .foregroundStyle(Color(pane.isFlagged && !isFocusedPane ? tokens.statusFlag : isFocusedPane ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
 
             Spacer(minLength: 0)
@@ -57,7 +56,7 @@ struct SidebarPaneRow: View {
                     .strokeBorder(Color(tokens.borderFocused), lineWidth: 1)
             }
         }
-        .background(TreeLinesBackground(depth: depth, tokens: tokens, groupColor: groupColor))
+        .background(TreeLinesBackground(depth: depth, tokens: tokens))
         .onContinuousHover { phase in
             switch phase {
             case .active:

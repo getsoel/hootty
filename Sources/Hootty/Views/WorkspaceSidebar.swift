@@ -134,7 +134,6 @@ struct WorkspaceSidebar: View {
                             workspace: workspace,
                             isSelected: isActive,
                             tokens: tokens,
-                            groupColor: isActive ? groupColor : nil,
                             onSelect: { selectedWorkspaceID = workspace.id },
                             onRename: { id, name in
                                 editingName = name
@@ -151,7 +150,16 @@ struct WorkspaceSidebar: View {
                             dropEdge: $dropEdge,
                             workspaceRowHeight: $workspaceRowHeight
                         )
-                        workspacePaneList(workspace, groupColor: isActive ? groupColor : nil)
+                        workspacePaneList(workspace)
+                    }
+                    .background {
+                        if isActive {
+                            LinearGradient(
+                                colors: [Color(groupColor).opacity(0.15), Color.clear],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        }
                     }
                     .overlay(alignment: .leading) {
                         Rectangle()
@@ -164,7 +172,7 @@ struct WorkspaceSidebar: View {
     }
 
     @ViewBuilder
-    private func workspacePaneList(_ workspace: Workspace, groupColor: NSColor?) -> some View {
+    private func workspacePaneList(_ workspace: Workspace) -> some View {
         let canClose = workspace.allPanes.count > 1
         let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
         let hasBranches = workspace.hasBranchSections
@@ -174,7 +182,7 @@ struct WorkspaceSidebar: View {
         let headBranchRepos = Set(sections.filter(\.isHead).compactMap(\.repoRoot))
         ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
             if hasBranches {
-                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens, groupColor: groupColor)
+                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens)
             }
 
             ForEach(section.panes) { pane in
@@ -186,7 +194,6 @@ struct WorkspaceSidebar: View {
                     layoutRects: layoutRects,
                     depth: depth,
                     tokens: tokens,
-                    groupColor: groupColor,
                     onSelect: {
                         sidebarHasFocus = false
                         onSelectPane(workspace.id, pane.id)
@@ -210,7 +217,7 @@ struct WorkspaceSidebar: View {
                     || sections[index + 1].isHead
                     || sections[index + 1].repoRoot != repoRoot
                 if isLastForRepo {
-                    createWorktreeRow(workspace: workspace, repoRoot: repoRoot, depth: depth - 1, groupColor: groupColor)
+                    createWorktreeRow(workspace: workspace, repoRoot: repoRoot, depth: depth - 1)
                 }
             }
         }
@@ -278,7 +285,7 @@ struct WorkspaceSidebar: View {
 
     // MARK: - Worktree Action Row
 
-    private func createWorktreeRow(workspace: Workspace, repoRoot: String, depth: Int, groupColor: NSColor?) -> some View {
+    private func createWorktreeRow(workspace: Workspace, repoRoot: String, depth: Int) -> some View {
         let hoverKey = "\(workspace.id)|\(repoRoot)"
         let isHovered = hoveredWorktreeAction == hoverKey
         return HStack(spacing: 6) {
@@ -301,7 +308,7 @@ struct WorkspaceSidebar: View {
             Rectangle()
                 .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
         )
-        .background(TreeLinesBackground(depth: depth, tokens: tokens, groupColor: groupColor))
+        .background(TreeLinesBackground(depth: depth, tokens: tokens))
         .onContinuousHover { phase in
             switch phase {
             case .active:
