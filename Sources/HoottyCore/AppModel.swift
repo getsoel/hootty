@@ -193,9 +193,9 @@ public final class AppModel {
         selectedWorkspaceID = workspace.id
     }
 
-    public var showWorktreeActions: Bool {
-        get { configFile.defaultTrueBool("hootty-show-worktree-actions") }
-        set { configFile.setDefaultTrueBool("hootty-show-worktree-actions", newValue) }
+    public var showLayoutThumbnails: Bool {
+        get { configFile.defaultTrueBool("hootty-show-layout-thumbnails") }
+        set { configFile.setDefaultTrueBool("hootty-show-layout-thumbnails", newValue) }
     }
 
     public func toggleSidebar() {

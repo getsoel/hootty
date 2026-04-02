@@ -11,7 +11,6 @@ struct WorkspaceSidebar: View {
     var onMoveWorkspace: (UUID, Int) -> Void
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
-    var onCreateWorktree: ((UUID, String, String) -> Void)?
     var onToggleNote: ((UUID) -> Void)?
     var onSave: (() -> Void)?
     @Binding var sidebarHasFocus: Bool
@@ -23,16 +22,12 @@ struct WorkspaceSidebar: View {
     @State private var editingName: String = ""
     @State private var renamePaneTargetID: UUID?
     @State private var editingPaneName: String = ""
-    @State private var worktreeTarget: WorktreeCreationTarget?
-    @State private var worktreeBranchName: String = ""
     @State private var dropTargetWorkspaceID: UUID?
     @State private var dropEdge: VerticalEdge?
     @State private var workspaceRowHeight: CGFloat = 32
-    @Binding var showWorktreeActions: Bool
-    @State private var hoveredWorktreeAction: String?
+    @Binding var showLayoutThumbnails: Bool
     @State private var showRenameWorkspaceAlert = false
     @State private var showRenamePaneAlert = false
-    @State private var showWorktreeAlert = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,11 +67,6 @@ struct WorkspaceSidebar: View {
             Button("OK") { commitPaneRename() }
             Button("Cancel", role: .cancel) { renamePaneTargetID = nil }
         }
-        .alert("New Worktree", isPresented: $showWorktreeAlert) {
-            TextField("Branch name", text: $worktreeBranchName)
-            Button("Create") { commitWorktreeCreation() }
-            Button("Cancel", role: .cancel) { worktreeTarget = nil }
-        }
     }
 
     private var sidebarHeader: some View {
@@ -88,12 +78,12 @@ struct WorkspaceSidebar: View {
 
             HStack(spacing: Spacing.xs) {
                 BarIconButton(
-                    systemImage: "cube",
+                    systemImage: "squareshape.split.2x2",
                     tokens: tokens,
-                    accessibilityLabel: "Toggle worktrees",
-                    help: "Toggle worktree actions",
-                    iconColor: showWorktreeActions ? tokens.textAccent : tokens.textMuted,
-                    action: { showWorktreeActions.toggle() }
+                    accessibilityLabel: "Toggle layout thumbnails",
+                    help: "Toggle layout thumbnails",
+                    iconColor: showLayoutThumbnails ? tokens.textAccent : tokens.textMuted,
+                    action: { showLayoutThumbnails.toggle() }
                 )
 
                 BarIconButton(
@@ -127,15 +117,13 @@ struct WorkspaceSidebar: View {
     private var workspaceList: some View {
         ScrollView {
             VStack(spacing: 0) {
-                ForEach(Array(workspaces.enumerated()), id: \.element.id) { index, workspace in
-                    let groupColor = tokens.groupColors[index % tokens.groupColors.count]
+                ForEach(workspaces) { workspace in
                     let isActive = workspace.id == selectedWorkspaceID
                     VStack(spacing: 0) {
                         WorkspaceRow(
                             workspace: workspace,
                             isSelected: isActive,
                             tokens: tokens,
-                            groupColor: groupColor,
                             onSelect: { selectedWorkspaceID = workspace.id },
                             onRename: { id, name in
                                 editingName = name
@@ -167,13 +155,12 @@ struct WorkspaceSidebar: View {
     @ViewBuilder
     private func workspacePaneList(_ workspace: Workspace) -> some View {
         let canClose = workspace.allPanes.count > 1
-        let layoutRects = canClose ? workspace.rootNode.paneRects() : [:]
+        let layoutRects = (canClose && showLayoutThumbnails) ? workspace.rootNode.paneRects() : [:]
         let hasBranches = workspace.hasBranchSections
         let depth = hasBranches ? 2 : 1
 
         let sections = workspace.sidebarSections
-        let headBranchRepos = Set(sections.filter(\.isHead).compactMap(\.repoRoot))
-        ForEach(Array(sections.enumerated()), id: \.element.id) { index, section in
+        ForEach(sections) { section in
             if hasBranches {
                 BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens)
             }
@@ -185,6 +172,7 @@ struct WorkspaceSidebar: View {
                     isCursorTarget: sidebarHasFocus && sidebarCursorPaneID == pane.id,
                     canClose: canClose,
                     layoutRects: layoutRects,
+                    showLayoutThumbnails: showLayoutThumbnails,
                     depth: depth,
                     tokens: tokens,
                     onSelect: {
@@ -203,18 +191,6 @@ struct WorkspaceSidebar: View {
                         onToggleNote?(pane.id)
                     }
                 )
-            }
-
-            // Show "+ New worktree" at the end of each repo's group
-            if showWorktreeActions,
-               let repoRoot = section.repoRoot,
-               headBranchRepos.contains(repoRoot) {
-                let isLastForRepo = index + 1 >= sections.count
-                    || sections[index + 1].isHead
-                    || sections[index + 1].repoRoot != repoRoot
-                if isLastForRepo {
-                    createWorktreeRow(workspace: workspace, repoRoot: repoRoot, depth: depth - 1)
-                }
             }
         }
     }
@@ -244,16 +220,6 @@ struct WorkspaceSidebar: View {
         showRenamePaneAlert = false
     }
 
-    private func commitWorktreeCreation() {
-        let trimmed = worktreeBranchName.trimmingCharacters(in: .whitespaces)
-        if let target = worktreeTarget, !trimmed.isEmpty {
-            onCreateWorktree?(target.workspaceID, target.repoRoot, trimmed)
-        }
-        worktreeTarget = nil
-        worktreeBranchName = ""
-        showWorktreeAlert = false
-    }
-
     // MARK: - Keyboard Navigation
 
     private var selectedWorkspace: Workspace? {
@@ -278,54 +244,4 @@ struct WorkspaceSidebar: View {
         }
         sidebarHasFocus = false
     }
-
-    // MARK: - Worktree Action Row
-
-    private func createWorktreeRow(workspace: Workspace, repoRoot: String, depth: Int) -> some View {
-        let hoverKey = "\(workspace.id)|\(repoRoot)"
-        let isHovered = hoveredWorktreeAction == hoverKey
-        return HStack(spacing: 6) {
-            Image(systemName: "plus")
-                .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-                .frame(width: TreeLayout.columnWidth)
-
-            Text("New worktree")
-                .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-                .lineLimit(1)
-
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, Spacing.smd)
-        .padding(.trailing, Spacing.md)
-        .padding(.leading, Spacing.md + CGFloat(depth) * TreeLayout.columnWidth)
-        .background(
-            Rectangle()
-                .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
-        )
-        .background(TreeLinesBackground(depth: depth, tokens: tokens))
-        .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                hoveredWorktreeAction = hoverKey
-                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-            case .ended:
-                hoveredWorktreeAction = nil
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture {
-            worktreeBranchName = ""
-            worktreeTarget = WorktreeCreationTarget(workspaceID: workspace.id, repoRoot: repoRoot)
-            showWorktreeAlert = true
-        }
-    }
-}
-
-// MARK: - Worktree Creation Target
-
-private struct WorktreeCreationTarget {
-    let workspaceID: UUID
-    let repoRoot: String
 }

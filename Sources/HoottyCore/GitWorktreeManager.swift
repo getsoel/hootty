@@ -78,14 +78,6 @@ public enum GitWorktreeManager {
         return value
     }
 
-    /// Clear all caches. Useful after git operations that change state (e.g., worktree creation).
-    public static func invalidateCache() {
-        branchCache.removeAll()
-        repoRootCache.removeAll()
-        canonicalRootCache.removeAll()
-        isWorktreeCache.removeAll()
-    }
-
     /// Clear only branch cache entries whose key starts with the given repo root.
     /// Used when `.git/HEAD` changes to force re-query of branches for that repo.
     public static func invalidateBranchCache(forPathsUnder repoRoot: String) {
@@ -160,30 +152,6 @@ public enum GitWorktreeManager {
         return parseWorktreeList(output)
     }
 
-    /// Create a new worktree with a new branch.
-    @discardableResult
-    public static func createWorktree(repoPath: String, branch: String, path: String) -> Bool {
-        let result = run(["git", "-C", repoPath, "worktree", "add", path, "-b", branch]) != nil
-        if result { invalidateCache() }
-        return result
-    }
-
-    /// Create a worktree from an existing branch.
-    @discardableResult
-    public static func createWorktreeFromBranch(repoPath: String, branch: String, path: String) -> Bool {
-        let result = run(["git", "-C", repoPath, "worktree", "add", path, branch]) != nil
-        if result { invalidateCache() }
-        return result
-    }
-
-    /// Remove a worktree.
-    @discardableResult
-    public static func removeWorktree(repoPath: String, path: String) -> Bool {
-        let result = run(["git", "-C", repoPath, "worktree", "remove", path]) != nil
-        if result { invalidateCache() }
-        return result
-    }
-
     /// List all branches (local + remote) for a repo.
     public static func listBranches(repoPath: String) -> (local: [BranchRef], remote: [BranchRef], head: String?) {
         guard let output = run([
@@ -240,38 +208,6 @@ public enum GitWorktreeManager {
             }
         }
         return (locals, remotes, head)
-    }
-
-    // MARK: - Worktree Resolution
-
-    /// Returns the filesystem path for a branch's worktree.
-    /// If the branch is already checked out (HEAD or existing worktree), returns that path.
-    /// Otherwise creates a new worktree and returns its path. Returns nil on failure.
-    public static func resolveWorktreePath(repoPath: String, branch: String) -> String? {
-        // Check existing worktrees first
-        let worktrees = listWorktrees(repoPath: repoPath)
-        if let existing = worktrees.first(where: { $0.branch == branch }) {
-            return existing.path
-        }
-
-        // Create new worktree — matches Claude Code convention (.claude/worktrees/)
-        let worktreeDir = (repoPath as NSString).appendingPathComponent(".claude/worktrees")
-        let worktreePath = (worktreeDir as NSString).appendingPathComponent(branch)
-
-        // Ensure parent directory exists
-        try? FileManager.default.createDirectory(
-            atPath: worktreeDir,
-            withIntermediateDirectories: true
-        )
-
-        // Try existing branch first, fall back to creating new branch
-        if createWorktreeFromBranch(repoPath: repoPath, branch: branch, path: worktreePath) {
-            return worktreePath
-        }
-        if createWorktree(repoPath: repoPath, branch: branch, path: worktreePath) {
-            return worktreePath
-        }
-        return nil
     }
 
     // MARK: - Private

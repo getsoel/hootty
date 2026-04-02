@@ -7,6 +7,7 @@ struct SidebarPaneRow: View {
     let isCursorTarget: Bool
     let canClose: Bool
     let layoutRects: [UUID: CGRect]
+    let showLayoutThumbnails: Bool
     let depth: Int
     let tokens: DesignTokens
     var onSelect: () -> Void
@@ -21,15 +22,6 @@ struct SidebarPaneRow: View {
             StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isClaudeSession: pane.claudeSessionID != nil, tokens: tokens)
                 .frame(width: TreeLayout.columnWidth)
 
-            if pane.hasNote {
-                Image(systemName: "square.text.square")
-                    .font(.system(size: TypeScale.smallSize))
-                    .foregroundStyle(Color(tokens.statusNote))
-                    .help(pane.note ?? "")
-                    .contentShape(Rectangle())
-                    .onTapGesture { onToggleNote() }
-            }
-
             Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
                 .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
@@ -37,7 +29,20 @@ struct SidebarPaneRow: View {
 
             Spacer(minLength: 0)
 
-            if !layoutRects.isEmpty {
+            if pane.hasNote {
+                BarIconButton(
+                    systemImage: "square.text.square",
+                    tokens: tokens,
+                    accessibilityLabel: "Edit note",
+                    help: pane.note,
+                    iconSize: TypeScale.smallSize,
+                    sizing: .fixed(TypeScale.iconSize),
+                    iconColor: tokens.statusNote,
+                    action: { onToggleNote() }
+                )
+            }
+
+            if showLayoutThumbnails, !layoutRects.isEmpty {
                 SplitLayoutThumbnail(
                     layoutRects: layoutRects,
                     highlightedPaneID: pane.id,

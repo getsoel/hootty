@@ -23,27 +23,13 @@ struct PaneNoteEditor: View {
 
                 Spacer(minLength: 0)
 
-                if pane.hasNote {
-                    BarIconButton(
-                        systemImage: "trash",
-                        tokens: tokens,
-                        accessibilityLabel: "Clear note",
-                        help: "Clear note",
-                        sizing: .fixed(24),
-                        action: {
-                            pane.setNote(nil)
-                            onDismiss()
-                        }
-                    )
-                }
-
                 BarIconButton(
-                    systemImage: "square.and.arrow.down",
+                    systemImage: "xmark",
                     tokens: tokens,
-                    accessibilityLabel: "Save note",
-                    help: "Save (↩)",
+                    accessibilityLabel: "Close",
+                    help: "Close (Esc)",
                     sizing: .fixed(24),
-                    action: { commitNote() }
+                    action: { onDismiss() }
                 )
                 .padding(.trailing, Spacing.smd)
             }
@@ -55,6 +41,41 @@ struct PaneNoteEditor: View {
 
             NoteTextEditor(text: $note, tokens: tokens, onSubmit: { commitNote() })
                 .frame(minHeight: 80, maxHeight: 160)
+
+            HStack(spacing: Spacing.sm) {
+                if pane.hasNote {
+                    Button {
+                        pane.setNote(nil)
+                        onDismiss()
+                    } label: {
+                        Text("Delete")
+                            .font(.system(size: TypeScale.bodySize))
+                            .foregroundStyle(Color(tokens.statusError))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, Spacing.sm)
+                    }
+                    .buttonStyle(.plain)
+                    .background(Color(tokens.statusError).opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm))
+                }
+
+                Button {
+                    commitNote()
+                } label: {
+                    Text("Save")
+                        .font(.system(size: TypeScale.bodySize))
+                        .foregroundStyle(Color(tokens.text))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, Spacing.sm)
+                }
+                .buttonStyle(.plain)
+                .background(Color(tokens.elementSelected))
+                .clipShape(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm))
+            }
+            .padding(Spacing.md)
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color(tokens.border)).frame(height: 1)
+            }
         }
         .frame(width: 360)
         .background(Color(tokens.surface))
@@ -136,15 +157,21 @@ private struct NoteTextEditor: NSViewRepresentable {
             parent.text = textView.string
         }
 
-        /// Intercept Return: bare Return submits, Shift+Return inserts newline.
         func textView(_ textView: NSTextView, doCommandBy selector: Selector) -> Bool {
             if selector == #selector(NSResponder.insertNewline(_:)) {
-                let shift = NSEvent.modifierFlags.contains(.shift)
-                if shift {
+                if NSEvent.modifierFlags.contains(.shift) {
                     textView.insertNewlineIgnoringFieldEditor(nil)
                 } else {
                     parent.onSubmit()
                 }
+                return true
+            }
+            if selector == #selector(NSResponder.insertTab(_:)) {
+                textView.window?.selectNextKeyView(nil)
+                return true
+            }
+            if selector == #selector(NSResponder.insertBacktab(_:)) {
+                textView.window?.selectPreviousKeyView(nil)
                 return true
             }
             return false

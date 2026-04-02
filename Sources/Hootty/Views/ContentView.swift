@@ -165,17 +165,6 @@ struct ContentView: View {
                     }
                 }
             },
-            onCreateWorktree: { workspaceID, repoRoot, branch in
-                guard let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }),
-                      let worktreePath = GitWorktreeManager.resolveWorktreePath(repoPath: repoRoot, branch: branch) else { return }
-                let parentSurface = GhosttyApp.shared.focusedSurface
-                if let newPane = workspace.splitFocusedPane(direction: .horizontal, workingDirectory: worktreePath) {
-                    if let parentSurface {
-                        GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
-                    }
-                    appModel.saveWorkspaces()
-                }
-            },
             onToggleNote: { paneID in
                 appModel.modalState = .noteEditor(paneID)
             },
@@ -183,7 +172,7 @@ struct ContentView: View {
             sidebarHasFocus: $appModel.sidebarHasFocus,
             sidebarCursorPaneID: $sidebarCursorPaneID,
             sidebarWidth: effectiveSidebarWidth,
-            showWorktreeActions: $appModel.showWorktreeActions
+            showLayoutThumbnails: $appModel.showLayoutThumbnails
         )
     }
 
