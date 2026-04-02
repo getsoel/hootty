@@ -16,6 +16,7 @@ public final class Pane: Identifiable {
     public var isRunning = true
     public var attentionKind: AttentionKind?
     public var note: String?
+    public var isFlagged = false
     public var isThinking = false
 
     public var needsAttention: Bool {
@@ -29,6 +30,10 @@ public final class Pane: Identifiable {
 
     public func setNote(_ text: String?) {
         note = text?.isEmpty == true ? nil : text
+    }
+
+    public func toggleFlag() {
+        isFlagged.toggle()
     }
 
     public var shell: String

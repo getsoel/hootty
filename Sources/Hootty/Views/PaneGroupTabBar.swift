@@ -9,6 +9,7 @@ struct PaneBar: View {
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onToggleNote: (() -> Void)?
+    var onToggleFlag: (() -> Void)?
     var onSave: (() -> Void)?
 
     @State private var renameTargetID: UUID?
@@ -34,7 +35,7 @@ struct PaneBar: View {
                 branchLabel
             }
 
-            if onSplitPane != nil || onClosePane != nil || onToggleNote != nil {
+            if onSplitPane != nil || onClosePane != nil || onToggleNote != nil || onToggleFlag != nil {
                 actionGroup
             }
         }
@@ -73,6 +74,16 @@ struct PaneBar: View {
                     help: pane.hasNote ? pane.note : "Add note",
                     iconColor: pane.hasNote ? tokens.statusNote : nil,
                     action: onToggleNote
+                )
+            }
+
+            if let onToggleFlag {
+                BarIconButton(
+                    systemImage: pane.isFlagged ? "flag.fill" : "flag",
+                    tokens: tokens,
+                    accessibilityLabel: pane.isFlagged ? "Unflag pane" : "Flag pane",
+                    iconColor: pane.isFlagged ? tokens.statusWarning : nil,
+                    action: onToggleFlag
                 )
             }
 

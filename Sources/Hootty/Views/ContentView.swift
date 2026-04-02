@@ -327,6 +327,9 @@ struct ContentView: View {
                 guard let pane = workspace.focusedPane else { return }
                 appModel.modalState = .noteEditor(pane.id)
             },
+            onToggleFlag: {
+                workspace.focusedPane?.toggleFlag()
+            },
             onSave: { appModel.saveWorkspaces() }
         )
         .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)

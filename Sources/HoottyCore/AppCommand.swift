@@ -31,6 +31,9 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     /// Toggle note on focused pane
     case notePane
 
+    /// Toggle flag on focused pane
+    case flagPane
+
     // View
     case toggleSidebar
     case focusSidebar
@@ -67,6 +70,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .focusPaneRight: "Focus Pane Right"
         case .equalizeSplits: "Equalize Splits"
         case .notePane: "Note Pane"
+        case .flagPane: "Flag Pane"
         case .toggleSidebar: "Toggle Sidebar"
         case .focusSidebar: "Focus Sidebar"
         case .toggleCommandPalette: "Command Palette"
@@ -100,6 +104,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .focusPaneRight: "⌥⌘→"
         case .equalizeSplits: "⌃⇧="
         case .notePane: "⌃⇧F"
+        case .flagPane: "⌃⇧G"
         default: nil
         }
     }

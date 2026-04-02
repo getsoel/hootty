@@ -29,6 +29,12 @@ struct SidebarPaneRow: View {
 
             Spacer(minLength: 0)
 
+            Image(systemName: "flag.fill")
+                .font(.system(size: TypeScale.smallSize))
+                .foregroundStyle(Color(tokens.statusWarning))
+                .frame(width: TypeScale.iconSize, height: TypeScale.iconSize)
+                .opacity(pane.isFlagged ? 1 : 0)
+
             if pane.hasNote {
                 BarIconButton(
                     systemImage: "square.text.square",
@@ -62,6 +68,8 @@ struct SidebarPaneRow: View {
                         ? Color(tokens.elementHover)
                         : pane.attentionKind != nil
                         ? Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.20)
+                        : pane.isFlagged
+                        ? Color(tokens.statusWarning).opacity(0.15)
                         : Color.clear
                 )
         )
