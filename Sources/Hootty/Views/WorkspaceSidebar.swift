@@ -28,6 +28,11 @@ struct WorkspaceSidebar: View {
     @Binding var showLayoutThumbnails: Bool
     @State private var showRenameWorkspaceAlert = false
     @State private var showRenamePaneAlert = false
+    @State private var scrollOffset: CGFloat = 0
+    @State private var contentHeight: CGFloat = 0
+    @State private var visibleHeight: CGFloat = 0
+    @State private var sidebarIsHovered = false
+    @State private var scrollTargetRatio: CGFloat?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -114,40 +119,100 @@ struct WorkspaceSidebar: View {
             .foregroundStyle(Color(tokens.textMuted))
     }
 
+    private var scrollTargetIDs: [UUID] {
+        var ids: [UUID] = []
+        for workspace in workspaces {
+            ids.append(workspace.id)
+            for section in workspace.sidebarSections {
+                for pane in section.panes {
+                    ids.append(pane.id)
+                }
+            }
+        }
+        return ids
+    }
+
     private var workspaceList: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                ForEach(workspaces) { workspace in
-                    let isActive = workspace.id == selectedWorkspaceID
-                    VStack(spacing: 0) {
-                        WorkspaceRow(
-                            workspace: workspace,
-                            isSelected: isActive,
-                            tokens: tokens,
-                            onSelect: { selectedWorkspaceID = workspace.id },
-                            onRename: { id, name in
-                                editingName = name
-                                renameTargetID = id
-                                showRenameWorkspaceAlert = true
-                            },
-                            onRemove: onRemoveWorkspace,
-                            onMove: { sourceID, edge in
-                                guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                                let insertIndex = edge == .top ? targetIndex : targetIndex + 1
-                                onMoveWorkspace(sourceID, insertIndex)
-                            },
-                            dropTargetWorkspaceID: $dropTargetWorkspaceID,
-                            dropEdge: $dropEdge,
-                            workspaceRowHeight: $workspaceRowHeight
-                        )
-                        workspacePaneList(workspace)
-                    }
-                    .background {
-                        if isActive {
-                            Color(tokens.elementHover)
+            ScrollViewReader { proxy in
+                VStack(spacing: 0) {
+                    ForEach(workspaces) { workspace in
+                        let isActive = workspace.id == selectedWorkspaceID
+                        VStack(spacing: 0) {
+                            WorkspaceRow(
+                                workspace: workspace,
+                                isSelected: isActive,
+                                tokens: tokens,
+                                onSelect: { selectedWorkspaceID = workspace.id },
+                                onRename: { id, name in
+                                    editingName = name
+                                    renameTargetID = id
+                                    showRenameWorkspaceAlert = true
+                                },
+                                onRemove: onRemoveWorkspace,
+                                onMove: { sourceID, edge in
+                                    guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                                    let insertIndex = edge == .top ? targetIndex : targetIndex + 1
+                                    onMoveWorkspace(sourceID, insertIndex)
+                                },
+                                dropTargetWorkspaceID: $dropTargetWorkspaceID,
+                                dropEdge: $dropEdge,
+                                workspaceRowHeight: $workspaceRowHeight
+                            )
+                            .id(workspace.id)
+                            workspacePaneList(workspace)
+                        }
+                        .background {
+                            if isActive {
+                                Color(tokens.elementHover)
+                            }
                         }
                     }
                 }
+                .background {
+                    GeometryReader { geo in
+                        Color.clear
+                            .onChange(of: geo.frame(in: .named("sidebarScroll")), initial: true) { _, frame in
+                                scrollOffset = -frame.minY
+                                contentHeight = frame.height
+                            }
+                    }
+                }
+                .onChange(of: scrollTargetRatio) { _, ratio in
+                    guard let ratio else { return }
+                    let ids = scrollTargetIDs
+                    guard !ids.isEmpty else { return }
+                    let index = min(Int(ratio * CGFloat(ids.count)), ids.count - 1)
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(ids[index], anchor: .top)
+                    }
+                    scrollTargetRatio = nil
+                }
+            }
+        }
+        .coordinateSpace(name: "sidebarScroll")
+        .scrollIndicators(.never)
+        .overlay(alignment: .trailing) {
+            SidebarScrollbar(
+                contentHeight: contentHeight,
+                visibleHeight: visibleHeight,
+                scrollOffset: scrollOffset,
+                tokens: tokens,
+                sidebarHovered: sidebarIsHovered,
+                onScroll: { ratio in
+                    scrollTargetRatio = ratio
+                }
+            )
+        }
+        .onHover { hovering in
+            sidebarIsHovered = hovering
+        }
+        .background {
+            GeometryReader { geo in
+                Color.clear
+                    .onChange(of: geo.size.height, initial: true) { _, height in
+                        visibleHeight = height
+                    }
             }
         }
     }
