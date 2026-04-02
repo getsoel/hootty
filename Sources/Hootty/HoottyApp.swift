@@ -119,6 +119,9 @@ struct HoottyApp: App {
             guard let pane = appModel.selectedWorkspace?.focusedPane else { return }
             appModel.modalState = .noteEditor(pane.id)
         }
+        commandRegistry.register(.flagPane) { [appModel] in
+            appModel.selectedWorkspace?.focusedPane?.toggleFlag()
+        }
         commandRegistry.register(.toggleSidebar) { [appModel] in
             appModel.toggleSidebar()
         }
@@ -347,6 +350,13 @@ struct HoottyApp: App {
                     commandRegistry.execute(.equalizeSplits)
                 }
                 .keyboardShortcut("=", modifiers: [.control, .shift])
+
+                Divider()
+
+                Button(AppCommand.flagPane.title) {
+                    commandRegistry.execute(.flagPane)
+                }
+                .keyboardShortcut("g", modifiers: [.control, .shift])
 
                 Divider()
 

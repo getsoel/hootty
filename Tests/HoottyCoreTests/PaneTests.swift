@@ -23,4 +23,24 @@ struct PaneTests {
         pane.customName = nil
         #expect(pane.displayName == "~/Projects/myapp")
     }
+
+    @Test func toggleFlagFlipsState() {
+        let pane = Pane(name: "zsh")
+        #expect(pane.isFlagged == false)
+        pane.toggleFlag()
+        #expect(pane.isFlagged == true)
+        pane.toggleFlag()
+        #expect(pane.isFlagged == false)
+    }
+
+    @Test func flagAndNoteAreIndependent() {
+        let pane = Pane(name: "zsh")
+        pane.toggleFlag()
+        pane.setNote("important")
+        #expect(pane.isFlagged == true)
+        #expect(pane.hasNote == true)
+        pane.toggleFlag()
+        #expect(pane.isFlagged == false)
+        #expect(pane.hasNote == true)
+    }
 }

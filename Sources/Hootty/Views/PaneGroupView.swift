@@ -11,6 +11,7 @@ struct PaneContentView: View {
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
     var onToggleNote: (() -> Void)?
+    var onToggleFlag: (() -> Void)?
     let onSave: () -> Void
     @State private var isDropTarget = false
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
@@ -30,6 +31,7 @@ struct PaneContentView: View {
                 onSplitPane: onSplitPane,
                 onClosePane: onClosePane,
                 onToggleNote: onToggleNote,
+                onToggleFlag: onToggleFlag,
                 onSave: onSave
             )
 
