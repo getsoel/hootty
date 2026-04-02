@@ -535,7 +535,7 @@ struct PreferencesPersistenceIntegration {
             .appendingPathComponent("config")
         let configFile = ConfigFile(fileURL: cfgURL)
         let soundManager = SoundManager(configFile: configFile)
-        soundManager.bellSound = "Ping"
+        soundManager.setSound(for: .bell, to: "Ping")
 
         // Modify workspaces independently
         let (model, url) = makeModel()
@@ -548,7 +548,7 @@ struct PreferencesPersistenceIntegration {
 
         let reloadedConfig = ConfigFile(fileURL: cfgURL)
         let reloadedSound = SoundManager(configFile: reloadedConfig)
-        #expect(reloadedSound.bellSound == "Ping")
+        #expect(reloadedSound.sound(for: .bell) == "Ping")
     }
 
     @Test func themePersistsToConfigFile() {
@@ -577,7 +577,7 @@ struct PreferencesPersistenceIntegration {
         let soundManager = SoundManager(configFile: configFile)
 
         themeManager.selectedThemeName = "Catppuccin Frappe"
-        soundManager.bellSound = "Ping"
+        soundManager.setSound(for: .bell, to: "Ping")
 
         // Both persisted to same file
         let reloadedConfig = ConfigFile(fileURL: cfgURL)

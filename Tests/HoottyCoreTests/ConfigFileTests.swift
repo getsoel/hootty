@@ -18,12 +18,12 @@ struct ConfigFileTests {
         let content = """
         theme = catppuccin-mocha
         hootty-bell-sound = Ping
-        hootty-attention-idle-sound = Glass
+        hootty-done-sound = Glass
         """
         let parsed = ConfigFile.parse(content)
         #expect(parsed["theme"] == "catppuccin-mocha")
         #expect(parsed["hootty-bell-sound"] == "Ping")
-        #expect(parsed["hootty-attention-idle-sound"] == "Glass")
+        #expect(parsed["hootty-done-sound"] == "Glass")
     }
 
     @Test func parseIgnoresCommentsAndBlankLines() {
@@ -182,7 +182,7 @@ struct ConfigFileTests {
         theme = catppuccin-mocha
         font-size = 14
         hootty-bell-sound = Ping
-        hootty-attention-idle-sound = Glass
+        hootty-done-sound = Glass
         """
         try? raw.write(to: url, atomically: true, encoding: .utf8)
 
@@ -286,7 +286,7 @@ struct ConfigFileTests {
 
         #expect(config.get("theme") == "catppuccin-mocha")
         #expect(config.get("hootty-bell-sound") == "Ping")
-        #expect(config.get("hootty-attention-idle-sound") == "Glass")
+        #expect(config.get("hootty-done-sound") == "Glass")
         #expect(!FileManager.default.fileExists(atPath: ghosttyConfigURL.path))
     }
 

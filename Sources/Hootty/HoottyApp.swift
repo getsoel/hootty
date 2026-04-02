@@ -138,6 +138,9 @@ struct HoottyApp: App {
         commandRegistry.register(.refreshBranches) {
             // Branch list is now computed on-demand when the picker opens
         }
+        commandRegistry.register(.attentionSounds) { [appModel] in
+            appModel.modalState = .attentionSounds
+        }
         commandRegistry.register(.resetWorkspaces) { [appModel, headWatcher] in
             for workspace in appModel.workspaces {
                 GhosttyApp.shared.cleanupWorkspace(workspace)
@@ -167,7 +170,7 @@ struct HoottyApp: App {
 
         case let .paneNeedsAttention(paneID, kind):
             let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
-            if didSet { appModel.soundManager.play(.bell) }
+            if didSet { appModel.soundManager.play(kind) }
 
         case let .claudeSessionDetected(paneID, sessionID):
             if let (_, pane) = appModel.findPane(id: paneID) {

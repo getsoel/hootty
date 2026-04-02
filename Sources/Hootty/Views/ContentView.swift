@@ -85,6 +85,15 @@ struct ContentView: View {
             }
         }
         .overlay {
+            if appModel.modalState == .attentionSounds {
+                AttentionSoundsView(
+                    soundManager: appModel.soundManager,
+                    tokens: tokens,
+                    onDismiss: { appModel.modalState = .none }
+                )
+            }
+        }
+        .overlay {
             if appModel.modalState == .memoryLog {
                 ActivityMonitorView(
                     tokens: tokens,

@@ -1,34 +1,34 @@
 import Foundation
 import os
 
-public enum SoundTrigger: String, CaseIterable, Sendable {
-    case bell
-}
-
 @MainActor
 @Observable
 public final class SoundManager {
     private let configFile: ConfigFile
 
-    public var bellSound: String? {
-        get { configFile.get("hootty-bell-sound") }
-        set { configFile.set("hootty-bell-sound", value: newValue); configFile.save() }
-    }
-
     public init(configFile: ConfigFile) {
         self.configFile = configFile
     }
 
-    // MARK: - Playback
+    // MARK: - Sound Config
 
-    public func sound(for trigger: SoundTrigger) -> String? {
-        switch trigger {
-        case .bell: bellSound
-        }
+    private func configKey(for kind: AttentionKind) -> String {
+        "hootty-\(kind.rawValue)-sound"
     }
 
-    public func play(_ trigger: SoundTrigger) {
-        guard let name = sound(for: trigger) else { return }
+    public func sound(for kind: AttentionKind) -> String? {
+        configFile.get(configKey(for: kind))
+    }
+
+    public func setSound(for kind: AttentionKind, to value: String?) {
+        configFile.set(configKey(for: kind), value: value)
+        configFile.save()
+    }
+
+    // MARK: - Playback
+
+    public func play(_ kind: AttentionKind) {
+        guard let name = sound(for: kind) else { return }
         soundPlayer?(name)
     }
 
@@ -36,7 +36,7 @@ public final class SoundManager {
     /// HoottyCore cannot import AppKit, so this bridges the gap.
     public var soundPlayer: ((String) -> Void)?
 
-    public static func availableSystemSounds() -> [String] {
+    public nonisolated static let availableSystemSounds: [String] = {
         let soundsDir = "/System/Library/Sounds"
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: soundsDir) else {
             return []
@@ -45,5 +45,5 @@ public final class SoundManager {
             .filter { $0.hasSuffix(".aiff") }
             .map { ($0 as NSString).deletingPathExtension }
             .sorted()
-    }
+    }()
 }

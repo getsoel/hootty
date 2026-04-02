@@ -263,8 +263,7 @@ public final class ConfigFile {
 
         # Hootty settings
         # hootty-bell-sound = Ping
-        # hootty-attention-idle-sound =
-        # hootty-attention-input-sound =
+        # hootty-done-sound =
 
         """
     }
@@ -307,12 +306,10 @@ public final class ConfigFile {
         if let content = try? String(contentsOf: fileURL, encoding: .utf8) {
             let parsed = Self.parse(content)
             if let v = parsed["bell-sound"] { migratedValues["hootty-bell-sound"] = v }
-            if let v = parsed["attention-idle-sound"] { migratedValues["hootty-attention-idle-sound"] = v }
-            if let v = parsed["attention-input-sound"] { migratedValues["hootty-attention-input-sound"] = v }
+            if let v = parsed["attention-idle-sound"] { migratedValues["hootty-done-sound"] = v }
             // Already-prefixed keys take priority
             if let v = parsed["hootty-bell-sound"] { migratedValues["hootty-bell-sound"] = v }
-            if let v = parsed["hootty-attention-idle-sound"] { migratedValues["hootty-attention-idle-sound"] = v }
-            if let v = parsed["hootty-attention-input-sound"] { migratedValues["hootty-attention-input-sound"] = v }
+            if let v = parsed["hootty-done-sound"] { migratedValues["hootty-done-sound"] = v }
         }
 
         // Write unified config

@@ -1,10 +1,17 @@
 import Foundation
 
-public enum AttentionKind: String, Codable, Sendable {
+public enum AttentionKind: String, CaseIterable, Codable, Sendable {
     /// Bell rang (visual-only, cleared by next user interaction).
     case bell
     /// Claude finished thinking, needs input (cleared by next user interaction).
     case done
+
+    public var displayName: String {
+        switch self {
+        case .bell: "Bell"
+        case .done: "Claude Done"
+        }
+    }
 }
 
 @MainActor

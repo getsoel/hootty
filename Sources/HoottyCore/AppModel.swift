@@ -16,6 +16,7 @@ public final class AppModel {
         case none
         case commandPalette
         case themePicker
+        case attentionSounds
         case memoryLog
         case noteEditor(UUID)
     }
