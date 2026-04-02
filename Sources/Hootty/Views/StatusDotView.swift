@@ -24,7 +24,7 @@ struct StatusDotView: View {
                         .rotationEffect(.degrees(cycle))
                 }
             } else if isClaudeSession {
-                Image(systemName: "bubble.left")
+                Image(systemName: "bubble.left.fill")
                     .foregroundStyle(Color(tokens.textMuted))
             } else {
                 Image(systemName: "apple.terminal")

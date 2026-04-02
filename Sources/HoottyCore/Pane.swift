@@ -74,7 +74,7 @@ public final class Pane: Identifiable {
         return URL(fileURLWithPath: path).lastPathComponent
     }
 
-    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, claudeSessionID: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil) {
+    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, claudeSessionID: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil, note: String? = nil) {
         self.id = id
         self.name = name
         self.customName = customName
@@ -84,12 +84,13 @@ public final class Pane: Identifiable {
         self.branch = branch
         self.repoRoot = repoRoot
         self.worktreePath = worktreePath
+        self.note = note
     }
 }
 
 extension Pane: @preconcurrency Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, customName, shell, workingDirectory, claudeSessionID, branch, repoRoot, worktreePath
+        case id, name, customName, shell, workingDirectory, claudeSessionID, branch, repoRoot, worktreePath, note
     }
 
     public convenience init(from decoder: Decoder) throws {
@@ -103,7 +104,8 @@ extension Pane: @preconcurrency Codable {
             claudeSessionID: container.decodeIfPresent(String.self, forKey: .claudeSessionID),
             branch: container.decodeIfPresent(String.self, forKey: .branch),
             repoRoot: container.decodeIfPresent(String.self, forKey: .repoRoot),
-            worktreePath: container.decodeIfPresent(String.self, forKey: .worktreePath)
+            worktreePath: container.decodeIfPresent(String.self, forKey: .worktreePath),
+            note: container.decodeIfPresent(String.self, forKey: .note)
         )
     }
 
@@ -118,5 +120,6 @@ extension Pane: @preconcurrency Codable {
         try container.encodeIfPresent(branch, forKey: .branch)
         try container.encodeIfPresent(repoRoot, forKey: .repoRoot)
         try container.encodeIfPresent(worktreePath, forKey: .worktreePath)
+        try container.encodeIfPresent(note, forKey: .note)
     }
 }

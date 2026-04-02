@@ -8,7 +8,7 @@ struct PaneBar: View {
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
-    var onToggleNote: (() -> Void)?
+    var onToggleNote: ((UUID) -> Void)?
     var onToggleFlag: (() -> Void)?
     var onSave: (() -> Void)?
 
@@ -73,7 +73,7 @@ struct PaneBar: View {
                     accessibilityLabel: pane.hasNote ? "Edit note" : "Add note",
                     help: pane.hasNote ? pane.note : "Add note",
                     iconColor: pane.hasNote ? tokens.statusNote : nil,
-                    action: onToggleNote
+                    action: { onToggleNote(pane.id) }
                 )
             }
 

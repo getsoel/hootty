@@ -53,10 +53,19 @@ struct PaneNoteEditor: View {
                             .foregroundStyle(Color(tokens.statusError))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, Spacing.sm)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                     .background(Color(tokens.statusError).opacity(0.1))
                     .clipShape(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm))
+                    .onContinuousHover { phase in
+                        DispatchQueue.main.async {
+                            switch phase {
+                            case .active: NSCursor.pointingHand.set()
+                            case .ended: NSCursor.arrow.set()
+                            }
+                        }
+                    }
                 }
 
                 Button {
@@ -67,10 +76,19 @@ struct PaneNoteEditor: View {
                         .foregroundStyle(Color(tokens.text))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Spacing.sm)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .background(Color(tokens.elementSelected))
                 .clipShape(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm))
+                .onContinuousHover { phase in
+                    DispatchQueue.main.async {
+                        switch phase {
+                        case .active: NSCursor.pointingHand.set()
+                        case .ended: NSCursor.arrow.set()
+                        }
+                    }
+                }
             }
             .padding(Spacing.md)
             .overlay(alignment: .top) {

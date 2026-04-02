@@ -332,9 +332,8 @@ struct ContentView: View {
                 workspace.swapPanes(sourceID, targetID)
                 appModel.saveWorkspaces()
             },
-            onToggleNote: {
-                guard let pane = workspace.focusedPane else { return }
-                appModel.modalState = .noteEditor(pane.id)
+            onToggleNote: { paneID in
+                appModel.modalState = .noteEditor(paneID)
             },
             onToggleFlag: {
                 workspace.focusedPane?.toggleFlag()

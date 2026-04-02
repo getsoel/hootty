@@ -68,6 +68,8 @@ struct SidebarPaneRow: View {
                         ? Color(tokens.elementHover)
                         : pane.attentionKind != nil
                         ? Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.20)
+                        : pane.isThinking
+                        ? Color(tokens.statusThinking).opacity(0.20)
                         : pane.isFlagged
                         ? Color(tokens.statusWarning).opacity(0.15)
                         : Color.clear

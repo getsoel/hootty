@@ -10,7 +10,7 @@ struct SplitNodeView: View {
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
-    var onToggleNote: (() -> Void)?
+    var onToggleNote: ((UUID) -> Void)?
     var onToggleFlag: (() -> Void)?
     let onSave: () -> Void
 
