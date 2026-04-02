@@ -188,6 +188,12 @@ struct WorkspaceSidebar: View {
                     }
                     scrollTargetRatio = nil
                 }
+                .onChange(of: selectedWorkspace?.focusedPaneID) { _, paneID in
+                    guard let paneID else { return }
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        proxy.scrollTo(paneID, anchor: .center)
+                    }
+                }
             }
         }
         .coordinateSpace(name: "sidebarScroll")
@@ -256,6 +262,7 @@ struct WorkspaceSidebar: View {
                         onToggleNote?(pane.id)
                     }
                 )
+                .id(pane.id)
             }
         }
     }

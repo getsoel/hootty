@@ -73,7 +73,7 @@ public struct DesignTokens {
     /// Error state (red).
     public let statusError: NSColor
 
-    /// Thinking/processing state (blue).
+    /// Thinking/processing state (lavender).
     public let statusThinking: NSColor
 
     /// Bell attention state (pink).
@@ -134,7 +134,7 @@ public struct DesignTokens {
             statusInactive: theme.palette[8],
             statusWarning: theme.palette[3],
             statusError: theme.palette[1],
-            statusThinking: theme.palette[4],
+            statusThinking: theme.palette[13],
             statusBell: theme.palette[2],
             statusDone: theme.palette[2],
             statusNote: theme.palette[3],
