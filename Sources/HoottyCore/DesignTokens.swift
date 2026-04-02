@@ -111,16 +111,16 @@ public struct DesignTokens {
     /// Chrome shares the terminal background (no crust/mantle depth layers).
     /// Visual separation uses palette[0] highlights and borders.
     public static func from(_ theme: TerminalTheme) -> DesignTokens {
-        // Use accent (blue) tint for element states — avoids contrast collisions
-        // where selectionBackground matches textMuted (e.g., Catppuccin Latte).
-        let accent = theme.palette[4]
+        // Use neutral (subtext) tint for element states — keeps blue reserved
+        // for status indicators like thinking, avoiding visual confusion.
+        let neutral = theme.palette[7]
         return DesignTokens(
             background: theme.background,
             surfaceLow: theme.background,
             surface: theme.background,
             surfaceHighlight: theme.palette[0],
-            elementHover: accent.withAlphaComponent(0.08),
-            elementSelected: accent.withAlphaComponent(0.15),
+            elementHover: neutral.withAlphaComponent(0.08),
+            elementSelected: neutral.withAlphaComponent(0.15),
             elementSelectedText: theme.foreground,
             text: theme.foreground,
             textMuted: theme.palette[7],

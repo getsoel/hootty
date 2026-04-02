@@ -30,10 +30,11 @@ struct DesignTokensTests {
         #expect(DesignTokens.from(light).elementSelectedText == light.foreground)
     }
 
-    @Test("elementSelected uses accent tint from palette[4]")
-    func selectedUsesAccentTint() throws {
+    @Test("elementSelected uses neutral tint from palette[7]")
+    func selectedUsesNeutralTint() throws {
+        let subtext = TerminalTheme.hex(0x6C7086)
         let theme = TerminalTheme(
-            palette: (0 ..< 16).map { i in i == 4 ? TerminalTheme.hex(0x1E66F5) : NSColor.gray },
+            palette: (0 ..< 16).map { i in i == 7 ? subtext : NSColor.gray },
             background: TerminalTheme.hex(0xEFF1F5),
             foreground: TerminalTheme.hex(0x4C4F69),
             cursorColor: NSColor.black,
@@ -41,12 +42,12 @@ struct DesignTokensTests {
             selectionForeground: TerminalTheme.hex(0x4C4F69)
         )
         let tokens = DesignTokens.from(theme)
-        // elementSelected should be palette[4] at 15% opacity, not selectionBackground
+        // elementSelected should be palette[7] (subtext) at 15% opacity
         let selected = try #require(tokens.elementSelected.usingColorSpace(.sRGB))
-        let accent = try #require(theme.palette[4].usingColorSpace(.sRGB))
-        #expect(abs(selected.redComponent - accent.redComponent) < 0.01)
-        #expect(abs(selected.greenComponent - accent.greenComponent) < 0.01)
-        #expect(abs(selected.blueComponent - accent.blueComponent) < 0.01)
+        let neutral = try #require(theme.palette[7].usingColorSpace(.sRGB))
+        #expect(abs(selected.redComponent - neutral.redComponent) < 0.01)
+        #expect(abs(selected.greenComponent - neutral.greenComponent) < 0.01)
+        #expect(abs(selected.blueComponent - neutral.blueComponent) < 0.01)
         #expect(abs(selected.alphaComponent - 0.15) < 0.01)
     }
 }
