@@ -55,12 +55,11 @@ public final class Workspace: Identifiable {
         attentionKind != nil
     }
 
-    /// Returns the attention kind if any unfocused pane has attention,
-    /// or if the focused pane has a manual `.flag`.
+    /// Returns the attention kind if any unfocused pane has attention.
     public var attentionKind: AttentionKind? {
         for pane in allPanes {
             guard let kind = pane.attentionKind else { continue }
-            if pane.id == focusedPaneID, !pane.isFlagged { continue }
+            if pane.id == focusedPaneID { continue }
             return kind
         }
         return nil

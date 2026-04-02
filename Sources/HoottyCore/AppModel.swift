@@ -12,12 +12,12 @@ public final class AppModel {
     public var sidebarVisible: Bool = true
     public var sidebarWidth: CGFloat = 260
 
-    public enum ModalState {
+    public enum ModalState: Equatable {
         case none
         case commandPalette
         case themePicker
         case memoryLog
-        case flagNote
+        case noteEditor(UUID)
     }
 
     public var modalState: ModalState = .none

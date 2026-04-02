@@ -10,6 +10,7 @@ struct PaneContentView: View {
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
     var onSwapPanes: ((UUID, UUID) -> Void)?
+    var onToggleNote: (() -> Void)?
     let onSave: () -> Void
     @State private var isDropTarget = false
     @Environment(\.sidebarHasFocus) private var sidebarHasFocus
@@ -28,6 +29,7 @@ struct PaneContentView: View {
                 onFocusPane: onFocusPane,
                 onSplitPane: onSplitPane,
                 onClosePane: onClosePane,
+                onToggleNote: onToggleNote,
                 onSave: onSave
             )
 
@@ -55,22 +57,7 @@ struct PaneContentView: View {
             }
         }
         .overlay {
-            if let note = pane.flagNote, terminalHasFocus {
-                VStack {
-                    panePill(strokeColor: Color(tokens.statusFlag)) {
-                        Image(systemName: "flag.fill")
-                            .foregroundStyle(Color(tokens.statusFlag))
-                            .font(.system(size: TypeScale.captionSize))
-                        Text(note)
-                            .font(.system(size: TypeScale.bodySize, weight: .medium))
-                            .foregroundStyle(Color(tokens.text))
-                    }
-                    Spacer()
-                }
-                .padding(.top, Spacing.xl)
-                .frame(maxWidth: .infinity)
-                .allowsHitTesting(false)
-            } else if sidebarHasFocus, sidebarCursorPaneID == pane.id {
+            if sidebarHasFocus, sidebarCursorPaneID == pane.id {
                 panePill(strokeColor: Color(tokens.borderFocused)) {
                     Text("Press Enter to focus")
                         .font(.system(size: TypeScale.bodySize, weight: .medium))

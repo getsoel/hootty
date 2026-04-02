@@ -53,12 +53,13 @@ struct PaneEventHandlerTests {
         #expect(pane.attentionKind == nil)
     }
 
-    @Test func bellSuppressedWhenFlagged() {
+    @Test func bellNotBlockedByNote() {
         let (handler, _, pane) = makeHandler()
-        pane.attentionKind = .flag
+        pane.setNote("remember this")
         let didSet = handler.handleBell(pane.id)
-        #expect(!didSet)
-        #expect(pane.attentionKind == .flag)
+        #expect(didSet)
+        #expect(pane.attentionKind == .bell)
+        #expect(pane.hasNote)
     }
 
     // MARK: - Thinking
@@ -71,12 +72,14 @@ struct PaneEventHandlerTests {
         #expect(pane.attentionKind == nil)
     }
 
-    @Test func thinkingStartDoesNotClearFlag() {
+    @Test func thinkingStartClearsAttentionWithNote() {
         let (handler, _, pane) = makeHandler()
-        pane.attentionKind = .flag
+        pane.attentionKind = .bell
+        pane.setNote("remember this")
         handler.handlePaneThinkingChanged(pane.id, isThinking: true)
         #expect(pane.isThinking)
-        #expect(pane.attentionKind == .flag)
+        #expect(pane.attentionKind == nil)
+        #expect(pane.hasNote)
     }
 
     @Test func thinkingStopSetsDoneOnUnfocusedPane() throws {
@@ -114,12 +117,13 @@ struct PaneEventHandlerTests {
         #expect(p1.attentionKind == .bell)
     }
 
-    @Test func attentionBlockedByFlag() throws {
+    @Test func attentionNotBlockedByNote() throws {
         let (handler, _, p1, _) = try makeHandlerWithSplit()
-        p1.attentionKind = .flag
+        p1.setNote("remember this")
         let didSet = handler.handlePaneNeedsAttention(p1.id, kind: .bell)
-        #expect(!didSet)
-        #expect(p1.attentionKind == .flag)
+        #expect(didSet)
+        #expect(p1.attentionKind == .bell)
+        #expect(p1.hasNote)
     }
 
     // MARK: - Title-Based Claude Detection

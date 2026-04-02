@@ -32,14 +32,13 @@ public final class PaneEventHandler {
         if wasThinking {
             let isFocused = workspace.id == selectedWorkspaceID()
                 && workspace.focusedPaneID == pane.id
-            if !isFocused, !pane.isFlagged { pane.attentionKind = .done }
+            if !isFocused { pane.attentionKind = .done }
         }
     }
 
     @discardableResult
     public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
         withPane(id: paneID) { workspace, pane in
-            guard !pane.isFlagged else { return false }
             let isFocusedPane = workspace.id == selectedWorkspaceID()
                 && workspace.focusedPaneID == paneID
             if !isFocusedPane {
@@ -53,7 +52,7 @@ public final class PaneEventHandler {
     @discardableResult
     public func handleBell(_ paneID: UUID) -> Bool {
         withPane(id: paneID) { _, pane in
-            guard !pane.isThinking, !pane.isFlagged else { return false }
+            guard !pane.isThinking else { return false }
             pane.attentionKind = .bell
             return true
         } ?? false
@@ -63,7 +62,7 @@ public final class PaneEventHandler {
         withPane(id: paneID) { workspace, pane in
             if isThinking {
                 pane.isThinking = true
-                if !pane.isFlagged { pane.attentionKind = nil }
+                pane.attentionKind = nil
             } else {
                 endThinking(workspace, pane)
             }
@@ -88,7 +87,7 @@ public final class PaneEventHandler {
             switch state {
             case .thinking:
                 pane.isThinking = true
-                if !pane.isFlagged { pane.attentionKind = nil }
+                pane.attentionKind = nil
             case .idle:
                 endThinking(workspace, pane)
             }

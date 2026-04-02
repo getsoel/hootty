@@ -115,13 +115,9 @@ struct HoottyApp: App {
         commandRegistry.register(.equalizeSplits) { [appModel] in
             appModel.selectedWorkspace?.equalizeSplits()
         }
-        commandRegistry.register(.flagPane) { [appModel] in
+        commandRegistry.register(.notePane) { [appModel] in
             guard let pane = appModel.selectedWorkspace?.focusedPane else { return }
-            if pane.isFlagged {
-                pane.clearFlag()
-            } else {
-                appModel.modalState = .flagNote
-            }
+            appModel.modalState = .noteEditor(pane.id)
         }
         commandRegistry.register(.toggleSidebar) { [appModel] in
             appModel.toggleSidebar()

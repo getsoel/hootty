@@ -827,101 +827,65 @@ struct TitleBasedClaudeDetection {
 
 @MainActor
 struct ManualFlagAttention {
-    @Test func flagToggleOnFocusedPane() {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        model.selectedWorkspaceID = ws.id
-        let pane = ws.allPanes[0]
-        ws.focusPane(id: pane.id)
+    @Test func noteToggleOnPane() {
+        let pane = Pane(name: "Test")
 
-        #expect(pane.attentionKind == nil)
-        pane.attentionKind = .flag
-        #expect(pane.attentionKind == .flag)
+        #expect(!pane.hasNote)
+        pane.setNote("remember this")
+        #expect(pane.hasNote)
+        #expect(pane.note == "remember this")
 
-        // Toggle off
-        pane.attentionKind = nil
-        #expect(pane.attentionKind == nil)
+        pane.setNote(nil)
+        #expect(!pane.hasNote)
+        #expect(pane.note == nil)
     }
 
-    @Test func flagNotClearedByThinkingStart() {
+    @Test func noteIndependentOfAttention() {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+
+        pane.setNote("remember this")
+        pane.attentionKind = .bell
+        #expect(pane.hasNote)
+        #expect(pane.attentionKind == .bell)
+
+        pane.attentionKind = nil
+        #expect(pane.hasNote)
+    }
+
+    @Test func noteNotClearedByThinkingStart() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
         let pane = ws.allPanes[0]
         pane.claudeSessionID = "test"
 
-        pane.attentionKind = .flag
+        pane.setNote("remember this")
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
         #expect(pane.isThinking == true)
-        #expect(pane.attentionKind == .flag)
+        #expect(pane.hasNote)
     }
 
-    @Test func flagNotOverriddenByBell() {
+    @Test func noteNotClearedByBell() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
 
-        pane.attentionKind = .flag
+        pane.setNote("remember this")
         let didSet = model.handleBell(pane.id)
-        #expect(didSet == false)
-        #expect(pane.attentionKind == .flag)
+        #expect(didSet == true)
+        #expect(pane.attentionKind == .bell)
+        #expect(pane.hasNote)
     }
 
-    @Test func flagNotOverriddenByNeedsAttention() throws {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        model.selectedWorkspaceID = ws.id
+    @Test func emptyNoteStringClearsNote() {
+        let pane = Pane(name: "Test")
+        pane.setNote("remember this")
+        #expect(pane.hasNote)
 
-        let p1 = ws.allPanes[0]
-        ws.focusPane(id: p1.id)
-        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
-        // p1 is now unfocused
-
-        p1.attentionKind = .flag
-        let didSet = model.handlePaneNeedsAttention(p1.id, kind: .bell)
-        #expect(didSet == false)
-        #expect(p1.attentionKind == .flag)
-    }
-
-    @Test func flagNotOverriddenByDone() throws {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        model.selectedWorkspaceID = ws.id
-
-        let p1 = ws.allPanes[0]
-        p1.claudeSessionID = "test"
-        ws.focusPane(id: p1.id)
-        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
-        // p1 is now unfocused
-
-        p1.attentionKind = .flag
-        model.handleTitleChange(p1.id, title: "\u{280B} Thinking...")
-        #expect(p1.attentionKind == .flag)
-
-        model.handleTitleChange(p1.id, title: "\u{2733} project")
-        #expect(p1.attentionKind == .flag)
-    }
-
-    @Test func flagClearedByFocusPane() {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        let pane = ws.allPanes[0]
-
-        pane.attentionKind = .flag
-        ws.focusPane(id: pane.id)
-        #expect(pane.attentionKind == nil)
-    }
-
-    @Test func flagVisibleInWorkspaceAttentionOnFocusedPane() {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        model.selectedWorkspaceID = ws.id
-        let pane = ws.allPanes[0]
-        ws.focusPane(id: pane.id)
-
-        #expect(ws.attentionKind == nil)
-        pane.attentionKind = .flag
-        #expect(ws.attentionKind == .flag)
+        pane.setNote("")
+        #expect(!pane.hasNote)
     }
 }
 

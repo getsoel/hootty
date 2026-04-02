@@ -95,17 +95,18 @@ struct ContentView: View {
             }
         }
         .overlay {
-            if appModel.modalState == .flagNote {
-                FlagNoteInputView(
-                    tokens: tokens,
-                    onSubmit: { note in
-                        if let pane = appModel.selectedWorkspace?.focusedPane {
-                            pane.setFlag(note: note.isEmpty ? nil : note)
-                        }
-                        appModel.modalState = .none
-                    },
-                    onDismiss: { appModel.modalState = .none }
-                )
+            if case let .noteEditor(paneID) = appModel.modalState,
+               let (_, pane) = appModel.findPane(id: paneID) {
+                ZStack {
+                    Color(tokens.scrim)
+                        .ignoresSafeArea()
+                        .contentShape(Rectangle())
+                        .onTapGesture { appModel.modalState = .none }
+
+                    PaneNoteEditor(pane: pane, tokens: tokens, onDismiss: { appModel.modalState = .none })
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                        .padding(.top, 60)
+                }
             }
         }
         .onChange(of: appModel.modalState) { _, state in
@@ -174,6 +175,9 @@ struct ContentView: View {
                     }
                     appModel.saveWorkspaces()
                 }
+            },
+            onToggleNote: { paneID in
+                appModel.modalState = .noteEditor(paneID)
             },
             onSave: { appModel.saveWorkspaces() },
             sidebarHasFocus: $appModel.sidebarHasFocus,
@@ -329,6 +333,10 @@ struct ContentView: View {
             onSwapPanes: { sourceID, targetID in
                 workspace.swapPanes(sourceID, targetID)
                 appModel.saveWorkspaces()
+            },
+            onToggleNote: {
+                guard let pane = workspace.focusedPane else { return }
+                appModel.modalState = .noteEditor(pane.id)
             },
             onSave: { appModel.saveWorkspaces() }
         )

@@ -12,6 +12,7 @@ struct SidebarPaneRow: View {
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
     var onClose: (UUID) -> Void
+    var onToggleNote: () -> Void
 
     @State private var isHovered = false
 
@@ -20,9 +21,18 @@ struct SidebarPaneRow: View {
             StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isClaudeSession: pane.claudeSessionID != nil, tokens: tokens)
                 .frame(width: TreeLayout.columnWidth)
 
-            Text(pane.flagNote ?? pane.displayName)
+            if pane.hasNote {
+                Image(systemName: "square.text.square")
+                    .font(.system(size: TypeScale.smallSize))
+                    .foregroundStyle(Color(tokens.statusNote))
+                    .help(pane.note ?? "")
+                    .contentShape(Rectangle())
+                    .onTapGesture { onToggleNote() }
+            }
+
+            Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(pane.isFlagged && !isFocusedPane ? tokens.statusFlag : isFocusedPane ? tokens.text : tokens.textMuted))
+                .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
 
             Spacer(minLength: 0)
@@ -46,7 +56,7 @@ struct SidebarPaneRow: View {
                         : isHovered
                         ? Color(tokens.elementHover)
                         : pane.attentionKind != nil
-                        ? Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.12)
+                        ? Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.20)
                         : Color.clear
                 )
         )

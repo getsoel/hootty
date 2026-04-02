@@ -12,6 +12,7 @@ struct WorkspaceSidebar: View {
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
     var onCreateWorktree: ((UUID, String, String) -> Void)?
+    var onToggleNote: ((UUID) -> Void)?
     var onSave: (() -> Void)?
     @Binding var sidebarHasFocus: Bool
     @Binding var sidebarCursorPaneID: UUID?
@@ -134,6 +135,7 @@ struct WorkspaceSidebar: View {
                             workspace: workspace,
                             isSelected: isActive,
                             tokens: tokens,
+                            groupColor: groupColor,
                             onSelect: { selectedWorkspaceID = workspace.id },
                             onRename: { id, name in
                                 editingName = name
@@ -154,17 +156,8 @@ struct WorkspaceSidebar: View {
                     }
                     .background {
                         if isActive {
-                            LinearGradient(
-                                colors: [Color(groupColor).opacity(0.15), Color.clear],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
+                            Color(tokens.elementHover)
                         }
-                    }
-                    .overlay(alignment: .leading) {
-                        Rectangle()
-                            .fill(Color(groupColor))
-                            .frame(width: 2)
                     }
                 }
             }
@@ -205,6 +198,9 @@ struct WorkspaceSidebar: View {
                     },
                     onClose: { id in
                         onRemovePane(workspace.id, id)
+                    },
+                    onToggleNote: {
+                        onToggleNote?(pane.id)
                     }
                 )
             }

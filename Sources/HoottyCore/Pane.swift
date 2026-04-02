@@ -5,8 +5,6 @@ public enum AttentionKind: String, Codable, Sendable {
     case bell
     /// Claude finished thinking, needs input (cleared by next user interaction).
     case done
-    /// Manually flagged by user (cleared by next user interaction).
-    case flag
 }
 
 @MainActor
@@ -17,26 +15,20 @@ public final class Pane: Identifiable {
     public var customName: String?
     public var isRunning = true
     public var attentionKind: AttentionKind?
-    public var flagNote: String?
+    public var note: String?
     public var isThinking = false
 
     public var needsAttention: Bool {
         attentionKind != nil
     }
 
-    /// Whether the pane has a manual flag that automated events should not override.
-    public var isFlagged: Bool {
-        attentionKind == .flag
+    /// Whether the pane has a note attached.
+    public var hasNote: Bool {
+        note != nil
     }
 
-    public func setFlag(note: String? = nil) {
-        attentionKind = .flag
-        flagNote = note
-    }
-
-    public func clearFlag() {
-        attentionKind = nil
-        flagNote = nil
+    public func setNote(_ text: String?) {
+        note = text?.isEmpty == true ? nil : text
     }
 
     public var shell: String

@@ -6,6 +6,7 @@ struct WorkspaceRow: View {
     let workspace: Workspace
     let isSelected: Bool
     let tokens: DesignTokens
+    var groupColor: NSColor?
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
     var onRemove: (UUID) -> Void
@@ -20,7 +21,7 @@ struct WorkspaceRow: View {
         HStack(spacing: 6) {
             Image(systemName: "folder.fill")
                 .font(.system(size: TypeScale.smallSize))
-                .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
+                .foregroundStyle(Color(groupColor ?? tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
 
             Text(workspace.name)

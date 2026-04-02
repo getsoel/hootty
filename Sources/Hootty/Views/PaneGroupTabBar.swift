@@ -8,6 +8,7 @@ struct PaneBar: View {
     let onFocusPane: () -> Void
     var onSplitPane: ((SplitDirection, Bool) -> Void)?
     var onClosePane: ((UUID) -> Void)?
+    var onToggleNote: (() -> Void)?
     var onSave: (() -> Void)?
 
     @State private var renameTargetID: UUID?
@@ -20,9 +21,9 @@ struct PaneBar: View {
                 .frame(maxHeight: .infinity)
                 .padding(.leading, Spacing.md)
 
-            Text(pane.flagNote ?? pane.displayName)
+            Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(pane.isFlagged ? tokens.statusFlag : tokens.textMuted))
+                .foregroundStyle(Color(tokens.textMuted))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .padding(.leading, Spacing.sm)
@@ -33,7 +34,7 @@ struct PaneBar: View {
                 branchLabel
             }
 
-            if onSplitPane != nil || onClosePane != nil {
+            if onSplitPane != nil || onClosePane != nil || onToggleNote != nil {
                 actionGroup
             }
         }
@@ -64,6 +65,17 @@ struct PaneBar: View {
 
     private var actionGroup: some View {
         HStack(spacing: Spacing.xs) {
+            if let onToggleNote {
+                BarIconButton(
+                    systemImage: "square.text.square",
+                    tokens: tokens,
+                    accessibilityLabel: pane.hasNote ? "Edit note" : "Add note",
+                    help: pane.hasNote ? pane.note : "Add note",
+                    iconColor: pane.hasNote ? tokens.statusNote : nil,
+                    action: onToggleNote
+                )
+            }
+
             if onSplitPane != nil {
                 BarIconMenu(
                     systemImage: "rectangle.split.2x1",
