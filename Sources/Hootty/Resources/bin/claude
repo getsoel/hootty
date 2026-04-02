@@ -31,7 +31,10 @@ esac
 # - SessionStart: report session ID back to Hootty for resume support.
 # - CwdChanged: emit OSC 7 so ghostty updates the pane's working directory
 #   (enables worktree detection in the sidebar while Claude is running).
+# - PostToolUse (Bash): fallback cwd reporting — CwdChanged only fires for
+#   the main session, so worktree subagents need PostToolUse to emit OSC 7
+#   when their Bash commands run in the worktree directory.
 # Thinking/attention detection is handled by title watching (ClaudeTitleParser).
-HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}],"CwdChanged":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}]}}'
+HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}],"CwdChanged":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}],"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"
