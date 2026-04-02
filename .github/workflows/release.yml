@@ -35,3 +35,25 @@ jobs:
         run: gh release upload "$GITHUB_REF_NAME" Hootty.dmg --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew tap
+        env:
+          TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          SHA256="$(shasum -a 256 Hootty.dmg | awk '{print $1}')"
+
+          git clone "https://x-access-token:${TAP_GITHUB_TOKEN}@github.com/getsoel/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+
+          sed -e "s/version \".*\"/version \"${VERSION}\"/" \
+              -e "s/sha256 \".*\"/sha256 \"${SHA256}\"/" \
+              homebrew/Casks/hootty.rb > tap/Casks/hootty.rb
+
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Casks/hootty.rb
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Update hootty to ${VERSION}"
+          git push
