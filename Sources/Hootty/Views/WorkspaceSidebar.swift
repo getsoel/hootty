@@ -74,10 +74,14 @@ struct WorkspaceSidebar: View {
         }
     }
 
+    private var statusCounts: AttentionCounts {
+        workspaces.reduce(.zero) { $0 + $1.attentionCounts }
+    }
+
     private var sidebarHeader: some View {
         HStack(spacing: 0) {
-            sidebarTabPicker
-                .padding(.leading, Spacing.md)
+            attentionBadges
+                .padding(.leading, Spacing.sm)
 
             Spacer(minLength: 0)
 
@@ -113,10 +117,29 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    private var sidebarTabPicker: some View {
-        Text("Workspaces")
-            .font(.system(size: TypeScale.captionSize, weight: .semibold))
-            .foregroundStyle(Color(tokens.textMuted))
+    private var attentionBadges: some View {
+        let counts = statusCounts
+        return HStack(spacing: Spacing.xs) {
+            attentionPill(icon: "arrow.2.circlepath", count: counts.thinking, color: tokens.statusThinking)
+            attentionPill(icon: "flag.fill", count: counts.flagged, color: tokens.statusWarning)
+            attentionPill(icon: "checkmark.circle", count: counts.done, color: tokens.statusDone)
+            attentionPill(icon: "bell", count: counts.bell, color: tokens.statusBell)
+        }
+    }
+
+    private func attentionPill(icon: String, count: Int, color: NSColor) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+            Text("\(count)")
+        }
+        .font(.system(size: TypeScale.smallSize, weight: .medium))
+        .foregroundStyle(Color(count > 0 ? color : tokens.textMuted))
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(Color(count > 0 ? color : tokens.textMuted).opacity(0.15))
+        )
     }
 
     private var scrollTargetIDs: [UUID] {
@@ -233,7 +256,7 @@ struct WorkspaceSidebar: View {
         let sections = workspace.sidebarSections
         ForEach(sections) { section in
             if hasBranches {
-                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, tokens: tokens)
+                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, focusedPaneID: workspace.focusedPaneID, tokens: tokens)
             }
 
             ForEach(section.panes) { pane in

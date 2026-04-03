@@ -47,22 +47,17 @@ public final class Workspace: Identifiable {
         allPanes.contains { $0.isRunning }
     }
 
-    public var hasThinkingPane: Bool {
-        allPanes.contains { $0.isThinking }
+    public var attentionCounts: AttentionCounts {
+        AttentionCounts(panes: allPanes, focusedPaneID: focusedPaneID)
     }
 
     public var hasAttention: Bool {
-        attentionKind != nil
+        attentionCounts.firstAttentionKind != nil
     }
 
     /// Returns the attention kind if any unfocused pane has attention.
     public var attentionKind: AttentionKind? {
-        for pane in allPanes {
-            guard let kind = pane.attentionKind else { continue }
-            if pane.id == focusedPaneID { continue }
-            return kind
-        }
-        return nil
+        attentionCounts.firstAttentionKind
     }
 
     // MARK: - Sidebar Sections

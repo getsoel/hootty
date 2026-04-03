@@ -5,7 +5,12 @@ import SwiftUI
 struct BranchSectionHeader: View {
     let section: SidebarSection
     let isSelected: Bool
+    let focusedPaneID: UUID?
     let tokens: DesignTokens
+
+    private var sectionCounts: AttentionCounts {
+        AttentionCounts(panes: section.panes, focusedPaneID: focusedPaneID)
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -25,6 +30,8 @@ struct BranchSectionHeader: View {
             }
 
             Spacer(minLength: 0)
+
+            sectionAttentionBadges
         }
         .padding(.vertical, Spacing.smd)
         .padding(.trailing, Spacing.md)
@@ -45,6 +52,39 @@ struct BranchSectionHeader: View {
     private var iconName: String {
         if section.branch == nil { return "cube.transparent" }
         return section.isHead ? "cube.fill" : "cube"
+    }
+
+    @ViewBuilder
+    private var sectionAttentionBadges: some View {
+        let counts = sectionCounts
+        HStack(spacing: Spacing.xs) {
+            if counts.thinking > 0 {
+                sectionBadge(icon: "arrow.2.circlepath", count: counts.thinking, color: tokens.statusThinking)
+            }
+            if counts.done > 0 {
+                sectionBadge(icon: "checkmark.circle", count: counts.done, color: tokens.statusDone)
+            }
+            if counts.bell > 0 {
+                sectionBadge(icon: "bell", count: counts.bell, color: tokens.statusBell)
+            }
+        }
+    }
+
+    private func sectionBadge(icon: String, count: Int, color: NSColor) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+            if count > 1 {
+                Text("\(count)")
+            }
+        }
+        .font(.system(size: TypeScale.smallSize, weight: .medium))
+        .foregroundStyle(Color(color))
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(Color(color).opacity(0.15))
+        )
     }
 
     @ViewBuilder

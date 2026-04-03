@@ -25,7 +25,7 @@ public final class AppModel {
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
 
-    public static let sidebarMinWidth: CGFloat = 140
+    public static let sidebarMinWidth: CGFloat = 200
     public static let sidebarMaxWidth: CGFloat = 400
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
