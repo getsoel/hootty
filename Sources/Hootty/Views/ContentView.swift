@@ -186,7 +186,10 @@ struct ContentView: View {
             sidebarWidth: effectiveSidebarWidth,
             isEffectivelyCollapsed: { appModel.isWorkspaceEffectivelyCollapsed($0) },
             showLayoutThumbnails: $appModel.showLayoutThumbnails,
-            collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs
+            collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs,
+            activeSidebarFilters: appModel.activeSidebarFilters,
+            onToggleSidebarFilter: { appModel.toggleSidebarFilter($0) },
+            onClearSidebarFilters: { appModel.clearSidebarFilters() }
         )
     }
 

@@ -150,6 +150,9 @@ struct HoottyApp: App {
         commandRegistry.register(.expandAllWorkspaces) { [appModel] in
             appModel.expandAllWorkspaces()
         }
+        commandRegistry.register(.clearSidebarFilters) { [appModel] in
+            appModel.clearSidebarFilters()
+        }
         commandRegistry.register(.resetWorkspaces) { [appModel, headWatcher] in
             for workspace in appModel.workspaces {
                 GhosttyApp.shared.cleanupWorkspace(workspace)

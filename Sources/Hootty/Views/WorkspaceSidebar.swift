@@ -36,6 +36,9 @@ struct WorkspaceSidebar: View {
     @State private var sidebarIsHovered = false
     @State private var scrollTargetRatio: CGFloat?
     let collapsedWorkspaceIDs: Set<UUID>
+    let activeSidebarFilters: Set<SidebarFilter>
+    var onToggleSidebarFilter: ((SidebarFilter) -> Void)?
+    var onClearSidebarFilters: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,7 +58,14 @@ struct WorkspaceSidebar: View {
         .onKeyPress(.leftArrow) { handleLeftArrow(); return .handled }
         .onKeyPress(.rightArrow) { handleRightArrow(); return .handled }
         .onKeyPress(.return) { confirmCursor(); return .handled }
-        .onKeyPress(.escape) { sidebarHasFocus = false; return .handled }
+        .onKeyPress(.escape) {
+            if !activeSidebarFilters.isEmpty {
+                onClearSidebarFilters?()
+            } else {
+                sidebarHasFocus = false
+            }
+            return .handled
+        }
         .onChange(of: sidebarHasFocus) { _, hasFocus in
             isFocused = hasFocus
             if hasFocus {
@@ -127,50 +137,57 @@ struct WorkspaceSidebar: View {
     private var attentionBadges: some View {
         let counts = statusCounts
         return HStack(spacing: Spacing.xs) {
-            thinkingPill(count: counts.thinking)
-            attentionPill(icon: "flag.fill", count: counts.flagged, color: tokens.statusWarning)
-            attentionPill(icon: "checkmark.circle", count: counts.done, color: tokens.statusDone)
-            attentionPill(icon: "bell", count: counts.bell, color: tokens.statusBell)
-        }
-    }
-
-    private func thinkingPill(count: Int) -> some View {
-        HStack(spacing: 3) {
-            if count > 0 {
-                TimelineView(.animation) { context in
-                    let cycle = context.date.timeIntervalSinceReferenceDate
-                        .truncatingRemainder(dividingBy: 1.5) / 1.5 * 360
+            filterPill(filter: .thinking, count: counts.thinking, color: tokens.statusThinking) {
+                if counts.thinking > 0 {
+                    TimelineView(.animation) { context in
+                        let cycle = context.date.timeIntervalSinceReferenceDate
+                            .truncatingRemainder(dividingBy: 1.5) / 1.5 * 360
+                        Image(systemName: "arrow.2.circlepath")
+                            .rotationEffect(.degrees(cycle))
+                    }
+                } else {
                     Image(systemName: "arrow.2.circlepath")
-                        .rotationEffect(.degrees(cycle))
                 }
-            } else {
-                Image(systemName: "arrow.2.circlepath")
             }
-            Text("\(count)")
+            filterPill(filter: .flagged, count: counts.flagged, color: tokens.statusWarning) {
+                Image(systemName: "flag.fill")
+            }
+            filterPill(filter: .done, count: counts.done, color: tokens.statusDone) {
+                Image(systemName: "checkmark.circle")
+            }
+            filterPill(filter: .bell, count: counts.bell, color: tokens.statusBell) {
+                Image(systemName: "bell")
+            }
         }
-        .font(.system(size: TypeScale.smallSize, weight: .medium))
-        .foregroundStyle(Color(count > 0 ? tokens.statusThinking : tokens.textMuted))
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 2)
-        .background(
-            Capsule()
-                .fill(Color(count > 0 ? tokens.statusThinking : tokens.textMuted).opacity(0.15))
-        )
     }
 
-    private func attentionPill(icon: String, count: Int, color: NSColor) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
+    private func filterPill(filter: SidebarFilter, count: Int, color: NSColor, @ViewBuilder icon: () -> some View) -> some View {
+        let isFilterActive = activeSidebarFilters.contains(filter)
+        let active = isFilterActive || count > 0
+        let pillColor = Color(active ? color : tokens.textMuted)
+        return HStack(spacing: 3) {
+            icon()
             Text("\(count)")
         }
         .font(.system(size: TypeScale.smallSize, weight: .medium))
-        .foregroundStyle(Color(count > 0 ? color : tokens.textMuted))
+        .foregroundStyle(pillColor)
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, 2)
         .background(
             Capsule()
-                .fill(Color(count > 0 ? color : tokens.textMuted).opacity(0.15))
+                .fill(pillColor.opacity(isFilterActive ? 0.3 : 0.15))
         )
+        .overlay(
+            Capsule()
+                .strokeBorder(pillColor.opacity(0.6), lineWidth: isFilterActive ? 1 : 0)
+        )
+        .contentShape(Capsule())
+        .onTapGesture { onToggleSidebarFilter?(filter) }
+        .onContinuousHover { phase in
+            if case .active = phase {
+                DispatchQueue.main.async { NSCursor.pointingHand.set() }
+            }
+        }
     }
 
     private var scrollTargetIDs: [UUID] {
@@ -178,8 +195,9 @@ struct WorkspaceSidebar: View {
         for workspace in workspaces {
             ids.append(workspace.id)
             if !isEffectivelyCollapsed(workspace.id) {
+                let isSelectedWs = workspace.id == selectedWorkspaceID
                 for section in workspace.sidebarSections {
-                    for pane in section.panes {
+                    for pane in section.panes where pane.isVisibleInSidebar(isFocusedInSelectedWorkspace: isSelectedWs && pane.id == workspace.focusedPaneID, filters: activeSidebarFilters) {
                         ids.append(pane.id)
                     }
                 }
@@ -296,40 +314,47 @@ struct WorkspaceSidebar: View {
         let layoutRects = (canClose && showLayoutThumbnails) ? workspace.rootNode.paneRects() : [:]
         let hasBranches = workspace.hasBranchSections
         let depth = hasBranches ? 2 : 1
+        let isSelectedWs = workspace.id == selectedWorkspaceID
 
         let sections = workspace.sidebarSections
         ForEach(sections) { section in
-            if hasBranches {
-                BranchSectionHeader(section: section, isSelected: workspace.id == selectedWorkspaceID, focusedPaneID: workspace.focusedPaneID, tokens: tokens)
+            let filteredPanes = section.panes.filter { pane in
+                pane.isVisibleInSidebar(isFocusedInSelectedWorkspace: isSelectedWs && pane.id == workspace.focusedPaneID, filters: activeSidebarFilters)
             }
 
-            ForEach(section.panes) { pane in
-                SidebarPaneRow(
-                    pane: pane,
-                    isFocusedPane: workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID,
-                    isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .pane(pane.id),
-                    canClose: canClose,
-                    layoutRects: layoutRects,
-                    showLayoutThumbnails: showLayoutThumbnails,
-                    depth: depth,
-                    tokens: tokens,
-                    onSelect: {
-                        sidebarHasFocus = false
-                        onSelectPane(workspace.id, pane.id)
-                    },
-                    onRename: { id, name in
-                        editingPaneName = name
-                        renamePaneTargetID = id
-                        showRenamePaneAlert = true
-                    },
-                    onClose: { id in
-                        onRemovePane(workspace.id, id)
-                    },
-                    onToggleNote: {
-                        onToggleNote?(pane.id)
-                    }
-                )
-                .id(pane.id)
+            if !filteredPanes.isEmpty {
+                if hasBranches {
+                    BranchSectionHeader(section: section, isSelected: isSelectedWs, focusedPaneID: workspace.focusedPaneID, tokens: tokens)
+                }
+
+                ForEach(filteredPanes) { pane in
+                    SidebarPaneRow(
+                        pane: pane,
+                        isFocusedPane: workspace.focusedPaneID == pane.id && isSelectedWs,
+                        isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .pane(pane.id),
+                        canClose: canClose,
+                        layoutRects: layoutRects,
+                        showLayoutThumbnails: showLayoutThumbnails,
+                        depth: depth,
+                        tokens: tokens,
+                        onSelect: {
+                            sidebarHasFocus = false
+                            onSelectPane(workspace.id, pane.id)
+                        },
+                        onRename: { id, name in
+                            editingPaneName = name
+                            renamePaneTargetID = id
+                            showRenamePaneAlert = true
+                        },
+                        onClose: { id in
+                            onRemovePane(workspace.id, id)
+                        },
+                        onToggleNote: {
+                            onToggleNote?(pane.id)
+                        }
+                    )
+                    .id(pane.id)
+                }
             }
         }
     }
@@ -391,7 +416,8 @@ struct WorkspaceSidebar: View {
             workspaces: workspaces,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
-            currentTarget: sidebarCursorTarget
+            currentTarget: sidebarCursorTarget,
+            activeFilters: activeSidebarFilters
         )
     }
 

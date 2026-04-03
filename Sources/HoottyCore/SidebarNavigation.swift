@@ -23,18 +23,21 @@ public enum SidebarNavItem: Equatable, Sendable {
 @MainActor
 public enum SidebarKeyboardNav {
     /// All navigable items in tree order across all workspaces.
-    /// Workspace rows are always included. Pane rows are excluded for effectively collapsed workspaces.
+    /// Workspace rows are always included. Pane rows are excluded for effectively collapsed workspaces
+    /// and for panes that don't match active sidebar filters (the focused pane of the selected workspace is always included).
     public static func allNavigableItems(
         workspaces: [Workspace],
         collapsedWorkspaceIDs: Set<UUID>,
-        selectedWorkspaceID: UUID?
+        selectedWorkspaceID: UUID?,
+        activeFilters: Set<SidebarFilter> = []
     ) -> [SidebarNavItem] {
         var items: [SidebarNavItem] = []
         for ws in workspaces {
             items.append(.workspace(ws.id))
             let effectivelyCollapsed = collapsedWorkspaceIDs.contains(ws.id) && ws.id != selectedWorkspaceID
             if !effectivelyCollapsed {
-                for pane in ws.allPanes {
+                let isSelectedWs = ws.id == selectedWorkspaceID
+                for pane in ws.allPanes where pane.isVisibleInSidebar(isFocusedInSelectedWorkspace: isSelectedWs && pane.id == ws.focusedPaneID, filters: activeFilters) {
                     items.append(.pane(workspaceID: ws.id, paneID: pane.id))
                 }
             }
@@ -48,12 +51,14 @@ public enum SidebarKeyboardNav {
         workspaces: [Workspace],
         collapsedWorkspaceIDs: Set<UUID>,
         selectedWorkspaceID: UUID?,
-        currentTarget: SidebarCursorTarget?
+        currentTarget: SidebarCursorTarget?,
+        activeFilters: Set<SidebarFilter> = []
     ) -> SidebarCursorTarget? {
         let items = allNavigableItems(
             workspaces: workspaces,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
-            selectedWorkspaceID: selectedWorkspaceID
+            selectedWorkspaceID: selectedWorkspaceID,
+            activeFilters: activeFilters
         )
         guard !items.isEmpty else { return nil }
 

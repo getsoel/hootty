@@ -12,6 +12,7 @@ public final class AppModel {
     public var sidebarVisible: Bool = true
     public var sidebarWidth: CGFloat = 260
     public var collapsedWorkspaceIDs: Set<UUID> = []
+    public var activeSidebarFilters: Set<SidebarFilter> = []
 
     public enum ModalState: Equatable {
         case none
@@ -250,5 +251,15 @@ public final class AppModel {
 
     public func isWorkspaceEffectivelyCollapsed(_ id: UUID) -> Bool {
         collapsedWorkspaceIDs.contains(id) && id != selectedWorkspaceID
+    }
+
+    // MARK: - Sidebar Filters
+
+    public func toggleSidebarFilter(_ filter: SidebarFilter) {
+        activeSidebarFilters.formSymmetricDifference([filter])
+    }
+
+    public func clearSidebarFilters() {
+        activeSidebarFilters.removeAll()
     }
 }

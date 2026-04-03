@@ -53,6 +53,8 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case collapseAllWorkspaces
     case expandAllWorkspaces
 
+    case clearSidebarFilters
+
     public var id: String {
         rawValue
     }
@@ -87,6 +89,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .editConfig: "Edit Configuration..."
         case .collapseAllWorkspaces: "Collapse All Workspaces"
         case .expandAllWorkspaces: "Expand All Workspaces"
+        case .clearSidebarFilters: "Clear Sidebar Filters"
         }
     }
 

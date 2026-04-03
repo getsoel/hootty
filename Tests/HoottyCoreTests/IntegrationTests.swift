@@ -1166,4 +1166,101 @@ struct SidebarKeyboardNavTests {
         )
         #expect(paneResult == .pane(workspaceID: ws1.id, paneID: pane1.id))
     }
+
+    // MARK: - Sidebar Filter Navigation
+
+    @Test func filtersExcludeNonMatchingPanes() throws {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let pane1 = ws1.allPanes[0]
+        // Add a second pane via split
+        let pane2 = try #require(ws1.splitFocusedPane(direction: .horizontal))
+        pane1.isThinking = true
+        // pane2 has no state — but is focused (split focuses the new pane)
+
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            activeFilters: [.thinking]
+        )
+
+        // workspace row + pane1 (thinking) + pane2 (focused, pinned)
+        let paneItems = items.filter { if case .pane = $0 { return true }; return false }
+        #expect(paneItems.count == 2)
+    }
+
+    @Test func focusedPaneAlwaysIncludedWhenFiltering() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let pane1 = ws1.allPanes[0]
+        // pane1 is focused but doesn't match .flagged filter
+
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            activeFilters: [.flagged]
+        )
+
+        // workspace row + pane1 (pinned as focused)
+        #expect(items.count == 2)
+        #expect(items[1] == .pane(workspaceID: ws1.id, paneID: pane1.id))
+    }
+
+    @Test func nonSelectedWorkspaceFocusedPaneNotPinned() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+        model.selectedWorkspaceID = ws1.id
+        // ws2's focused pane has no matching state
+
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            activeFilters: [.flagged]
+        )
+
+        // ws1 row + ws1 pane (pinned) + ws2 row (no ws2 pane — not pinned, not matching)
+        #expect(items.count == 3)
+        #expect(items[2] == .workspace(ws2.id))
+    }
+
+    @Test func emptyFiltersReturnsAllItems() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+
+        let withFilter = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            activeFilters: []
+        )
+        let withoutFilter = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id
+        )
+        #expect(withFilter == withoutFilter)
+    }
+
+    @Test func workspaceRowsAlwaysIncludedWithFilters() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+        model.selectedWorkspaceID = ws1.id
+
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            activeFilters: [.bell]
+        )
+
+        let wsItems = items.filter { if case .workspace = $0 { return true }; return false }
+        #expect(wsItems.count == 2)
+        #expect(wsItems[0] == .workspace(ws1.id))
+        #expect(wsItems[1] == .workspace(ws2.id))
+    }
 }

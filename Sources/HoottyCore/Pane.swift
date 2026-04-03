@@ -43,6 +43,27 @@ public final class Pane: Identifiable {
         isFlagged.toggle()
     }
 
+    /// Returns true if this pane matches any of the given sidebar filters (OR logic).
+    /// An empty filter set matches all panes.
+    public func matches(_ filters: Set<SidebarFilter>) -> Bool {
+        if filters.isEmpty { return true }
+        for filter in filters {
+            switch filter {
+            case .thinking: if isThinking { return true }
+            case .flagged: if isFlagged { return true }
+            case .done: if attentionKind == .done { return true }
+            case .bell: if attentionKind == .bell { return true }
+            }
+        }
+        return false
+    }
+
+    /// Whether this pane should be visible in a filtered sidebar.
+    /// The focused pane of the selected workspace is always pinned visible.
+    public func isVisibleInSidebar(isFocusedInSelectedWorkspace: Bool, filters: Set<SidebarFilter>) -> Bool {
+        isFocusedInSelectedWorkspace || matches(filters)
+    }
+
     public var shell: String
     public var workingDirectory: String
     public var claudeSessionID: String?
