@@ -144,6 +144,12 @@ struct HoottyApp: App {
         commandRegistry.register(.attentionSounds) { [appModel] in
             appModel.modalState = .attentionSounds
         }
+        commandRegistry.register(.collapseAllWorkspaces) { [appModel] in
+            appModel.collapseAllWorkspaces()
+        }
+        commandRegistry.register(.expandAllWorkspaces) { [appModel] in
+            appModel.expandAllWorkspaces()
+        }
         commandRegistry.register(.resetWorkspaces) { [appModel, headWatcher] in
             for workspace in appModel.workspaces {
                 GhosttyApp.shared.cleanupWorkspace(workspace)

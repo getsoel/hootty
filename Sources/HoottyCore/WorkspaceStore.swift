@@ -6,17 +6,20 @@ public struct WorkspaceSnapshot: Codable {
     public var selectedWorkspaceID: UUID?
     public var sidebarWidth: CGFloat?
     public var sidebarVisible: Bool?
+    public var collapsedWorkspaceIDs: Set<UUID>?
 
     public init(
         workspaces: [Workspace],
         selectedWorkspaceID: UUID?,
         sidebarWidth: CGFloat? = nil,
-        sidebarVisible: Bool? = nil
+        sidebarVisible: Bool? = nil,
+        collapsedWorkspaceIDs: Set<UUID>? = nil
     ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.sidebarWidth = sidebarWidth
         self.sidebarVisible = sidebarVisible
+        self.collapsedWorkspaceIDs = collapsedWorkspaceIDs
     }
 }
 

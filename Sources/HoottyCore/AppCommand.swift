@@ -49,6 +49,10 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case resetWorkspaces
     case editConfig
 
+    // Workspace collapse
+    case collapseAllWorkspaces
+    case expandAllWorkspaces
+
     public var id: String {
         rawValue
     }
@@ -81,6 +85,8 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .attentionSounds: "Attention Sounds..."
         case .resetWorkspaces: "Reset Workspaces"
         case .editConfig: "Edit Configuration..."
+        case .collapseAllWorkspaces: "Collapse All Workspaces"
+        case .expandAllWorkspaces: "Expand All Workspaces"
         }
     }
 

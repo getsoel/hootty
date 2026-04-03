@@ -982,3 +982,188 @@ private func assertRectsSpanFullArea(
         #expect(rect.maxY <= 1.001, sourceLocation: sourceLocation)
     }
 }
+
+// MARK: - Suite: Workspace Collapse Persistence
+
+@MainActor
+struct WorkspaceCollapseIntegration {
+    @Test func collapseStatePersistsThroughSaveLoadRoundTrip() {
+        let (model, url) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+
+        // Collapse ws1
+        model.toggleWorkspaceCollapse(ws1.id)
+        #expect(model.collapsedWorkspaceIDs.contains(ws1.id))
+        #expect(!model.collapsedWorkspaceIDs.contains(ws2.id))
+        model.saveWorkspaces()
+
+        // Reload
+        let restored = reloadModel(from: url)
+        #expect(restored.collapsedWorkspaceIDs.contains(ws1.id))
+        #expect(!restored.collapsedWorkspaceIDs.contains(ws2.id))
+    }
+
+    @Test func effectiveCollapseRespectsSelectedWorkspace() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+
+        model.selectedWorkspaceID = ws1.id
+        model.toggleWorkspaceCollapse(ws1.id)
+
+        // ws1 is collapsed but selected — not effectively collapsed
+        #expect(!model.isWorkspaceEffectivelyCollapsed(ws1.id))
+        // ws2 is not collapsed at all
+        #expect(!model.isWorkspaceEffectivelyCollapsed(ws2.id))
+
+        // Switch selection to ws2
+        model.selectedWorkspaceID = ws2.id
+        // Now ws1 is effectively collapsed
+        #expect(model.isWorkspaceEffectivelyCollapsed(ws1.id))
+    }
+
+    @Test func removeWorkspaceCleansCollapsedIDs() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        _ = model.addWorkspace()
+
+        model.toggleWorkspaceCollapse(ws1.id)
+        #expect(model.collapsedWorkspaceIDs.contains(ws1.id))
+
+        model.removeWorkspace(id: ws1.id)
+        #expect(!model.collapsedWorkspaceIDs.contains(ws1.id))
+    }
+
+    @Test func collapseAllAndExpandAll() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+
+        model.collapseAllWorkspaces()
+        #expect(model.collapsedWorkspaceIDs.contains(ws1.id))
+        #expect(model.collapsedWorkspaceIDs.contains(ws2.id))
+
+        model.expandAllWorkspaces()
+        #expect(model.collapsedWorkspaceIDs.isEmpty)
+    }
+}
+
+// MARK: - Suite: Sidebar Keyboard Navigation
+
+@MainActor
+struct SidebarKeyboardNavTests {
+    @Test func navigableItemsIncludeWorkspaceRows() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let pane1 = ws1.allPanes[0]
+
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id
+        )
+
+        #expect(items.count == 2) // workspace row + 1 pane
+        #expect(items[0] == .workspace(ws1.id))
+        #expect(items[1] == .pane(workspaceID: ws1.id, paneID: pane1.id))
+    }
+
+    @Test func collapsedWorkspaceSkipsPanes() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+        model.selectedWorkspaceID = ws1.id
+
+        // Collapse ws2 (not selected)
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [ws2.id],
+            selectedWorkspaceID: ws1.id
+        )
+
+        // ws1 row + ws1 pane + ws2 row (no ws2 pane)
+        #expect(items.count == 3)
+        #expect(items[2] == .workspace(ws2.id))
+    }
+
+    @Test func selectedCollapsedWorkspaceShowsPanes() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+
+        // ws1 is both collapsed AND selected — panes should still show
+        let items = SidebarKeyboardNav.allNavigableItems(
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [ws1.id],
+            selectedWorkspaceID: ws1.id
+        )
+
+        #expect(items.count == 2) // workspace row + pane
+    }
+
+    @Test func moveCursorAcrossWorkspaceBoundary() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+        let pane1 = ws1.allPanes[0]
+        model.selectedWorkspaceID = ws1.id
+
+        // Start on pane1, move down should go to ws2 row
+        let next = SidebarKeyboardNav.moveCursor(
+            direction: 1,
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            currentTarget: .pane(pane1.id)
+        )
+        #expect(next == .workspace(ws2.id))
+
+        // From ws2 row, move down should go to ws2's pane
+        let pane2 = ws2.allPanes[0]
+        let next2 = SidebarKeyboardNav.moveCursor(
+            direction: 1,
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            currentTarget: .workspace(ws2.id)
+        )
+        #expect(next2 == .pane(pane2.id))
+    }
+
+    @Test func moveCursorClampsAtBounds() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+
+        // At the top, moving up should stay at first item
+        let result = SidebarKeyboardNav.moveCursor(
+            direction: -1,
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id,
+            currentTarget: .workspace(ws1.id)
+        )
+        #expect(result == .workspace(ws1.id))
+    }
+
+    @Test func confirmCursorResolvesWorkspaceAndPane() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let pane1 = ws1.allPanes[0]
+
+        let wsResult = SidebarKeyboardNav.confirmCursor(
+            target: .workspace(ws1.id),
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id
+        )
+        #expect(wsResult == .workspace(ws1.id))
+
+        let paneResult = SidebarKeyboardNav.confirmCursor(
+            target: .pane(pane1.id),
+            workspaces: model.workspaces,
+            collapsedWorkspaceIDs: [],
+            selectedWorkspaceID: ws1.id
+        )
+        #expect(paneResult == .pane(workspaceID: ws1.id, paneID: pane1.id))
+    }
+}

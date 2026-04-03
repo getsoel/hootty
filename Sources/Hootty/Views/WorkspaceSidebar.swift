@@ -12,10 +12,12 @@ struct WorkspaceSidebar: View {
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
     var onToggleNote: ((UUID) -> Void)?
+    var onToggleCollapse: ((UUID) -> Void)?
     var onSave: (() -> Void)?
     @Binding var sidebarHasFocus: Bool
-    @Binding var sidebarCursorPaneID: UUID?
+    @Binding var sidebarCursorTarget: SidebarCursorTarget?
     var sidebarWidth: CGFloat
+    let isEffectivelyCollapsed: (UUID) -> Bool
 
     @FocusState private var isFocused: Bool
     @State private var renameTargetID: UUID?
@@ -33,6 +35,7 @@ struct WorkspaceSidebar: View {
     @State private var visibleHeight: CGFloat = 0
     @State private var sidebarIsHovered = false
     @State private var scrollTargetRatio: CGFloat?
+    let collapsedWorkspaceIDs: Set<UUID>
 
     var body: some View {
         VStack(spacing: 0) {
@@ -49,14 +52,18 @@ struct WorkspaceSidebar: View {
         .focusEffectDisabled()
         .onKeyPress(.upArrow) { moveCursor(direction: -1); return .handled }
         .onKeyPress(.downArrow) { moveCursor(direction: 1); return .handled }
+        .onKeyPress(.leftArrow) { handleLeftArrow(); return .handled }
+        .onKeyPress(.rightArrow) { handleRightArrow(); return .handled }
         .onKeyPress(.return) { confirmCursor(); return .handled }
         .onKeyPress(.escape) { sidebarHasFocus = false; return .handled }
         .onChange(of: sidebarHasFocus) { _, hasFocus in
             isFocused = hasFocus
             if hasFocus {
-                sidebarCursorPaneID = selectedWorkspace?.focusedPaneID
+                if let paneID = selectedWorkspace?.focusedPaneID {
+                    sidebarCursorTarget = .pane(paneID)
+                }
             } else {
-                sidebarCursorPaneID = nil
+                sidebarCursorTarget = nil
             }
         }
         .onChange(of: isFocused) { _, focused in
@@ -146,9 +153,11 @@ struct WorkspaceSidebar: View {
         var ids: [UUID] = []
         for workspace in workspaces {
             ids.append(workspace.id)
-            for section in workspace.sidebarSections {
-                for pane in section.panes {
-                    ids.append(pane.id)
+            if !isEffectivelyCollapsed(workspace.id) {
+                for section in workspace.sidebarSections {
+                    for pane in section.panes {
+                        ids.append(pane.id)
+                    }
                 }
             }
         }
@@ -161,10 +170,14 @@ struct WorkspaceSidebar: View {
                 VStack(spacing: 0) {
                     ForEach(workspaces) { workspace in
                         let isActive = workspace.id == selectedWorkspaceID
+                        let collapsed = isEffectivelyCollapsed(workspace.id)
                         VStack(spacing: 0) {
                             WorkspaceRow(
                                 workspace: workspace,
                                 isSelected: isActive,
+                                isCollapsed: collapsed,
+                                isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(workspace.id),
+                                summaryAttention: collapsed ? workspaceAttentionSummary(workspace) : nil,
                                 tokens: tokens,
                                 onSelect: { selectedWorkspaceID = workspace.id },
                                 onRename: { id, name in
@@ -173,6 +186,11 @@ struct WorkspaceSidebar: View {
                                     showRenameWorkspaceAlert = true
                                 },
                                 onRemove: onRemoveWorkspace,
+                                onToggleCollapse: {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        onToggleCollapse?(workspace.id)
+                                    }
+                                },
                                 onMove: { sourceID, edge in
                                     guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
                                     let insertIndex = edge == .top ? targetIndex : targetIndex + 1
@@ -183,7 +201,9 @@ struct WorkspaceSidebar: View {
                                 workspaceRowHeight: $workspaceRowHeight
                             )
                             .id(workspace.id)
-                            workspacePaneList(workspace)
+                            if !collapsed {
+                                workspacePaneList(workspace)
+                            }
                         }
                         .background {
                             if isActive {
@@ -263,7 +283,7 @@ struct WorkspaceSidebar: View {
                 SidebarPaneRow(
                     pane: pane,
                     isFocusedPane: workspace.focusedPaneID == pane.id && workspace.id == selectedWorkspaceID,
-                    isCursorTarget: sidebarHasFocus && sidebarCursorPaneID == pane.id,
+                    isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .pane(pane.id),
                     canClose: canClose,
                     layoutRects: layoutRects,
                     showLayoutThumbnails: showLayoutThumbnails,
@@ -289,6 +309,26 @@ struct WorkspaceSidebar: View {
             }
         }
     }
+
+    // MARK: - Attention Summary
+
+    private func workspaceAttentionSummary(_ workspace: Workspace) -> WorkspaceAttentionSummary? {
+        var hasDone = false
+        var hasBell = false
+        for pane in workspace.allPanes {
+            if pane.isThinking { return .thinking }
+            switch pane.attentionKind {
+            case .done: hasDone = true
+            case .bell: hasBell = true
+            case nil: break
+            }
+        }
+        if hasDone { return .done }
+        if hasBell { return .bell }
+        return nil
+    }
+
+    // MARK: - Rename
 
     private func commitRename() {
         let trimmed = editingName.trimmingCharacters(in: .whitespaces)
@@ -322,21 +362,71 @@ struct WorkspaceSidebar: View {
     }
 
     private func moveCursor(direction: Int) {
-        sidebarCursorPaneID = SidebarKeyboardNav.moveCursor(
+        sidebarCursorTarget = SidebarKeyboardNav.moveCursor(
             direction: direction,
             workspaces: workspaces,
+            collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
-            currentCursorPaneID: sidebarCursorPaneID
+            currentTarget: sidebarCursorTarget
         )
     }
 
+    private func handleLeftArrow() {
+        guard let target = sidebarCursorTarget else { return }
+        switch target {
+        case let .workspace(id):
+            // Collapse the workspace
+            if !collapsedWorkspaceIDs.contains(id) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    onToggleCollapse?(id)
+                }
+            }
+        case let .pane(paneID):
+            // Jump cursor to parent workspace row
+            if let wsID = SidebarKeyboardNav.workspaceForPane(paneID: paneID, workspaces: workspaces) {
+                sidebarCursorTarget = .workspace(wsID)
+            }
+        }
+    }
+
+    private func handleRightArrow() {
+        guard let target = sidebarCursorTarget else { return }
+        if case let .workspace(id) = target {
+            // Expand the workspace
+            if collapsedWorkspaceIDs.contains(id) {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    onToggleCollapse?(id)
+                }
+            }
+        }
+    }
+
     private func confirmCursor() {
-        if let item = SidebarKeyboardNav.confirmCursor(
-            cursorPaneID: sidebarCursorPaneID,
-            workspaces: workspaces
-        ) {
-            onSelectPane(item.workspaceID, item.paneID)
+        guard let target = sidebarCursorTarget else {
+            sidebarHasFocus = false
+            return
+        }
+        let item = SidebarKeyboardNav.confirmCursor(
+            target: target,
+            workspaces: workspaces,
+            collapsedWorkspaceIDs: collapsedWorkspaceIDs,
+            selectedWorkspaceID: selectedWorkspaceID
+        )
+        switch item {
+        case let .workspace(id):
+            selectedWorkspaceID = id
+        case let .pane(workspaceID, paneID):
+            onSelectPane(workspaceID, paneID)
+        case nil:
+            break
         }
         sidebarHasFocus = false
     }
+}
+
+/// Summary of the highest-priority attention state for a collapsed workspace row.
+enum WorkspaceAttentionSummary {
+    case thinking
+    case done
+    case bell
 }

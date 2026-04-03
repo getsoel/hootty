@@ -11,6 +11,7 @@ public final class AppModel {
     public var selectedWorkspaceID: UUID?
     public var sidebarVisible: Bool = true
     public var sidebarWidth: CGFloat = 260
+    public var collapsedWorkspaceIDs: Set<UUID> = []
 
     public enum ModalState: Equatable {
         case none
@@ -48,6 +49,9 @@ public final class AppModel {
             if let visible = snapshot.sidebarVisible {
                 self.sidebarVisible = visible
             }
+            if let collapsed = snapshot.collapsedWorkspaceIDs {
+                self.collapsedWorkspaceIDs = collapsed
+            }
         } else {
             let workspace = addWorkspace()
             self.selectedWorkspaceID = workspace.id
@@ -66,7 +70,8 @@ public final class AppModel {
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
             sidebarWidth: sidebarWidth,
-            sidebarVisible: sidebarVisible
+            sidebarVisible: sidebarVisible,
+            collapsedWorkspaceIDs: collapsedWorkspaceIDs.isEmpty ? nil : collapsedWorkspaceIDs
         )
         workspaceStore.save(snapshot)
     }
@@ -105,12 +110,14 @@ public final class AppModel {
 
     public func removeWorkspace(at offsets: IndexSet) {
         for index in offsets.reversed() {
+            collapsedWorkspaceIDs.remove(workspaces[index].id)
             workspaces.remove(at: index)
         }
         saveWorkspaces()
     }
 
     public func removeWorkspace(id: UUID) {
+        collapsedWorkspaceIDs.remove(id)
         workspaces.removeAll { $0.id == id }
         saveWorkspaces()
     }
@@ -218,5 +225,30 @@ public final class AppModel {
               let idx = workspaces.firstIndex(where: { $0.id == current }) else { return }
         let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
         selectedWorkspaceID = workspaces[prevIdx].id
+    }
+
+    // MARK: - Workspace Collapse
+
+    public func toggleWorkspaceCollapse(_ id: UUID) {
+        if collapsedWorkspaceIDs.contains(id) {
+            collapsedWorkspaceIDs.remove(id)
+        } else {
+            collapsedWorkspaceIDs.insert(id)
+        }
+        saveWorkspaces()
+    }
+
+    public func collapseAllWorkspaces() {
+        collapsedWorkspaceIDs = Set(workspaces.map(\.id))
+        saveWorkspaces()
+    }
+
+    public func expandAllWorkspaces() {
+        collapsedWorkspaceIDs.removeAll()
+        saveWorkspaces()
+    }
+
+    public func isWorkspaceEffectivelyCollapsed(_ id: UUID) -> Bool {
+        collapsedWorkspaceIDs.contains(id) && id != selectedWorkspaceID
     }
 }

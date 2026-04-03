@@ -5,10 +5,14 @@ import UniformTypeIdentifiers
 struct WorkspaceRow: View {
     let workspace: Workspace
     let isSelected: Bool
+    let isCollapsed: Bool
+    let isCursorTarget: Bool
+    let summaryAttention: WorkspaceAttentionSummary?
     let tokens: DesignTokens
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
     var onRemove: (UUID) -> Void
+    var onToggleCollapse: () -> Void
     var onMove: (UUID, VerticalEdge?) -> Void
     @Binding var dropTargetWorkspaceID: UUID?
     @Binding var dropEdge: VerticalEdge?
@@ -18,10 +22,19 @@ struct WorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "folder.fill")
+            Image(systemName: isCollapsed ? "folder.fill" : "folder.open.fill")
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
+
+            if let summary = summaryAttention {
+                StatusDotView(
+                    attentionKind: summary == .done ? .done : summary == .bell ? .bell : nil,
+                    isThinking: summary == .thinking,
+                    isClaudeSession: false,
+                    tokens: tokens
+                )
+            }
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
@@ -36,6 +49,12 @@ struct WorkspaceRow: View {
             Rectangle()
                 .fill(isHovered ? Color(tokens.elementHover) : Color.clear)
         )
+        .overlay {
+            if isCursorTarget {
+                Rectangle()
+                    .stroke(Color(tokens.borderFocused), lineWidth: 1)
+            }
+        }
         .onContinuousHover { phase in
             switch phase {
             case .active:
@@ -80,6 +99,11 @@ struct WorkspaceRow: View {
         .contextMenu {
             Button("Rename Workspace") {
                 onRename(workspace.id, workspace.name)
+            }
+            if !isSelected {
+                Button(isCollapsed ? "Expand" : "Collapse") {
+                    onToggleCollapse()
+                }
             }
             Button("Close Workspace") {
                 onRemove(workspace.id)

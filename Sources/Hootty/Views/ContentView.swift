@@ -8,7 +8,7 @@ struct ContentView: View {
     var onCleanupRepoWatchers: ((String) -> Void)?
     @GestureState private var dragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
-    @State private var sidebarCursorPaneID: UUID?
+    @State private var sidebarCursorTarget: SidebarCursorTarget?
     @State private var memoryMonitor = MemoryMonitor()
 
     private var selectedWorkspace: Workspace? {
@@ -177,11 +177,16 @@ struct ContentView: View {
             onToggleNote: { paneID in
                 appModel.modalState = .noteEditor(paneID)
             },
+            onToggleCollapse: { id in
+                appModel.toggleWorkspaceCollapse(id)
+            },
             onSave: { appModel.saveWorkspaces() },
             sidebarHasFocus: $appModel.sidebarHasFocus,
-            sidebarCursorPaneID: $sidebarCursorPaneID,
+            sidebarCursorTarget: $sidebarCursorTarget,
             sidebarWidth: effectiveSidebarWidth,
-            showLayoutThumbnails: $appModel.showLayoutThumbnails
+            isEffectivelyCollapsed: { appModel.isWorkspaceEffectivelyCollapsed($0) },
+            showLayoutThumbnails: $appModel.showLayoutThumbnails,
+            collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs
         )
     }
 
@@ -341,7 +346,7 @@ struct ContentView: View {
             onSave: { appModel.saveWorkspaces() }
         )
         .environment(\.sidebarHasFocus, appModel.sidebarHasFocus)
-        .environment(\.sidebarCursorPaneID, sidebarCursorPaneID)
+        .environment(\.sidebarCursorPaneID, sidebarCursorTarget?.cursorPaneID)
         .environment(\.modalIsOpen, appModel.modalState != .none)
         .id(workspace.id)
     }
