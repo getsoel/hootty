@@ -127,11 +127,35 @@ struct WorkspaceSidebar: View {
     private var attentionBadges: some View {
         let counts = statusCounts
         return HStack(spacing: Spacing.xs) {
-            attentionPill(icon: "arrow.2.circlepath", count: counts.thinking, color: tokens.statusThinking)
+            thinkingPill(count: counts.thinking)
             attentionPill(icon: "flag.fill", count: counts.flagged, color: tokens.statusWarning)
             attentionPill(icon: "checkmark.circle", count: counts.done, color: tokens.statusDone)
             attentionPill(icon: "bell", count: counts.bell, color: tokens.statusBell)
         }
+    }
+
+    private func thinkingPill(count: Int) -> some View {
+        HStack(spacing: 3) {
+            if count > 0 {
+                TimelineView(.animation) { context in
+                    let cycle = context.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: 1.5) / 1.5 * 360
+                    Image(systemName: "arrow.2.circlepath")
+                        .rotationEffect(.degrees(cycle))
+                }
+            } else {
+                Image(systemName: "arrow.2.circlepath")
+            }
+            Text("\(count)")
+        }
+        .font(.system(size: TypeScale.smallSize, weight: .medium))
+        .foregroundStyle(Color(count > 0 ? tokens.statusThinking : tokens.textMuted))
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 2)
+        .background(
+            Capsule()
+                .fill(Color(count > 0 ? tokens.statusThinking : tokens.textMuted).opacity(0.15))
+        )
     }
 
     private func attentionPill(icon: String, count: Int, color: NSColor) -> some View {
