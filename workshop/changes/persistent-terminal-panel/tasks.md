@@ -13,11 +13,11 @@
 
 ## 2. Persistence
 
-- [ ] 2.1 Add optional `persistentNode: SplitNode?`, `persistentPanelVisible: Bool?`, `persistentPanelWidth: CGFloat?` fields to `WorkspaceSnapshot`
-- [ ] 2.2 Modify `AppModel.saveWorkspaces()` to include persistent panel state in snapshot
-- [ ] 2.3 Modify `AppModel.init` to restore persistent panel state from snapshot on load
-- [ ] 2.4 Write integration test: save with persistent panel, reload, verify state round-trips
-- [ ] 2.5 Write integration test: load old snapshot without persistent fields, verify defaults (nil/false)
+- [x] 2.1 Add optional `persistentNode: SplitNode?`, `persistentPanelVisible: Bool?`, `persistentPanelWidth: CGFloat?` fields to `WorkspaceSnapshot`
+- [x] 2.2 Modify `AppModel.saveWorkspaces()` to include persistent panel state in snapshot
+- [x] 2.3 Modify `AppModel.init` to restore persistent panel state from snapshot on load
+- [x] 2.4 Write integration test: save with persistent panel, reload, verify state round-trips
+- [x] 2.5 Write integration test: load old snapshot without persistent fields, verify defaults (nil/false)
 
 ## 3. Layout
 

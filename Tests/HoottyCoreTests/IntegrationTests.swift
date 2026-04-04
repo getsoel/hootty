@@ -1264,3 +1264,47 @@ struct SidebarKeyboardNavTests {
         #expect(wsItems[1] == .workspace(ws2.id))
     }
 }
+
+// MARK: - Suite: Persistent Panel Persistence
+
+@MainActor
+struct PersistentPanelPersistenceIntegration {
+    @Test func persistentPanelRoundTrips() throws {
+        let (model, url) = makeModel()
+
+        // Open the persistent panel and split
+        model.togglePersistentPanel()
+        let firstPane = try #require(model.persistentNode?.firstPane())
+        firstPane.customName = "Watcher"
+
+        // Split vertically within persistent panel
+        let newPane = Pane(name: "Pinned 2")
+        model.persistentNode!.splitPane(paneID: firstPane.id, direction: .vertical, newPane: newPane)
+        newPane.customName = "Logs"
+        model.persistentFocusedPaneID = newPane.id
+        model.persistentPanelWidth = 500
+
+        model.saveWorkspaces()
+
+        // Reload
+        let restored = reloadModel(from: url)
+        #expect(restored.persistentPanelVisible == true)
+        #expect(restored.persistentPanelWidth == 500)
+        let restoredPanes = try #require(restored.persistentNode?.allPanes())
+        #expect(restoredPanes.count == 2)
+        let names = restoredPanes.compactMap(\.customName)
+        #expect(names.contains("Watcher"))
+        #expect(names.contains("Logs"))
+    }
+
+    @Test func oldSnapshotWithoutPersistentFieldsLoadsCleanly() throws {
+        let (model, url) = makeModel()
+        // Save without persistent panel (default state)
+        model.saveWorkspaces()
+
+        let restored = reloadModel(from: url)
+        #expect(restored.persistentNode == nil)
+        #expect(restored.persistentPanelVisible == false)
+        #expect(restored.persistentPanelWidth == 400)
+    }
+}

@@ -7,19 +7,28 @@ public struct WorkspaceSnapshot: Codable {
     public var sidebarWidth: CGFloat?
     public var sidebarVisible: Bool?
     public var collapsedWorkspaceIDs: Set<UUID>?
+    public var persistentNode: SplitNode?
+    public var persistentPanelVisible: Bool?
+    public var persistentPanelWidth: CGFloat?
 
     public init(
         workspaces: [Workspace],
         selectedWorkspaceID: UUID?,
         sidebarWidth: CGFloat? = nil,
         sidebarVisible: Bool? = nil,
-        collapsedWorkspaceIDs: Set<UUID>? = nil
+        collapsedWorkspaceIDs: Set<UUID>? = nil,
+        persistentNode: SplitNode? = nil,
+        persistentPanelVisible: Bool? = nil,
+        persistentPanelWidth: CGFloat? = nil
     ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.sidebarWidth = sidebarWidth
         self.sidebarVisible = sidebarVisible
         self.collapsedWorkspaceIDs = collapsedWorkspaceIDs
+        self.persistentNode = persistentNode
+        self.persistentPanelVisible = persistentPanelVisible
+        self.persistentPanelWidth = persistentPanelWidth
     }
 }
 

@@ -72,6 +72,16 @@ public final class AppModel {
             if let collapsed = snapshot.collapsedWorkspaceIDs {
                 self.collapsedWorkspaceIDs = collapsed
             }
+            if let node = snapshot.persistentNode {
+                self.persistentNode = node
+                self.persistentFocusedPaneID = node.firstPane()?.id
+            }
+            if let visible = snapshot.persistentPanelVisible {
+                self.persistentPanelVisible = visible
+            }
+            if let width = snapshot.persistentPanelWidth {
+                self.persistentPanelWidth = width
+            }
         } else {
             let workspace = addWorkspace()
             self.selectedWorkspaceID = workspace.id
@@ -91,7 +101,10 @@ public final class AppModel {
             selectedWorkspaceID: selectedWorkspaceID,
             sidebarWidth: sidebarWidth,
             sidebarVisible: sidebarVisible,
-            collapsedWorkspaceIDs: collapsedWorkspaceIDs.isEmpty ? nil : collapsedWorkspaceIDs
+            collapsedWorkspaceIDs: collapsedWorkspaceIDs.isEmpty ? nil : collapsedWorkspaceIDs,
+            persistentNode: persistentNode,
+            persistentPanelVisible: persistentPanelVisible ? true : nil,
+            persistentPanelWidth: persistentPanelWidth != 400 ? persistentPanelWidth : nil
         )
         workspaceStore.save(snapshot)
     }
