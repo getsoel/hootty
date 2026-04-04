@@ -9,7 +9,7 @@ public final class AppModel {
     public let workspaceStore: WorkspaceStore
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
-    public var sidebarVisible: Bool = true
+    public var sidebarMode: SidebarMode = .full
     public var sidebarWidth: CGFloat = 260
     public var collapsedWorkspaceIDs: Set<UUID> = []
     public var activeSidebarFilters: Set<SidebarFilter> = []
@@ -35,6 +35,8 @@ public final class AppModel {
     public var modalState: ModalState = .none
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
+
+    public var sidebarVisible: Bool { sidebarMode != .hidden }
 
     public static let sidebarMinWidth: CGFloat = 200
     public static let sidebarMaxWidth: CGFloat = 400
@@ -67,8 +69,10 @@ public final class AppModel {
             if let width = snapshot.sidebarWidth {
                 self.sidebarWidth = width
             }
-            if let visible = snapshot.sidebarVisible {
-                self.sidebarVisible = visible
+            if let mode = snapshot.sidebarMode {
+                self.sidebarMode = mode
+            } else if let visible = snapshot.sidebarVisible {
+                self.sidebarMode = visible ? .full : .hidden
             }
             if let collapsed = snapshot.collapsedWorkspaceIDs {
                 self.collapsedWorkspaceIDs = collapsed
@@ -101,7 +105,7 @@ public final class AppModel {
             workspaces: workspaces,
             selectedWorkspaceID: selectedWorkspaceID,
             sidebarWidth: sidebarWidth,
-            sidebarVisible: sidebarVisible,
+            sidebarMode: sidebarMode,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs.isEmpty ? nil : collapsedWorkspaceIDs,
             persistentNode: persistentNode,
             persistentPanelVisible: persistentPanelVisible ? true : nil,
@@ -246,7 +250,7 @@ public final class AppModel {
         workspaceStore.deleteStorage()
         workspaces = []
         sidebarWidth = 260
-        sidebarVisible = true
+        sidebarMode = .full
         persistentNode = nil
         persistentPanelVisible = false
         persistentPanelWidth = 400
@@ -262,7 +266,11 @@ public final class AppModel {
     }
 
     public func toggleSidebar() {
-        sidebarVisible.toggle()
+        switch sidebarMode {
+        case .full: sidebarMode = .condensed
+        case .condensed: sidebarMode = .hidden
+        case .hidden: sidebarMode = .full
+        }
         saveWorkspaces()
     }
 

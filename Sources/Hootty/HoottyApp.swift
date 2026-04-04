@@ -56,6 +56,14 @@ struct HoottyApp: App {
     @State private var commandRegistry: CommandRegistry
     @State private var headWatcher = GitHEADWatcher()
 
+    private var sidebarToggleLabel: String {
+        switch appModel.sidebarMode {
+        case .full: "Condense Sidebar"
+        case .condensed: "Hide Sidebar"
+        case .hidden: "Show Sidebar"
+        }
+    }
+
     // MARK: - Command Registration
 
     private func registerCommands() {
@@ -134,7 +142,7 @@ struct HoottyApp: App {
             appModel.toggleSidebar()
         }
         commandRegistry.register(.focusSidebar) { [appModel] in
-            appModel.sidebarVisible = true
+            appModel.sidebarMode = .full
             appModel.sidebarHasFocus = true
         }
         commandRegistry.register(.toggleCommandPalette) { [appModel] in
@@ -377,7 +385,7 @@ struct HoottyApp: App {
 
                 Divider()
 
-                Button(appModel.sidebarVisible ? "Hide Sidebar" : "Show Sidebar") {
+                Button(sidebarToggleLabel) {
                     commandRegistry.execute(.toggleSidebar)
                 }
                 .keyboardShortcut("s", modifiers: [.command, .shift])

@@ -60,7 +60,7 @@ struct ContentView: View {
                 Self.repositionTrafficLights(in: window)
             }
         )
-        .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
+        .animation(.easeInOut(duration: 0.2), value: appModel.sidebarMode)
         .animation(.easeInOut(duration: 0.2), value: panelVisible)
         .overlay {
             if appModel.modalState == .commandPalette {

@@ -2,20 +2,20 @@
 
 ## 1. SidebarMode Enum & Model Changes
 
-- [ ] 1.1 Create `Sources/HoottyCore/SidebarMode.swift` with `SidebarMode` enum (cases: `.full`, `.condensed`, `.hidden`), conforming to `String`, `Codable`, `Sendable`
-- [ ] 1.2 In `AppModel.swift`, replace `sidebarVisible: Bool = true` with `sidebarMode: SidebarMode = .full`
-- [ ] 1.3 Update `AppModel.toggleSidebar()` to cycle `.full → .condensed → .hidden → .full` instead of toggling a bool
-- [ ] 1.4 Add computed `AppModel.sidebarVisible: Bool` returning `sidebarMode != .hidden` for any remaining internal reads (or update all call sites directly)
-- [ ] 1.5 Update `AppModel.resetToDefaults()` to set `sidebarMode = .full` instead of `sidebarVisible = true`
+- [x] 1.1 Create `Sources/HoottyCore/SidebarMode.swift` with `SidebarMode` enum (cases: `.full`, `.condensed`, `.hidden`), conforming to `String`, `Codable`, `Sendable`
+- [x] 1.2 In `AppModel.swift`, replace `sidebarVisible: Bool = true` with `sidebarMode: SidebarMode = .full`
+- [x] 1.3 Update `AppModel.toggleSidebar()` to cycle `.full → .condensed → .hidden → .full` instead of toggling a bool
+- [x] 1.4 Add computed `AppModel.sidebarVisible: Bool` returning `sidebarMode != .hidden` for any remaining internal reads (or update all call sites directly)
+- [x] 1.5 Update `AppModel.resetToDefaults()` to set `sidebarMode = .full` instead of `sidebarVisible = true`
 
 ## 2. Persistence
 
-- [ ] 2.1 Add `sidebarMode: SidebarMode?` to `WorkspaceSnapshot` in `WorkspaceStore.swift`
-- [ ] 2.2 Update `WorkspaceSnapshot.init` to accept `sidebarMode` parameter
-- [ ] 2.3 Update decode logic: if `sidebarMode` is present use it; else if `sidebarVisible` is present map `true → .full`, `false → .hidden`; else default `.full`
-- [ ] 2.4 Update encode logic: write `sidebarMode`, stop writing `sidebarVisible`
-- [ ] 2.5 Update `AppModel.init` snapshot restoration to read `sidebarMode` instead of `sidebarVisible`
-- [ ] 2.6 Update `AppModel.saveWorkspaces()` snapshot creation to write `sidebarMode` instead of `sidebarVisible`
+- [x] 2.1 Add `sidebarMode: SidebarMode?` to `WorkspaceSnapshot` in `WorkspaceStore.swift`
+- [x] 2.2 Update `WorkspaceSnapshot.init` to accept `sidebarMode` parameter
+- [x] 2.3 Update decode logic: if `sidebarMode` is present use it; else if `sidebarVisible` is present map `true → .full`, `false → .hidden`; else default `.full`
+- [x] 2.4 Update encode logic: write `sidebarMode`, stop writing `sidebarVisible`
+- [x] 2.5 Update `AppModel.init` snapshot restoration to read `sidebarMode` instead of `sidebarVisible`
+- [x] 2.6 Update `AppModel.saveWorkspaces()` snapshot creation to write `sidebarMode` instead of `sidebarVisible`
 
 ## 3. Layout Constant
 
@@ -47,8 +47,8 @@
 
 ## 6. Command & Menu Updates
 
-- [ ] 6.1 Update `HoottyApp.registerCommands()`: `focusSidebar` handler must set `sidebarMode = .full` (not just `sidebarVisible = true`)
-- [ ] 6.2 Update View menu button label to reflect current mode: `.full` → "Condense Sidebar", `.condensed` → "Hide Sidebar", `.hidden` → "Show Sidebar"
+- [x] 6.1 Update `HoottyApp.registerCommands()`: `focusSidebar` handler must set `sidebarMode = .full` (not just `sidebarVisible = true`)
+- [x] 6.2 Update View menu button label to reflect current mode: `.full` → "Condense Sidebar", `.condensed` → "Hide Sidebar", `.hidden` → "Show Sidebar"
 
 ## 7. Tests
 

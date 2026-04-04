@@ -5,17 +5,20 @@ public struct WorkspaceSnapshot: Codable {
     public var workspaces: [Workspace]
     public var selectedWorkspaceID: UUID?
     public var sidebarWidth: CGFloat?
-    public var sidebarVisible: Bool?
+    public var sidebarMode: SidebarMode?
     public var collapsedWorkspaceIDs: Set<UUID>?
     public var persistentNode: SplitNode?
     public var persistentPanelVisible: Bool?
     public var persistentPanelWidth: CGFloat?
 
+    /// Legacy field for backward-compatible decoding only. Not written on new saves.
+    public var sidebarVisible: Bool?
+
     public init(
         workspaces: [Workspace],
         selectedWorkspaceID: UUID?,
         sidebarWidth: CGFloat? = nil,
-        sidebarVisible: Bool? = nil,
+        sidebarMode: SidebarMode? = nil,
         collapsedWorkspaceIDs: Set<UUID>? = nil,
         persistentNode: SplitNode? = nil,
         persistentPanelVisible: Bool? = nil,
@@ -24,11 +27,29 @@ public struct WorkspaceSnapshot: Codable {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.sidebarWidth = sidebarWidth
-        self.sidebarVisible = sidebarVisible
+        self.sidebarMode = sidebarMode
         self.collapsedWorkspaceIDs = collapsedWorkspaceIDs
         self.persistentNode = persistentNode
         self.persistentPanelVisible = persistentPanelVisible
         self.persistentPanelWidth = persistentPanelWidth
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case workspaces, selectedWorkspaceID, sidebarWidth, sidebarMode, sidebarVisible
+        case collapsedWorkspaceIDs, persistentNode, persistentPanelVisible, persistentPanelWidth
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(workspaces, forKey: .workspaces)
+        try container.encodeIfPresent(selectedWorkspaceID, forKey: .selectedWorkspaceID)
+        try container.encodeIfPresent(sidebarWidth, forKey: .sidebarWidth)
+        try container.encodeIfPresent(sidebarMode, forKey: .sidebarMode)
+        // sidebarVisible intentionally not written
+        try container.encodeIfPresent(collapsedWorkspaceIDs, forKey: .collapsedWorkspaceIDs)
+        try container.encodeIfPresent(persistentNode, forKey: .persistentNode)
+        try container.encodeIfPresent(persistentPanelVisible, forKey: .persistentPanelVisible)
+        try container.encodeIfPresent(persistentPanelWidth, forKey: .persistentPanelWidth)
     }
 }
 
