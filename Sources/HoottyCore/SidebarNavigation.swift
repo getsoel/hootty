@@ -29,9 +29,27 @@ public enum SidebarKeyboardNav {
         workspaces: [Workspace],
         collapsedWorkspaceIDs: Set<UUID>,
         selectedWorkspaceID: UUID?,
-        activeFilters: Set<SidebarFilter> = []
+        activeFilters: Set<SidebarFilter> = [],
+        persistentNode: SplitNode? = nil,
+        persistentSidebarCollapsed: Bool = false,
+        persistentFocusedPaneID: UUID? = nil
     ) -> [SidebarNavItem] {
         var items: [SidebarNavItem] = []
+
+        // Persistent pseudo-workspace at top
+        if let node = persistentNode {
+            let persistentID = AppModel.persistentWorkspaceID
+            items.append(.workspace(persistentID))
+            if !persistentSidebarCollapsed {
+                for pane in node.allPanes() where pane.isVisibleInSidebar(
+                    isFocusedInSelectedWorkspace: pane.id == persistentFocusedPaneID,
+                    filters: activeFilters
+                ) {
+                    items.append(.pane(workspaceID: persistentID, paneID: pane.id))
+                }
+            }
+        }
+
         for ws in workspaces {
             items.append(.workspace(ws.id))
             let effectivelyCollapsed = collapsedWorkspaceIDs.contains(ws.id) && ws.id != selectedWorkspaceID
@@ -52,13 +70,19 @@ public enum SidebarKeyboardNav {
         collapsedWorkspaceIDs: Set<UUID>,
         selectedWorkspaceID: UUID?,
         currentTarget: SidebarCursorTarget?,
-        activeFilters: Set<SidebarFilter> = []
+        activeFilters: Set<SidebarFilter> = [],
+        persistentNode: SplitNode? = nil,
+        persistentSidebarCollapsed: Bool = false,
+        persistentFocusedPaneID: UUID? = nil
     ) -> SidebarCursorTarget? {
         let items = allNavigableItems(
             workspaces: workspaces,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
-            activeFilters: activeFilters
+            activeFilters: activeFilters,
+            persistentNode: persistentNode,
+            persistentSidebarCollapsed: persistentSidebarCollapsed,
+            persistentFocusedPaneID: persistentFocusedPaneID
         )
         guard !items.isEmpty else { return nil }
 
@@ -112,8 +136,12 @@ public enum SidebarKeyboardNav {
     /// Find the workspace ID that owns a given pane.
     public static func workspaceForPane(
         paneID: UUID,
-        workspaces: [Workspace]
+        workspaces: [Workspace],
+        persistentNode: SplitNode? = nil
     ) -> UUID? {
+        if let node = persistentNode, node.containsPane(id: paneID) {
+            return AppModel.persistentWorkspaceID
+        }
         for ws in workspaces where ws.findPane(id: paneID) != nil {
             return ws.id
         }

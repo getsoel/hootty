@@ -437,7 +437,10 @@ struct WorkspaceSidebar: View {
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
             currentTarget: sidebarCursorTarget,
-            activeFilters: activeSidebarFilters
+            activeFilters: activeSidebarFilters,
+            persistentNode: persistentNode,
+            persistentSidebarCollapsed: persistentSidebarCollapsed,
+            persistentFocusedPaneID: persistentFocusedPaneID
         )
     }
 
@@ -445,15 +448,19 @@ struct WorkspaceSidebar: View {
         guard let target = sidebarCursorTarget else { return }
         switch target {
         case let .workspace(id):
-            // Collapse the workspace
-            if !collapsedWorkspaceIDs.contains(id) {
+            if id == AppModel.persistentWorkspaceID {
+                if !persistentSidebarCollapsed {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        persistentSidebarCollapsed = true
+                    }
+                }
+            } else if !collapsedWorkspaceIDs.contains(id) {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     onToggleCollapse?(id)
                 }
             }
         case let .pane(paneID):
-            // Jump cursor to parent workspace row
-            if let wsID = SidebarKeyboardNav.workspaceForPane(paneID: paneID, workspaces: workspaces) {
+            if let wsID = SidebarKeyboardNav.workspaceForPane(paneID: paneID, workspaces: workspaces, persistentNode: persistentNode) {
                 sidebarCursorTarget = .workspace(wsID)
             }
         }
@@ -462,8 +469,13 @@ struct WorkspaceSidebar: View {
     private func handleRightArrow() {
         guard let target = sidebarCursorTarget else { return }
         if case let .workspace(id) = target {
-            // Expand the workspace
-            if collapsedWorkspaceIDs.contains(id) {
+            if id == AppModel.persistentWorkspaceID {
+                if persistentSidebarCollapsed {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        persistentSidebarCollapsed = false
+                    }
+                }
+            } else if collapsedWorkspaceIDs.contains(id) {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     onToggleCollapse?(id)
                 }
@@ -484,9 +496,19 @@ struct WorkspaceSidebar: View {
         )
         switch item {
         case let .workspace(id):
+            if id == AppModel.persistentWorkspaceID {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    persistentSidebarCollapsed.toggle()
+                }
+                return // Don't exit sidebar focus
+            }
             selectedWorkspaceID = id
         case let .pane(workspaceID, paneID):
-            onSelectPane(workspaceID, paneID)
+            if workspaceID == AppModel.persistentWorkspaceID {
+                onSelectPersistentPane?(paneID)
+            } else {
+                onSelectPane(workspaceID, paneID)
+            }
         case nil:
             break
         }

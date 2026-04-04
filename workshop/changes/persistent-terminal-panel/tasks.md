@@ -58,12 +58,12 @@
 
 ## 7. Sidebar: Keyboard Nav & Filters
 
-- [ ] 7.1 Modify `SidebarKeyboardNav.allNavigableItems` to prepend persistent pseudo-workspace + its panes (using sentinel UUID)
-- [ ] 7.2 Handle Enter on persistent workspace row: toggle sidebar collapse (not select workspace)
-- [ ] 7.3 Handle left/right arrow on persistent workspace row: collapse/expand its pane list
-- [ ] 7.4 Handle Enter on persistent pane row: focus pane, set `focusDomain = .persistent`, show panel if hidden
-- [ ] 7.5 Modify sidebar badge filter counts to include persistent panel panes in aggregation
-- [ ] 7.6 Apply filter visibility to persistent pane rows (same matching logic, pinned focused pane always visible)
+- [x] 7.1 Modify `SidebarKeyboardNav.allNavigableItems` to prepend persistent pseudo-workspace + its panes (using sentinel UUID)
+- [x] 7.2 Handle Enter on persistent workspace row: toggle sidebar collapse (not select workspace)
+- [x] 7.3 Handle left/right arrow on persistent workspace row: collapse/expand its pane list
+- [x] 7.4 Handle Enter on persistent pane row: focus pane, set `focusDomain = .persistent`, show panel if hidden
+- [x] 7.5 Modify sidebar badge filter counts to include persistent panel panes in aggregation
+- [x] 7.6 Apply filter visibility to persistent pane rows (same matching logic, pinned focused pane always visible)
 
 ## 8. Pane Movement
 
