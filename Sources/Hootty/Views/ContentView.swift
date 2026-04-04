@@ -60,7 +60,7 @@ struct ContentView: View {
                 Self.repositionTrafficLights(in: window)
             }
         )
-        .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
+        .animation(.easeInOut(duration: 0.2), value: appModel.sidebarMode)
         .animation(.easeInOut(duration: 0.2), value: panelVisible)
         .overlay {
             if appModel.modalState == .commandPalette {
@@ -141,51 +141,30 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
+    private var sidebarContent: some View {
+        switch appModel.sidebarMode {
+        case .full:
+            sidebar
+        case .condensed:
+            condensedSidebar
+        case .hidden:
+            EmptyView()
+        }
+    }
+
     private var sidebar: some View {
         WorkspaceSidebar(
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
-            onAddWorkspace: {
-                let workspace = appModel.addWorkspace()
-                appModel.selectedWorkspaceID = workspace.id
-            },
-            onRemoveWorkspace: { id in
-                let repoRoots: Set<String>
-                if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
-                    repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
-                    GhosttyApp.shared.cleanupWorkspace(workspace)
-                } else {
-                    repoRoots = []
-                }
-                appModel.removeWorkspace(id: id)
-                if appModel.selectedWorkspaceID == id {
-                    appModel.selectedWorkspaceID = appModel.workspaces.first?.id
-                }
-                for root in repoRoots {
-                    onCleanupRepoWatchers?(root)
-                }
-            },
+            onAddWorkspace: handleAddWorkspace,
+            onRemoveWorkspace: handleRemoveWorkspace,
             onMoveWorkspace: { id, toIndex in
                 appModel.moveWorkspace(id: id, toIndex: toIndex)
             },
-            onSelectPane: { workspaceID, paneID in
-                appModel.selectedWorkspaceID = workspaceID
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.focusPane(id: paneID)
-                }
-            },
-            onRemovePane: { workspaceID, paneID in
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    let repoRoot = workspace.findPane(id: paneID)?.repoRoot
-                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    workspace.removePane(id: paneID)
-                    appModel.saveWorkspaces()
-                    if let root = repoRoot {
-                        onCleanupRepoWatchers?(root)
-                    }
-                }
-            },
+            onSelectPane: handleSelectPane,
+            onRemovePane: handleRemovePane,
             onToggleNote: { paneID in
                 appModel.modalState = .noteEditor(paneID)
             },
@@ -205,19 +184,9 @@ struct ContentView: View {
             persistentNode: appModel.persistentNode,
             persistentFocusedPaneID: appModel.persistentFocusedPaneID,
             persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
-            onSelectPersistentPane: { paneID in
-                appModel.sidebarHasFocus = false
-                appModel.focusDomain = .persistent
-                appModel.persistentFocusedPaneID = paneID
-                appModel.persistentPanelVisible = true
-            },
-            onRemovePersistentPane: { paneID in
-                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                appModel.removePersistentPane(id: paneID)
-            },
-            onNewPersistentPane: {
-                appModel.addPersistentPane()
-            },
+            onSelectPersistentPane: handleSelectPersistentPane,
+            onRemovePersistentPane: handleRemovePersistentPane,
+            onNewPersistentPane: { appModel.addPersistentPane() },
             onCloseAllPersistentPanes: {
                 if let node = appModel.persistentNode {
                     for pane in node.allPanes() {
@@ -233,6 +202,95 @@ struct ContentView: View {
                 appModel.movePaneToPersistentPanel(paneID: paneID)
             }
         )
+    }
+
+    private var condensedSidebar: some View {
+        CondensedSidebar(
+            workspaces: appModel.workspaces,
+            selectedWorkspaceID: $appModel.selectedWorkspaceID,
+            tokens: tokens,
+            onExpandSidebar: { appModel.sidebarMode = .full },
+            onAddWorkspace: handleAddWorkspace,
+            onRemoveWorkspace: handleRemoveWorkspace,
+            onSelectPane: handleSelectPane,
+            onRemovePane: handleRemovePane,
+            onToggleCollapse: { id in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    appModel.toggleWorkspaceCollapse(id)
+                }
+            },
+            onSave: { appModel.saveWorkspaces() },
+            isEffectivelyCollapsed: { appModel.isWorkspaceEffectivelyCollapsed($0) },
+            collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs,
+            activeSidebarFilters: appModel.activeSidebarFilters,
+            persistentNode: appModel.persistentNode,
+            persistentFocusedPaneID: appModel.persistentFocusedPaneID,
+            persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
+            onSelectPersistentPane: handleSelectPersistentPane,
+            onRemovePersistentPane: handleRemovePersistentPane,
+            onNewPersistentPane: { appModel.addPersistentPane() },
+            onMovePaneToPinned: { paneID in
+                appModel.movePaneToPersistentPanel(paneID: paneID)
+            },
+            onMovePaneToWorkspace: { paneID, workspaceID in
+                appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
+            }
+        )
+    }
+
+    // MARK: - Shared Sidebar Callbacks
+
+    private func handleAddWorkspace() {
+        let workspace = appModel.addWorkspace()
+        appModel.selectedWorkspaceID = workspace.id
+    }
+
+    private func handleRemoveWorkspace(_ id: UUID) {
+        let repoRoots: Set<String>
+        if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
+            repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
+            GhosttyApp.shared.cleanupWorkspace(workspace)
+        } else {
+            repoRoots = []
+        }
+        appModel.removeWorkspace(id: id)
+        if appModel.selectedWorkspaceID == id {
+            appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+        }
+        for root in repoRoots {
+            onCleanupRepoWatchers?(root)
+        }
+    }
+
+    private func handleSelectPane(_ workspaceID: UUID, _ paneID: UUID) {
+        appModel.selectedWorkspaceID = workspaceID
+        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+            workspace.focusPane(id: paneID)
+        }
+    }
+
+    private func handleRemovePane(_ workspaceID: UUID, _ paneID: UUID) {
+        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+            let repoRoot = workspace.findPane(id: paneID)?.repoRoot
+            GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+            workspace.removePane(id: paneID)
+            appModel.saveWorkspaces()
+            if let root = repoRoot {
+                onCleanupRepoWatchers?(root)
+            }
+        }
+    }
+
+    private func handleSelectPersistentPane(_ paneID: UUID) {
+        appModel.sidebarHasFocus = false
+        appModel.focusDomain = .persistent
+        appModel.persistentFocusedPaneID = paneID
+        appModel.persistentPanelVisible = true
+    }
+
+    private func handleRemovePersistentPane(_ paneID: UUID) {
+        GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+        appModel.removePersistentPane(id: paneID)
     }
 
     // MARK: - Title Bar
@@ -276,8 +334,12 @@ struct ContentView: View {
 
     private var workspacesContent: some View {
         GeometryReader { geometry in
-            let sidebarW = appModel.sidebarVisible ? effectiveSidebarWidth : 0
-            let dividerW: CGFloat = appModel.sidebarVisible ? 1 : 0
+            let sidebarW: CGFloat = switch appModel.sidebarMode {
+            case .full: effectiveSidebarWidth
+            case .condensed: Layout.condensedSidebarWidth
+            case .hidden: 0
+            }
+            let dividerW: CGFloat = appModel.sidebarMode != .hidden ? 1 : 0
             let detailX = sidebarW + dividerW
             let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
             let panelW = panelVisible ? effectivePanelWidth : 0
@@ -288,8 +350,8 @@ struct ContentView: View {
 
             ZStack(alignment: .topLeading) {
                 // Sidebar
-                if appModel.sidebarVisible {
-                    sidebar
+                if appModel.sidebarMode != .hidden {
+                    sidebarContent
                         .frame(width: sidebarW, height: geometry.size.height)
 
                     // Visible 1px divider line
@@ -298,37 +360,39 @@ struct ContentView: View {
                         .frame(width: 1, height: geometry.size.height)
                         .offset(x: sidebarW)
 
-                    // Invisible wide drag handle overlaying the divider
-                    Color.clear
-                        .frame(width: 16, height: geometry.size.height)
-                        .contentShape(Rectangle())
-                        .offset(x: sidebarW - 7.5)
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                DispatchQueue.main.async {
-                                    NSCursor.resizeLeftRight.set()
-                                }
-                            case .ended:
-                                DispatchQueue.main.async {
-                                    NSCursor.arrow.set()
+                    // Invisible wide drag handle overlaying the divider (full mode only)
+                    if appModel.sidebarMode == .full {
+                        Color.clear
+                            .frame(width: 16, height: geometry.size.height)
+                            .contentShape(Rectangle())
+                            .offset(x: sidebarW - 7.5)
+                            .onContinuousHover { phase in
+                                switch phase {
+                                case .active:
+                                    DispatchQueue.main.async {
+                                        NSCursor.resizeLeftRight.set()
+                                    }
+                                case .ended:
+                                    DispatchQueue.main.async {
+                                        NSCursor.arrow.set()
+                                    }
                                 }
                             }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .updating($dragOffset) { value, state, _ in
-                                    state = value.translation.width
-                                }
-                                .onEnded { value in
-                                    let newWidth = appModel.sidebarWidth + value.translation.width
-                                    appModel.sidebarWidth = min(
-                                        max(newWidth, AppModel.sidebarMinWidth),
-                                        AppModel.sidebarMaxWidth
-                                    )
-                                    appModel.debouncedSave()
-                                }
-                        )
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .updating($dragOffset) { value, state, _ in
+                                        state = value.translation.width
+                                    }
+                                    .onEnded { value in
+                                        let newWidth = appModel.sidebarWidth + value.translation.width
+                                        appModel.sidebarWidth = min(
+                                            max(newWidth, AppModel.sidebarMinWidth),
+                                            AppModel.sidebarMaxWidth
+                                        )
+                                        appModel.debouncedSave()
+                                    }
+                            )
+                    }
                 }
 
                 // Detail area
