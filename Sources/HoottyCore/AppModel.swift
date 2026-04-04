@@ -14,6 +14,14 @@ public final class AppModel {
     public var collapsedWorkspaceIDs: Set<UUID> = []
     public var activeSidebarFilters: Set<SidebarFilter> = []
 
+    // MARK: - Persistent Panel
+
+    public var persistentNode: SplitNode?
+    public var persistentPanelVisible: Bool = false
+    public var persistentPanelWidth: CGFloat = 400
+    public var persistentFocusedPaneID: UUID?
+    public var focusDomain: FocusDomain = .workspace
+
     public enum ModalState: Equatable {
         case none
         case commandPalette
@@ -29,8 +37,19 @@ public final class AppModel {
 
     public static let sidebarMinWidth: CGFloat = 200
     public static let sidebarMaxWidth: CGFloat = 400
+    public static let persistentPanelMinWidth: CGFloat = 200
+    public static let persistentPanelMaxWidth: CGFloat = 600
+    nonisolated public static let persistentWorkspaceID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
+    }
+
+    public var persistentFocusedPane: Pane? {
+        guard let node = persistentNode else { return nil }
+        if let id = persistentFocusedPaneID, let pane = node.findPane(id: id) {
+            return pane
+        }
+        return node.firstPane()
     }
 
     public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil) {
@@ -164,11 +183,34 @@ public final class AppModel {
         return nil
     }
 
+    /// Find a pane by ID across both workspaces and the persistent panel.
+    public enum PaneLocation {
+        case workspace(Workspace, Pane)
+        case persistent(Pane)
+    }
+
+    public func findPaneLocation(id: UUID) -> PaneLocation? {
+        if let (workspace, pane) = findPane(id: id) {
+            return .workspace(workspace, pane)
+        }
+        if let pane = persistentNode?.findPane(id: id) {
+            return .persistent(pane)
+        }
+        return nil
+    }
+
     /// Convenience: look up a pane by ID and execute a closure if found.
     @discardableResult
     public func withPane<T>(id: UUID, _ body: (Workspace, Pane) -> T) -> T? {
         guard let (workspace, pane) = findPane(id: id) else { return nil }
         return body(workspace, pane)
+    }
+
+    /// Look up a pane by ID across both workspaces and persistent panel.
+    @discardableResult
+    public func withAnyPane<T>(id: UUID, _ body: (PaneLocation) -> T) -> T? {
+        guard let location = findPaneLocation(id: id) else { return nil }
+        return body(location)
     }
 
     /// Re-query branch for all panes in the given canonical repo root.
@@ -198,6 +240,11 @@ public final class AppModel {
         workspaces = []
         sidebarWidth = 260
         sidebarVisible = true
+        persistentNode = nil
+        persistentPanelVisible = false
+        persistentPanelWidth = 400
+        persistentFocusedPaneID = nil
+        focusDomain = .workspace
         let workspace = addWorkspace()
         selectedWorkspaceID = workspace.id
     }
@@ -226,6 +273,37 @@ public final class AppModel {
               let idx = workspaces.firstIndex(where: { $0.id == current }) else { return }
         let prevIdx = (idx - 1 + workspaces.count) % workspaces.count
         selectedWorkspaceID = workspaces[prevIdx].id
+    }
+
+    // MARK: - Persistent Panel
+
+    public func togglePersistentPanel() {
+        if persistentPanelVisible {
+            persistentPanelVisible = false
+        } else {
+            if persistentNode == nil {
+                let pane = Pane(name: "Pinned 1")
+                persistentNode = SplitNode(pane: pane)
+                persistentFocusedPaneID = pane.id
+            }
+            persistentPanelVisible = true
+        }
+        saveWorkspaces()
+    }
+
+    public func closePersistentPanel() {
+        persistentNode = nil
+        persistentPanelVisible = false
+        persistentFocusedPaneID = nil
+        if focusDomain == .persistent {
+            focusDomain = .workspace
+        }
+        saveWorkspaces()
+    }
+
+    /// All panes in the persistent panel (empty if no panel).
+    public var persistentPanes: [Pane] {
+        persistentNode?.allPanes() ?? []
     }
 
     // MARK: - Workspace Collapse

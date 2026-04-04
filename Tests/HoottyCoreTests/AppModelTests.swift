@@ -61,4 +61,99 @@ struct AppModelTests {
         // Should still be "Workspace 1" since no numbered workspaces exist
         #expect(w.name == "Workspace 1")
     }
+
+    // MARK: - Persistent Panel
+
+    @Test func togglePersistentPanelCreatesDefaultPane() {
+        let model = TestHelpers.makeModel()
+        #expect(model.persistentNode == nil)
+        #expect(model.persistentPanelVisible == false)
+
+        model.togglePersistentPanel()
+
+        #expect(model.persistentNode != nil)
+        #expect(model.persistentPanelVisible == true)
+        #expect(model.persistentNode?.allPanes().count == 1)
+        #expect(model.persistentFocusedPaneID != nil)
+    }
+
+    @Test func togglePersistentPanelHidesWhenVisible() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        #expect(model.persistentPanelVisible == true)
+
+        model.togglePersistentPanel()
+        #expect(model.persistentPanelVisible == false)
+        // Node is preserved (panes still exist, just hidden)
+        #expect(model.persistentNode != nil)
+    }
+
+    @Test func closePersistentPanelNilsNode() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        model.focusDomain = .persistent
+
+        model.closePersistentPanel()
+
+        #expect(model.persistentNode == nil)
+        #expect(model.persistentPanelVisible == false)
+        #expect(model.persistentFocusedPaneID == nil)
+        #expect(model.focusDomain == .workspace)
+    }
+
+    @Test func persistentFocusedPaneFallsBackToFirst() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        let firstPane = model.persistentNode!.firstPane()!
+
+        // With matching ID
+        model.persistentFocusedPaneID = firstPane.id
+        #expect(model.persistentFocusedPane?.id == firstPane.id)
+
+        // With bogus ID, falls back to first
+        model.persistentFocusedPaneID = UUID()
+        #expect(model.persistentFocusedPane?.id == firstPane.id)
+
+        // With nil, falls back to first
+        model.persistentFocusedPaneID = nil
+        #expect(model.persistentFocusedPane?.id == firstPane.id)
+    }
+
+    @Test func findPaneLocationSearchesPersistentNode() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        let persistentPane = model.persistentNode!.firstPane()!
+        let workspacePane = model.workspaces[0].allPanes[0]
+
+        // Find workspace pane
+        if case .workspace(_, let pane) = model.findPaneLocation(id: workspacePane.id) {
+            #expect(pane.id == workspacePane.id)
+        } else {
+            Issue.record("Expected workspace location")
+        }
+
+        // Find persistent pane
+        if case .persistent(let pane) = model.findPaneLocation(id: persistentPane.id) {
+            #expect(pane.id == persistentPane.id)
+        } else {
+            Issue.record("Expected persistent location")
+        }
+
+        // Unknown ID
+        #expect(model.findPaneLocation(id: UUID()) == nil)
+    }
+
+    @Test func resetWorkspacesClearsPersistentPanel() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        model.focusDomain = .persistent
+
+        model.resetWorkspaces()
+
+        #expect(model.persistentNode == nil)
+        #expect(model.persistentPanelVisible == false)
+        #expect(model.persistentPanelWidth == 400)
+        #expect(model.persistentFocusedPaneID == nil)
+        #expect(model.focusDomain == .workspace)
+    }
 }

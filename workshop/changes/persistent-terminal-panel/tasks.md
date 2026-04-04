@@ -2,14 +2,14 @@
 
 ## 1. Model Foundation
 
-- [ ] 1.1 Add `FocusDomain` enum (`.workspace`, `.persistent`) to `Sources/HoottyCore/`
-- [ ] 1.2 Add persistent panel properties to `AppModel`: `persistentNode: SplitNode?`, `persistentPanelVisible: Bool`, `persistentPanelWidth: CGFloat`, `persistentFocusedPaneID: UUID?`, `focusDomain: FocusDomain`
-- [ ] 1.3 Add static constants `persistentPanelMinWidth` (200), `persistentPanelMaxWidth` (600), and sentinel `persistentWorkspaceID` UUID on `AppModel`
-- [ ] 1.4 Add computed `persistentFocusedPane: Pane?` resolving ID against `persistentNode`
-- [ ] 1.5 Add panel lifecycle methods: `togglePersistentPanel()` (creates default pane if nil), `closePersistentPanel()` (nils node, hides)
-- [ ] 1.6 Modify `findPane(id:)` and `withPane(id:)` to also search `persistentNode`
-- [ ] 1.7 Modify `resetWorkspaces()` to clear persistent panel state
-- [ ] 1.8 Write unit tests for model properties and lifecycle (panel creation, last-pane removal nils node, findPane searches persistent)
+- [x] 1.1 Add `FocusDomain` enum (`.workspace`, `.persistent`) to `Sources/HoottyCore/`
+- [x] 1.2 Add persistent panel properties to `AppModel`: `persistentNode: SplitNode?`, `persistentPanelVisible: Bool`, `persistentPanelWidth: CGFloat`, `persistentFocusedPaneID: UUID?`, `focusDomain: FocusDomain`
+- [x] 1.3 Add static constants `persistentPanelMinWidth` (200), `persistentPanelMaxWidth` (600), and sentinel `persistentWorkspaceID` UUID on `AppModel`
+- [x] 1.4 Add computed `persistentFocusedPane: Pane?` resolving ID against `persistentNode`
+- [x] 1.5 Add panel lifecycle methods: `togglePersistentPanel()` (creates default pane if nil), `closePersistentPanel()` (nils node, hides)
+- [x] 1.6 Modify `findPane(id:)` and `withPane(id:)` to also search `persistentNode`
+- [x] 1.7 Modify `resetWorkspaces()` to clear persistent panel state
+- [x] 1.8 Write unit tests for model properties and lifecycle (panel creation, last-pane removal nils node, findPane searches persistent)
 
 ## 2. Persistence
 
