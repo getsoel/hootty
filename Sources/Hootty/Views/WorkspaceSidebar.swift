@@ -251,10 +251,14 @@ struct WorkspaceSidebar: View {
                                         onToggleCollapse?(workspace.id)
                                     }
                                 },
-                                onMove: { sourceID, edge in
-                                    guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                                    let insertIndex = edge == .top ? targetIndex : targetIndex + 1
-                                    onMoveWorkspace(sourceID, insertIndex)
+                                onMove: { sourceID, _ in
+                                    if workspaces.contains(where: { $0.id == sourceID }) {
+                                        guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                                        let insertIndex = targetIndex + 1
+                                        onMoveWorkspace(sourceID, insertIndex)
+                                    } else {
+                                        onMovePaneToWorkspace?(sourceID, workspace.id)
+                                    }
                                 },
                                 dropTargetWorkspaceID: $dropTargetWorkspaceID,
                                 dropEdge: $dropEdge,
@@ -563,6 +567,14 @@ struct WorkspaceSidebar: View {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     persistentSidebarCollapsed.toggle()
                 }
+            }
+            .dropDestination(for: String.self) { items, _ in
+                guard let uuidString = items.first,
+                      let paneID = UUID(uuidString: uuidString) else { return false }
+                // Only accept panes from workspaces (not already persistent)
+                if persistentNode?.findPane(id: paneID) != nil { return false }
+                onMovePaneToPinned?(paneID)
+                return true
             }
             .contextMenu {
                 Button("New Pane") { onNewPersistentPane?() }

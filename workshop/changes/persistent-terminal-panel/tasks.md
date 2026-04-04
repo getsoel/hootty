@@ -72,7 +72,7 @@
 - [x] 8.3 Handle edge cases: moving last workspace pane creates default replacement, moving last persistent pane nils node and hides panel
 - [x] 8.4 Wire "Move to Pinned" context menu on workspace pane rows
 - [x] 8.5 Wire "Move to Workspace" context menu on persistent pane rows (submenu of workspaces)
-- [ ] 8.6 Optionally implement drag-and-drop between sidebar sections (persistent ↔ workspace)
+- [x] 8.6 Implement drag-and-drop between sidebar sections (persistent ↔ workspace)
 - [x] 8.7 Write integration tests: move pane to persistent panel, verify surface cache preserved, move back, verify round-trip
 - [x] 8.8 Write integration tests: move last pane from persistent panel, verify cleanup; move last pane from workspace, verify default created
 

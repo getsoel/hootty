@@ -93,6 +93,7 @@ struct SidebarPaneRow: View {
             }
         }
         .contentShape(Rectangle())
+        .draggable(pane.id.uuidString)
         .onTapGesture {
             onSelect()
         }
