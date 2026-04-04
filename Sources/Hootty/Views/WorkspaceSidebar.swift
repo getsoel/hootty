@@ -103,12 +103,9 @@ struct WorkspaceSidebar: View {
     }
 
     private var statusCounts: AttentionCounts {
-        var counts = workspaces.reduce(.zero) { $0 + $1.attentionCounts }
-        if let panes = persistentNode?.allPanes() {
-            let persistent = AttentionCounts(panes: panes, focusedPaneID: persistentFocusedPaneID)
-            counts = counts + persistent
-        }
-        return counts
+        let base = workspaces.reduce(.zero) { $0 + $1.attentionCounts }
+        guard let panes = persistentNode?.allPanes() else { return base }
+        return base + AttentionCounts(panes: panes, focusedPaneID: persistentFocusedPaneID)
     }
 
     private var sidebarHeader: some View {

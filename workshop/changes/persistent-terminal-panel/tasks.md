@@ -78,10 +78,10 @@
 
 ## 9. Verify & Polish
 
-- [ ] 9.1 `make build` succeeds
-- [ ] 9.2 `swift test` passes
-- [ ] 9.3 `make format-check` passes
-- [ ] 9.4 `make lint` passes
+- [x] 9.1 `make build` succeeds
+- [x] 9.2 `swift test` passes
+- [x] 9.3 `make format-check` passes
+- [x] 9.4 `make lint` passes
 - [ ] 9.5 Manual test: toggle panel, split panes, resize divider, switch workspaces (panel persists)
 - [ ] 9.6 Manual test: directional focus crosses boundary, sequential cycling stays within domain
 - [ ] 9.7 Manual test: move pane to/from persistent panel via command and context menu, terminal session survives

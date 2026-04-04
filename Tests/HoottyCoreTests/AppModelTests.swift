@@ -101,10 +101,10 @@ struct AppModelTests {
         #expect(model.focusDomain == .workspace)
     }
 
-    @Test func persistentFocusedPaneFallsBackToFirst() {
+    @Test func persistentFocusedPaneFallsBackToFirst() throws {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()
-        let firstPane = model.persistentNode!.firstPane()!
+        let firstPane = try #require(model.persistentNode?.firstPane())
 
         // With matching ID
         model.persistentFocusedPaneID = firstPane.id
@@ -119,21 +119,21 @@ struct AppModelTests {
         #expect(model.persistentFocusedPane?.id == firstPane.id)
     }
 
-    @Test func findPaneLocationSearchesPersistentNode() {
+    @Test func findPaneLocationSearchesPersistentNode() throws {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()
-        let persistentPane = model.persistentNode!.firstPane()!
+        let persistentPane = try #require(model.persistentNode?.firstPane())
         let workspacePane = model.workspaces[0].allPanes[0]
 
         // Find workspace pane
-        if case .workspace(_, let pane) = model.findPaneLocation(id: workspacePane.id) {
+        if case let .workspace(_, pane) = model.findPaneLocation(id: workspacePane.id) {
             #expect(pane.id == workspacePane.id)
         } else {
             Issue.record("Expected workspace location")
         }
 
         // Find persistent pane
-        if case .persistent(let pane) = model.findPaneLocation(id: persistentPane.id) {
+        if case let .persistent(pane) = model.findPaneLocation(id: persistentPane.id) {
             #expect(pane.id == persistentPane.id)
         } else {
             Issue.record("Expected persistent location")
@@ -143,12 +143,12 @@ struct AppModelTests {
         #expect(model.findPaneLocation(id: UUID()) == nil)
     }
 
-    @Test func cyclePersistentFocusForward() {
+    @Test func cyclePersistentFocusForward() throws {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()
-        let pane1 = model.persistentNode!.firstPane()!
+        let pane1 = try #require(model.persistentNode?.firstPane())
         let pane2 = Pane(name: "Pinned 2")
-        model.persistentNode!.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
+        model.persistentNode?.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
         model.persistentFocusedPaneID = pane1.id
 
         model.cyclePersistentFocus(forward: true)
@@ -158,12 +158,12 @@ struct AppModelTests {
         #expect(model.persistentFocusedPaneID == pane1.id) // wraps
     }
 
-    @Test func cyclePersistentFocusBackward() {
+    @Test func cyclePersistentFocusBackward() throws {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()
-        let pane1 = model.persistentNode!.firstPane()!
+        let pane1 = try #require(model.persistentNode?.firstPane())
         let pane2 = Pane(name: "Pinned 2")
-        model.persistentNode!.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
+        model.persistentNode?.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
         model.persistentFocusedPaneID = pane1.id
 
         model.cyclePersistentFocus(forward: false)

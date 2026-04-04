@@ -1279,7 +1279,7 @@ struct PersistentPanelPersistenceIntegration {
 
         // Split vertically within persistent panel
         let newPane = Pane(name: "Pinned 2")
-        model.persistentNode!.splitPane(paneID: firstPane.id, direction: .vertical, newPane: newPane)
+        model.persistentNode?.splitPane(paneID: firstPane.id, direction: .vertical, newPane: newPane)
         newPane.customName = "Logs"
         model.persistentFocusedPaneID = newPane.id
         model.persistentPanelWidth = 500
@@ -1297,7 +1297,7 @@ struct PersistentPanelPersistenceIntegration {
         #expect(names.contains("Logs"))
     }
 
-    @Test func oldSnapshotWithoutPersistentFieldsLoadsCleanly() throws {
+    @Test func oldSnapshotWithoutPersistentFieldsLoadsCleanly() {
         let (model, url) = makeModel()
         // Save without persistent panel (default state)
         model.saveWorkspaces()
@@ -1347,7 +1347,7 @@ struct PaneMovementIntegration {
         #expect(ws.allPanes.count == 2)
     }
 
-    @Test func moveLastWorkspacePaneCreatesDefault() throws {
+    @Test func moveLastWorkspacePaneCreatesDefault() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]

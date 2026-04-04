@@ -40,7 +40,7 @@ public final class AppModel {
     public static let sidebarMaxWidth: CGFloat = 400
     public static let persistentPanelMinWidth: CGFloat = 200
     public static let persistentPanelMaxWidth: CGFloat = 600
-    nonisolated public static let persistentWorkspaceID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    public nonisolated static let persistentWorkspaceID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
@@ -332,11 +332,10 @@ public final class AppModel {
     /// Cross-domain directional focus that considers both workspace and persistent panel panes.
     public func focusPaneInDirection(_ direction: FocusDirection) {
         // Determine current focused pane ID and build combined rects
-        let currentID: UUID?
-        if focusDomain == .persistent {
-            currentID = persistentFocusedPaneID
+        let currentID: UUID? = if focusDomain == .persistent {
+            persistentFocusedPaneID
         } else {
-            currentID = selectedWorkspace?.focusedPaneID
+            selectedWorkspace?.focusedPaneID
         }
         guard let currentID else { return }
 
@@ -387,8 +386,7 @@ public final class AppModel {
             let adj = Self.adjacency(from: focusedRect, to: candidateRect, direction: direction, epsilon: epsilon)
             guard adj.isAdjacent && adj.hasOverlap else { continue }
             if adj.primaryDist < bestPrimary - epsilon
-                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp)
-            {
+                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp) {
                 bestPrimary = adj.primaryDist
                 bestPerp = adj.perpendicularDist
                 bestID = candidateID
@@ -407,7 +405,7 @@ public final class AppModel {
         }
     }
 
-    nonisolated private static func adjacency(
+    private nonisolated static func adjacency(
         from src: CGRect, to dst: CGRect, direction: FocusDirection, epsilon: Double
     ) -> (isAdjacent: Bool, primaryDist: Double, hasOverlap: Bool, perpendicularDist: Double) {
         let isAdj: Bool
