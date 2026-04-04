@@ -22,10 +22,16 @@ struct WorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: isCollapsed ? "folder.fill" : "folder.open.fill")
+            Image(systemName: isCollapsed ? "folder.fill" : "folder")
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        onToggleCollapse()
+                    }
+                }
 
             if let summary = summaryAttention {
                 StatusDotView(
@@ -100,10 +106,8 @@ struct WorkspaceRow: View {
             Button("Rename Workspace") {
                 onRename(workspace.id, workspace.name)
             }
-            if !isSelected {
-                Button(isCollapsed ? "Expand" : "Collapse") {
-                    onToggleCollapse()
-                }
+            Button(isCollapsed ? "Expand" : "Collapse") {
+                onToggleCollapse()
             }
             Button("Close Workspace") {
                 onRemove(workspace.id)
