@@ -77,16 +77,16 @@ struct HoottyApp: App {
             }
         }
         commandRegistry.register(.splitRight) { [appModel] in
-            Self.splitFocusedPane(appModel: appModel, direction: .horizontal)
+            Self.splitPane(appModel: appModel, direction: .horizontal)
         }
         commandRegistry.register(.splitDown) { [appModel] in
-            Self.splitFocusedPane(appModel: appModel, direction: .vertical)
+            Self.splitPane(appModel: appModel, direction: .vertical)
         }
         commandRegistry.register(.splitLeft) { [appModel] in
-            Self.splitFocusedPane(appModel: appModel, direction: .horizontal, placeBefore: true)
+            Self.splitPane(appModel: appModel, direction: .horizontal, placeBefore: true)
         }
         commandRegistry.register(.splitUp) { [appModel] in
-            Self.splitFocusedPane(appModel: appModel, direction: .vertical, placeBefore: true)
+            Self.splitPane(appModel: appModel, direction: .vertical, placeBefore: true)
         }
         commandRegistry.register(.nextWorkspace) { [appModel] in
             appModel.selectNextWorkspace()
@@ -164,6 +164,33 @@ struct HoottyApp: App {
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
+        commandRegistry.register(.togglePersistentPanel) { [appModel] in
+            appModel.togglePersistentPanel()
+        }
+        commandRegistry.register(.focusPersistentPanel) { [appModel] in
+            if appModel.focusDomain == .persistent {
+                appModel.focusDomain = .workspace
+                appModel.sidebarHasFocus = false
+            } else {
+                if !appModel.persistentPanelVisible {
+                    appModel.togglePersistentPanel()
+                }
+                appModel.focusDomain = .persistent
+                appModel.sidebarHasFocus = false
+            }
+        }
+        commandRegistry.register(.movePaneToPersistentPanel) { [appModel] in
+            guard appModel.focusDomain == .workspace,
+                  let workspace = appModel.selectedWorkspace,
+                  let pane = workspace.focusedPane else { return }
+            appModel.movePaneToPersistentPanel(paneID: pane.id)
+        }
+        commandRegistry.register(.movePaneToWorkspace) { [appModel] in
+            guard appModel.focusDomain == .persistent,
+                  let pane = appModel.persistentFocusedPane,
+                  let workspace = appModel.selectedWorkspace else { return }
+            appModel.movePaneToWorkspace(paneID: pane.id, workspaceID: workspace.id)
+        }
         // Wire the registry into GhosttyApp for action callback routing
         GhosttyApp.shared.commandRegistry = commandRegistry
     }
@@ -191,23 +218,43 @@ struct HoottyApp: App {
             }
 
         case let .newSplit(paneID, direction, parentSurface):
-            guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
-            workspace.focusPane(id: paneID)
-            if let newPane = workspace.splitFocusedPane(direction: direction) {
-                if let parentSurface {
-                    GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+            switch appModel.findPaneLocation(id: paneID) {
+            case let .workspace(workspace, _):
+                workspace.focusPane(id: paneID)
+                if let newPane = workspace.splitFocusedPane(direction: direction) {
+                    if let parentSurface {
+                        GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                    }
+                    appModel.saveWorkspaces()
                 }
-                appModel.saveWorkspaces()
+            case .persistent:
+                Self.splitPersistentPane(appModel: appModel, direction: direction)
+            case nil:
+                break
             }
 
         case let .closeSurface(paneID):
-            let repoRoot = appModel.findPane(id: paneID)?.1.repoRoot
-            GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-            guard let (workspace, _) = appModel.findPane(id: paneID) else { return }
-            workspace.removePane(id: paneID)
-            appModel.saveWorkspaces()
-            if let root = repoRoot {
-                cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+            switch appModel.findPaneLocation(id: paneID) {
+            case let .workspace(workspace, pane):
+                let repoRoot = pane.repoRoot
+                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                workspace.removePane(id: paneID)
+                appModel.saveWorkspaces()
+                if let root = repoRoot {
+                    Self.cleanupHeadWatcher(headWatcher, repoRoot: root, appModel: appModel)
+                }
+            case .persistent:
+                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                if let node = appModel.persistentNode {
+                    if !node.removePane(id: paneID) {
+                        appModel.closePersistentPanel()
+                    } else if appModel.persistentFocusedPaneID == paneID {
+                        appModel.persistentFocusedPaneID = node.firstPane()?.id
+                    }
+                }
+                appModel.saveWorkspaces()
+            case nil:
+                break
             }
 
         case .closeTab:
@@ -249,13 +296,35 @@ struct HoottyApp: App {
         }
     }
 
-    private static func splitFocusedPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
+    private static func splitPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
+        if appModel.focusDomain == .persistent {
+            splitPersistentPane(appModel: appModel, direction: direction, placeBefore: placeBefore)
+        } else {
+            splitWorkspacePane(appModel: appModel, direction: direction, placeBefore: placeBefore)
+        }
+    }
+
+    private static func splitWorkspacePane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
         guard let workspace = appModel.selectedWorkspace else { return }
         let parentSurface = GhosttyApp.shared.focusedSurface
         if let newPane = workspace.splitFocusedPane(direction: direction, placeBefore: placeBefore) {
             if let parentSurface {
                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
             }
+            appModel.saveWorkspaces()
+        }
+    }
+
+    private static func splitPersistentPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
+        guard let node = appModel.persistentNode,
+              let focused = appModel.persistentFocusedPane else { return }
+        let parentSurface = GhosttyApp.shared.focusedSurface
+        let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
+        if node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) {
+            if let parentSurface {
+                GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+            }
+            appModel.persistentFocusedPaneID = newPane.id
             appModel.saveWorkspaces()
         }
     }
@@ -322,6 +391,18 @@ struct HoottyApp: App {
                     commandRegistry.execute(.focusSidebar)
                 }
                 .keyboardShortcut("0", modifiers: .command)
+
+                Divider()
+
+                Button(appModel.persistentPanelVisible ? "Hide Persistent Panel" : "Show Persistent Panel") {
+                    commandRegistry.execute(.togglePersistentPanel)
+                }
+                .keyboardShortcut("p", modifiers: [.command, .option])
+
+                Button(AppCommand.focusPersistentPanel.title) {
+                    commandRegistry.execute(.focusPersistentPanel)
+                }
+                .keyboardShortcut("\\", modifiers: .command)
             }
             CommandMenu("Shell") {
                 Button(AppCommand.newWorkspace.title) {

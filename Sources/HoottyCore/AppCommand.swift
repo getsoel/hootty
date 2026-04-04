@@ -55,6 +55,12 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
 
     case clearSidebarFilters
 
+    // Persistent panel
+    case togglePersistentPanel
+    case focusPersistentPanel
+    case movePaneToPersistentPanel
+    case movePaneToWorkspace
+
     public var id: String {
         rawValue
     }
@@ -90,6 +96,10 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .collapseAllWorkspaces: "Collapse All Workspaces"
         case .expandAllWorkspaces: "Expand All Workspaces"
         case .clearSidebarFilters: "Clear Sidebar Filters"
+        case .togglePersistentPanel: "Toggle Persistent Panel"
+        case .focusPersistentPanel: "Focus Persistent Panel"
+        case .movePaneToPersistentPanel: "Move Pane to Pinned"
+        case .movePaneToWorkspace: "Move Pane to Workspace"
         }
     }
 
@@ -116,6 +126,8 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .equalizeSplits: "⌃⇧="
         case .notePane: "⌃⇧F"
         case .flagPane: "⌃⇧G"
+        case .togglePersistentPanel: "⌘⌥P"
+        case .focusPersistentPanel: "⌘\\"
         default: nil
         }
     }

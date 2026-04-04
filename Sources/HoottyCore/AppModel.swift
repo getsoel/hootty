@@ -319,6 +319,64 @@ public final class AppModel {
         persistentNode?.allPanes() ?? []
     }
 
+    /// Move a pane from a workspace into the persistent panel.
+    public func movePaneToPersistentPanel(paneID: UUID) {
+        guard let (workspace, pane) = findPane(id: paneID) else { return }
+
+        // Remove from workspace (preserving object identity)
+        let wasOnlyPane = workspace.allPanes.count == 1
+        if !wasOnlyPane {
+            workspace.rootNode.removePane(id: paneID)
+            if workspace.focusedPaneID == paneID {
+                workspace.focusedPaneID = workspace.rootNode.firstPane()?.id
+            }
+        } else {
+            // Last pane — create a replacement before removing
+            let replacement = Pane(name: "Pane 1")
+            workspace.rootNode = SplitNode(pane: replacement)
+            workspace.focusedPaneID = replacement.id
+        }
+
+        // Add to persistent panel
+        if let node = persistentNode {
+            node.splitPane(paneID: node.allPanes().last!.id, direction: .vertical, newPane: pane)
+        } else {
+            persistentNode = SplitNode(pane: pane)
+        }
+        persistentFocusedPaneID = pane.id
+        persistentPanelVisible = true
+        focusDomain = .persistent
+        saveWorkspaces()
+    }
+
+    /// Move a pane from the persistent panel into a workspace.
+    public func movePaneToWorkspace(paneID: UUID, workspaceID: UUID) {
+        guard let node = persistentNode,
+              let pane = node.findPane(id: paneID),
+              let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
+
+        // Remove from persistent panel
+        let wasOnlyPane = node.allPanes().count == 1
+        if !wasOnlyPane {
+            node.removePane(id: paneID)
+            if persistentFocusedPaneID == paneID {
+                persistentFocusedPaneID = node.firstPane()?.id
+            }
+        } else {
+            persistentNode = nil
+            persistentPanelVisible = false
+            persistentFocusedPaneID = nil
+        }
+
+        // Add to workspace
+        if let focused = workspace.focusedPane {
+            workspace.rootNode.splitPane(paneID: focused.id, direction: .vertical, newPane: pane)
+        }
+        workspace.focusedPaneID = pane.id
+        focusDomain = .workspace
+        saveWorkspaces()
+    }
+
     // MARK: - Workspace Collapse
 
     public func toggleWorkspaceCollapse(_ id: UUID) {

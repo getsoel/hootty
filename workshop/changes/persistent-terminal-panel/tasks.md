@@ -30,11 +30,11 @@
 
 ## 4. Commands
 
-- [ ] 4.1 Add `AppCommand` cases: `togglePersistentPanel` (title: "Toggle Persistent Panel", hint: "⌘⌥P"), `focusPersistentPanel` (title: "Focus Persistent Panel", hint: "⌘\\"), `movePaneToPersistentPanel` (title: "Move Pane to Pinned"), `movePaneToWorkspace` (title: "Move Pane to Workspace")
-- [ ] 4.2 Register command handlers in `HoottyApp.registerCommands()`
-- [ ] 4.3 Add menu bar items under View menu: "Toggle Persistent Panel" with `.keyboardShortcut("p", modifiers: [.command, .option])`, "Focus Persistent Panel" with `.keyboardShortcut("\\", modifiers: [.command])`
-- [ ] 4.4 Wire split commands to detect `focusDomain` and dispatch to persistent node or workspace node accordingly
-- [ ] 4.5 Wire ghostty action callbacks (`GhosttyApp.handleAction`) to route split/close actions from persistent surfaces to the persistent node
+- [x] 4.1 Add `AppCommand` cases: `togglePersistentPanel` (title: "Toggle Persistent Panel", hint: "⌘⌥P"), `focusPersistentPanel` (title: "Focus Persistent Panel", hint: "⌘\\"), `movePaneToPersistentPanel` (title: "Move Pane to Pinned"), `movePaneToWorkspace` (title: "Move Pane to Workspace")
+- [x] 4.2 Register command handlers in `HoottyApp.registerCommands()`
+- [x] 4.3 Add menu bar items under View menu: "Toggle Persistent Panel" with `.keyboardShortcut("p", modifiers: [.command, .option])`, "Focus Persistent Panel" with `.keyboardShortcut("\\", modifiers: [.command])`
+- [x] 4.4 Wire split commands to detect `focusDomain` and dispatch to persistent node or workspace node accordingly
+- [x] 4.5 Wire ghostty action callbacks (`GhosttyApp.handleAction`) to route split/close actions from persistent surfaces to the persistent node
 
 ## 5. Focus System
 
