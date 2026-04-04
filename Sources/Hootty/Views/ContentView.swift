@@ -213,21 +213,10 @@ struct ContentView: View {
             },
             onRemovePersistentPane: { paneID in
                 GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                if let node = appModel.persistentNode {
-                    if !node.removePane(id: paneID) {
-                        appModel.closePersistentPanel()
-                    } else if appModel.persistentFocusedPaneID == paneID {
-                        appModel.persistentFocusedPaneID = node.firstPane()?.id
-                    }
-                }
-                appModel.saveWorkspaces()
+                appModel.removePersistentPane(id: paneID)
             },
             onNewPersistentPane: {
-                guard let node = appModel.persistentNode, let lastPane = node.allPanes().last else { return }
-                let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
-                node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: newPane)
-                appModel.persistentFocusedPaneID = newPane.id
-                appModel.saveWorkspaces()
+                appModel.addPersistentPane()
             },
             onCloseAllPersistentPanes: {
                 if let node = appModel.persistentNode {
@@ -473,29 +462,16 @@ struct ContentView: View {
                     appModel.persistentFocusedPaneID = paneID
                 },
                 onSplitPane: { direction, placeBefore in
-                    guard let focused = appModel.persistentFocusedPane else { return }
                     let parentSurface = GhosttyApp.shared.focusedSurface
-                    let newPane = Pane(name: "Pinned \((node.allPanes().count) + 1)")
-                    if node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) {
+                    if let newPane = appModel.splitPersistentPane(direction: direction, placeBefore: placeBefore) {
                         if let parentSurface {
                             GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
                         }
-                        appModel.persistentFocusedPaneID = newPane.id
-                        appModel.saveWorkspaces()
                     }
                 },
                 onClosePane: { paneID in
                     GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    if node.removePane(id: paneID) {
-                        // Pane removed; update focus
-                        if appModel.persistentFocusedPaneID == paneID {
-                            appModel.persistentFocusedPaneID = node.firstPane()?.id
-                        }
-                    } else {
-                        // Was the last pane — close the panel
-                        appModel.closePersistentPanel()
-                    }
-                    appModel.saveWorkspaces()
+                    appModel.removePersistentPane(id: paneID)
                 },
                 onSwapPanes: { sourceID, targetID in
                     node.swapPanes(sourceID, targetID)

@@ -2,6 +2,65 @@ import Foundation
 
 public enum FocusDirection: String, CaseIterable, Sendable {
     case up, down, left, right
+
+    /// Find the nearest pane in the given direction from the focused pane within a set of rects.
+    public static func nearestPane(
+        from currentID: UUID,
+        in rects: [UUID: CGRect],
+        direction: FocusDirection
+    ) -> UUID? {
+        guard let focusedRect = rects[currentID] else { return nil }
+        let epsilon = 0.001
+        var bestID: UUID?
+        var bestPrimary = Double.infinity
+        var bestPerp = Double.infinity
+
+        for (candidateID, candidateRect) in rects where candidateID != currentID {
+            let adj = adjacency(from: focusedRect, to: candidateRect, direction: direction, epsilon: epsilon)
+            guard adj.isAdjacent && adj.hasOverlap else { continue }
+            if adj.primaryDist < bestPrimary - epsilon
+                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp) {
+                bestPrimary = adj.primaryDist
+                bestPerp = adj.perpendicularDist
+                bestID = candidateID
+            }
+        }
+        return bestID
+    }
+
+    private static func adjacency(
+        from src: CGRect, to dst: CGRect, direction: FocusDirection, epsilon: Double
+    ) -> (isAdjacent: Bool, primaryDist: Double, hasOverlap: Bool, perpendicularDist: Double) {
+        let isAdj: Bool
+        let primaryDist: Double
+        let hasOverlap: Bool
+        let perpDist: Double
+
+        switch direction {
+        case .right:
+            isAdj = dst.minX >= src.maxX - epsilon
+            primaryDist = dst.minX - src.maxX
+            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
+            perpDist = abs(dst.midY - src.midY)
+        case .left:
+            isAdj = dst.maxX <= src.minX + epsilon
+            primaryDist = src.minX - dst.maxX
+            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
+            perpDist = abs(dst.midY - src.midY)
+        case .down:
+            isAdj = dst.minY >= src.maxY - epsilon
+            primaryDist = dst.minY - src.maxY
+            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
+            perpDist = abs(dst.midX - src.midX)
+        case .up:
+            isAdj = dst.maxY <= src.minY + epsilon
+            primaryDist = src.minY - dst.maxY
+            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
+            perpDist = abs(dst.midX - src.midX)
+        }
+
+        return (isAdj, primaryDist, hasOverlap, perpDist)
+    }
 }
 
 public struct SidebarSection: Identifiable {
@@ -244,62 +303,9 @@ public final class Workspace: Identifiable {
 
     public func focusPaneInDirection(_ direction: FocusDirection) {
         guard let currentID = focusedPaneID else { return }
-        let rects = rootNode.paneRects()
-        guard let focusedRect = rects[currentID] else { return }
-
-        let epsilon = 0.001
-        var bestID: UUID?
-        var bestPrimary = Double.infinity
-        var bestPerp = Double.infinity
-
-        for (candidateID, candidateRect) in rects where candidateID != currentID {
-            let adj = adjacency(from: focusedRect, to: candidateRect, direction: direction, epsilon: epsilon)
-            guard adj.isAdjacent && adj.hasOverlap else { continue }
-            if adj.primaryDist < bestPrimary - epsilon
-                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp) {
-                bestPrimary = adj.primaryDist
-                bestPerp = adj.perpendicularDist
-                bestID = candidateID
-            }
-        }
-
-        if let bestID {
+        if let bestID = FocusDirection.nearestPane(from: currentID, in: rootNode.paneRects(), direction: direction) {
             focusPane(id: bestID)
         }
-    }
-
-    private func adjacency(
-        from src: CGRect, to dst: CGRect, direction: FocusDirection, epsilon: Double
-    ) -> (isAdjacent: Bool, primaryDist: Double, hasOverlap: Bool, perpendicularDist: Double) {
-        let isAdj: Bool
-        let primaryDist: Double
-        let hasOverlap: Bool
-        let perpDist: Double
-
-        switch direction {
-        case .right:
-            isAdj = dst.minX >= src.maxX - epsilon
-            primaryDist = dst.minX - src.maxX
-            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
-            perpDist = abs(dst.midY - src.midY)
-        case .left:
-            isAdj = dst.maxX <= src.minX + epsilon
-            primaryDist = src.minX - dst.maxX
-            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
-            perpDist = abs(dst.midY - src.midY)
-        case .down:
-            isAdj = dst.minY >= src.maxY - epsilon
-            primaryDist = dst.minY - src.maxY
-            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
-            perpDist = abs(dst.midX - src.midX)
-        case .up:
-            isAdj = dst.maxY <= src.minY + epsilon
-            primaryDist = src.minY - dst.maxY
-            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
-            perpDist = abs(dst.midX - src.midX)
-        }
-
-        return (isAdj, primaryDist, hasOverlap, perpDist)
     }
 
     // MARK: - Chain Equalization (i3-style)

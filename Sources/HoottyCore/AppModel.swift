@@ -220,13 +220,6 @@ public final class AppModel {
         return body(workspace, pane)
     }
 
-    /// Look up a pane by ID across both workspaces and persistent panel.
-    @discardableResult
-    public func withAnyPane<T>(id: UUID, _ body: (PaneLocation) -> T) -> T? {
-        guard let location = findPaneLocation(id: id) else { return nil }
-        return body(location)
-    }
-
     /// Re-query branch for all panes in the given canonical repo root.
     /// Called when `.git/HEAD` changes (branch switch without pwd change).
     public func refreshBranchesForRepo(_ canonicalRepoRoot: String) {
@@ -315,6 +308,41 @@ public final class AppModel {
         saveWorkspaces()
     }
 
+    /// Remove a pane from the persistent panel. Closes the panel if it was the last pane.
+    public func removePersistentPane(id: UUID) {
+        guard let node = persistentNode else { return }
+        if !node.removePane(id: id) {
+            closePersistentPanel()
+        } else if persistentFocusedPaneID == id {
+            persistentFocusedPaneID = node.firstPane()?.id
+        }
+        saveWorkspaces()
+    }
+
+    /// Split the focused persistent pane. Returns the new pane if successful.
+    @discardableResult
+    public func splitPersistentPane(direction: SplitDirection, placeBefore: Bool = false) -> Pane? {
+        guard let node = persistentNode,
+              let focused = persistentFocusedPane else { return nil }
+        let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
+        guard node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) else { return nil }
+        persistentFocusedPaneID = newPane.id
+        saveWorkspaces()
+        return newPane
+    }
+
+    /// Add a new pane to the persistent panel (appended as a vertical split).
+    @discardableResult
+    public func addPersistentPane() -> Pane? {
+        guard let node = persistentNode,
+              let lastPane = node.allPanes().last else { return nil }
+        let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
+        guard node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: newPane) else { return nil }
+        persistentFocusedPaneID = newPane.id
+        saveWorkspaces()
+        return newPane
+    }
+
     /// All panes in the persistent panel (empty if no panel).
     public var persistentPanes: [Pane] {
         persistentNode?.allPanes() ?? []
@@ -331,7 +359,6 @@ public final class AppModel {
 
     /// Cross-domain directional focus that considers both workspace and persistent panel panes.
     public func focusPaneInDirection(_ direction: FocusDirection) {
-        // Determine current focused pane ID and build combined rects
         let currentID: UUID? = if focusDomain == .persistent {
             persistentFocusedPaneID
         } else {
@@ -339,20 +366,18 @@ public final class AppModel {
         }
         guard let currentID else { return }
 
-        // If persistent panel is not visible, delegate to workspace-only focus
         guard persistentPanelVisible, let persistentNode else {
             selectedWorkspace?.focusPaneInDirection(direction)
             return
         }
 
-        // Build combined rects: workspace in left region, persistent in right region
-        let totalWidth = 1.0 // Normalize to unit space
-        let panelFraction = persistentPanelWidth / (persistentPanelWidth + 800) // Approximate ratio
-        let workspaceFraction = totalWidth - panelFraction
+        // Map both domain rects into a shared coordinate space (approximate; actual
+        // window geometry isn't available in the model layer, but the ratio only
+        // affects edge-case tie-breaking between candidates).
+        let panelFraction = persistentPanelWidth / (persistentPanelWidth + 800)
+        let workspaceFraction = 1.0 - panelFraction
 
         var combinedRects: [UUID: CGRect] = [:]
-
-        // Workspace panes mapped to left region
         if let workspace = selectedWorkspace {
             for (id, rect) in workspace.rootNode.paneRects() {
                 combinedRects[id] = CGRect(
@@ -363,8 +388,6 @@ public final class AppModel {
                 )
             }
         }
-
-        // Persistent panes mapped to right region
         for (id, rect) in persistentNode.paneRects() {
             combinedRects[id] = CGRect(
                 x: workspaceFraction + rect.origin.x * panelFraction,
@@ -374,28 +397,8 @@ public final class AppModel {
             )
         }
 
-        guard let focusedRect = combinedRects[currentID] else { return }
+        guard let bestID = FocusDirection.nearestPane(from: currentID, in: combinedRects, direction: direction) else { return }
 
-        // Run adjacency algorithm
-        let epsilon = 0.001
-        var bestID: UUID?
-        var bestPrimary = Double.infinity
-        var bestPerp = Double.infinity
-
-        for (candidateID, candidateRect) in combinedRects where candidateID != currentID {
-            let adj = Self.adjacency(from: focusedRect, to: candidateRect, direction: direction, epsilon: epsilon)
-            guard adj.isAdjacent && adj.hasOverlap else { continue }
-            if adj.primaryDist < bestPrimary - epsilon
-                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp) {
-                bestPrimary = adj.primaryDist
-                bestPerp = adj.perpendicularDist
-                bestID = candidateID
-            }
-        }
-
-        guard let bestID else { return }
-
-        // Determine which domain the best pane belongs to
         if persistentNode.containsPane(id: bestID) {
             focusDomain = .persistent
             persistentFocusedPaneID = bestID
@@ -405,45 +408,10 @@ public final class AppModel {
         }
     }
 
-    private nonisolated static func adjacency(
-        from src: CGRect, to dst: CGRect, direction: FocusDirection, epsilon: Double
-    ) -> (isAdjacent: Bool, primaryDist: Double, hasOverlap: Bool, perpendicularDist: Double) {
-        let isAdj: Bool
-        let primaryDist: Double
-        let hasOverlap: Bool
-        let perpDist: Double
-
-        switch direction {
-        case .right:
-            isAdj = dst.minX >= src.maxX - epsilon
-            primaryDist = dst.minX - src.maxX
-            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
-            perpDist = abs(dst.midY - src.midY)
-        case .left:
-            isAdj = dst.maxX <= src.minX + epsilon
-            primaryDist = src.minX - dst.maxX
-            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
-            perpDist = abs(dst.midY - src.midY)
-        case .down:
-            isAdj = dst.minY >= src.maxY - epsilon
-            primaryDist = dst.minY - src.maxY
-            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
-            perpDist = abs(dst.midX - src.midX)
-        case .up:
-            isAdj = dst.maxY <= src.minY + epsilon
-            primaryDist = src.minY - dst.maxY
-            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
-            perpDist = abs(dst.midX - src.midX)
-        }
-
-        return (isAdj, primaryDist, hasOverlap, perpDist)
-    }
-
     /// Move a pane from a workspace into the persistent panel.
     public func movePaneToPersistentPanel(paneID: UUID) {
         guard let (workspace, pane) = findPane(id: paneID) else { return }
 
-        // Remove from workspace (preserving object identity)
         let wasOnlyPane = workspace.allPanes.count == 1
         if !wasOnlyPane {
             workspace.rootNode.removePane(id: paneID)
@@ -451,15 +419,13 @@ public final class AppModel {
                 workspace.focusedPaneID = workspace.rootNode.firstPane()?.id
             }
         } else {
-            // Last pane — create a replacement before removing
             let replacement = Pane(name: "Pane 1")
             workspace.rootNode = SplitNode(pane: replacement)
             workspace.focusedPaneID = replacement.id
         }
 
-        // Add to persistent panel
-        if let node = persistentNode {
-            node.splitPane(paneID: node.allPanes().last!.id, direction: .vertical, newPane: pane)
+        if let node = persistentNode, let lastPane = node.allPanes().last {
+            node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: pane)
         } else {
             persistentNode = SplitNode(pane: pane)
         }

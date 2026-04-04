@@ -176,15 +176,14 @@ struct HoottyApp: App {
             appModel.togglePersistentPanel()
         }
         commandRegistry.register(.focusPersistentPanel) { [appModel] in
+            appModel.sidebarHasFocus = false
             if appModel.focusDomain == .persistent {
                 appModel.focusDomain = .workspace
-                appModel.sidebarHasFocus = false
             } else {
                 if !appModel.persistentPanelVisible {
                     appModel.togglePersistentPanel()
                 }
                 appModel.focusDomain = .persistent
-                appModel.sidebarHasFocus = false
             }
         }
         commandRegistry.register(.movePaneToPersistentPanel) { [appModel] in
@@ -253,14 +252,7 @@ struct HoottyApp: App {
                 }
             case .persistent:
                 GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                if let node = appModel.persistentNode {
-                    if !node.removePane(id: paneID) {
-                        appModel.closePersistentPanel()
-                    } else if appModel.persistentFocusedPaneID == paneID {
-                        appModel.persistentFocusedPaneID = node.firstPane()?.id
-                    }
-                }
-                appModel.saveWorkspaces()
+                appModel.removePersistentPane(id: paneID)
             case nil:
                 break
             }
@@ -324,16 +316,11 @@ struct HoottyApp: App {
     }
 
     private static func splitPersistentPane(appModel: AppModel, direction: SplitDirection, placeBefore: Bool = false) {
-        guard let node = appModel.persistentNode,
-              let focused = appModel.persistentFocusedPane else { return }
         let parentSurface = GhosttyApp.shared.focusedSurface
-        let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
-        if node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) {
+        if let newPane = appModel.splitPersistentPane(direction: direction, placeBefore: placeBefore) {
             if let parentSurface {
                 GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
             }
-            appModel.persistentFocusedPaneID = newPane.id
-            appModel.saveWorkspaces()
         }
     }
 

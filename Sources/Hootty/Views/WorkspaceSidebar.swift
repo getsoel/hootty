@@ -383,9 +383,13 @@ struct WorkspaceSidebar: View {
     // MARK: - Attention Summary
 
     private func workspaceAttentionSummary(_ workspace: Workspace) -> WorkspaceAttentionSummary? {
+        Self.attentionSummary(for: workspace.allPanes)
+    }
+
+    private static func attentionSummary(for panes: [Pane]) -> WorkspaceAttentionSummary? {
         var hasDone = false
         var hasBell = false
-        for pane in workspace.allPanes {
+        for pane in panes {
             if pane.isThinking { return .thinking }
             switch pane.attentionKind {
             case .done: hasDone = true
@@ -617,19 +621,7 @@ struct WorkspaceSidebar: View {
 
     private var persistentAttentionSummary: WorkspaceAttentionSummary? {
         guard let panes = persistentNode?.allPanes() else { return nil }
-        var hasDone = false
-        var hasBell = false
-        for pane in panes {
-            if pane.isThinking { return .thinking }
-            switch pane.attentionKind {
-            case .done: hasDone = true
-            case .bell: hasBell = true
-            case nil: break
-            }
-        }
-        if hasDone { return .done }
-        if hasBell { return .bell }
-        return nil
+        return Self.attentionSummary(for: panes)
     }
 }
 
