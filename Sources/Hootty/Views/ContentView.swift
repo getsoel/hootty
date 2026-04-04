@@ -239,6 +239,9 @@ struct ContentView: View {
             },
             onMovePaneToWorkspace: { paneID, workspaceID in
                 appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
+            },
+            onMovePaneToPinned: { paneID in
+                appModel.movePaneToPersistentPanel(paneID: paneID)
             }
         )
     }

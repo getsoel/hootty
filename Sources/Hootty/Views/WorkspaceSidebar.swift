@@ -49,6 +49,7 @@ struct WorkspaceSidebar: View {
     var onNewPersistentPane: (() -> Void)?
     var onCloseAllPersistentPanes: (() -> Void)?
     var onMovePaneToWorkspace: ((UUID, UUID) -> Void)?
+    var onMovePaneToPinned: ((UUID) -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -371,6 +372,9 @@ struct WorkspaceSidebar: View {
                         },
                         onToggleNote: {
                             onToggleNote?(pane.id)
+                        },
+                        onMoveToPinned: {
+                            onMovePaneToPinned?(pane.id)
                         }
                     )
                     .id(pane.id)

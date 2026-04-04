@@ -1308,3 +1308,71 @@ struct PersistentPanelPersistenceIntegration {
         #expect(restored.persistentPanelWidth == 400)
     }
 }
+
+// MARK: - Suite: Pane Movement
+
+@MainActor
+struct PaneMovementIntegration {
+    @Test func movePaneToAndFromPersistentPanel() throws {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane1 = ws.allPanes[0]
+        pane1.customName = "Mover"
+
+        // Split to have 2 panes
+        let pane2 = try #require(ws.splitFocusedPane(direction: .horizontal))
+        pane2.customName = "Stays"
+
+        // Move pane1 to persistent panel
+        model.movePaneToPersistentPanel(paneID: pane1.id)
+
+        // Pane1 should now be in persistent panel
+        #expect(model.persistentNode != nil)
+        #expect(model.persistentPanelVisible == true)
+        #expect(model.persistentFocusedPaneID == pane1.id)
+        #expect(model.persistentNode?.findPane(id: pane1.id) != nil)
+        #expect(ws.findPane(id: pane1.id) == nil)
+        #expect(ws.allPanes.count == 1)
+        #expect(ws.allPanes[0].customName == "Stays")
+
+        // Pane object identity preserved
+        #expect(model.persistentNode?.findPane(id: pane1.id)?.customName == "Mover")
+
+        // Move pane1 back to workspace
+        model.movePaneToWorkspace(paneID: pane1.id, workspaceID: ws.id)
+
+        #expect(ws.findPane(id: pane1.id) != nil)
+        #expect(model.persistentNode == nil) // was the only persistent pane
+        #expect(model.persistentPanelVisible == false)
+        #expect(ws.allPanes.count == 2)
+    }
+
+    @Test func moveLastWorkspacePaneCreatesDefault() throws {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+
+        // Only one pane in workspace — moving it should create a replacement
+        model.movePaneToPersistentPanel(paneID: pane.id)
+
+        #expect(ws.allPanes.count == 1) // New default created
+        #expect(ws.allPanes[0].id != pane.id) // Different pane
+        #expect(model.persistentNode?.findPane(id: pane.id) != nil)
+    }
+
+    @Test func moveLastPersistentPaneClosesPanel() throws {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+
+        // Create persistent panel with one pane
+        model.togglePersistentPanel()
+        let persistentPane = try #require(model.persistentNode?.firstPane())
+
+        // Move it to workspace
+        model.movePaneToWorkspace(paneID: persistentPane.id, workspaceID: ws.id)
+
+        #expect(model.persistentNode == nil)
+        #expect(model.persistentPanelVisible == false)
+        #expect(ws.findPane(id: persistentPane.id) != nil)
+    }
+}
