@@ -38,13 +38,13 @@
 
 ## 5. Focus System
 
-- [ ] 5.1 Implement `focusDomain` tracking: set to `.persistent` when persistent pane focused, `.workspace` when workspace pane focused
-- [ ] 5.2 Modify `focusNextPane` / `focusPreviousPane` to cycle within current domain only
-- [ ] 5.3 Implement `focusPersistentPanel` command handler: toggle between domains, restoring last-focused pane in each
-- [ ] 5.4 Implement cross-domain directional focus: compute combined pane rects (workspace rects in left region, persistent rects in right region), run nearest-in-direction algorithm
-- [ ] 5.5 Update focus visual indicators: active domain shows focus border, inactive domain dims
-- [ ] 5.6 Handle focus on last-pane-close: switch domain to `.workspace` when persistent panel empties
-- [ ] 5.7 Write unit tests for sequential cycling isolation and domain switching
+- [x] 5.1 Implement `focusDomain` tracking: set to `.persistent` when persistent pane focused, `.workspace` when workspace pane focused
+- [x] 5.2 Modify `focusNextPane` / `focusPreviousPane` to cycle within current domain only
+- [x] 5.3 Implement `focusPersistentPanel` command handler: toggle between domains, restoring last-focused pane in each
+- [x] 5.4 Implement cross-domain directional focus: compute combined pane rects (workspace rects in left region, persistent rects in right region), run nearest-in-direction algorithm
+- [x] 5.5 Update focus visual indicators: active domain shows focus border, inactive domain dims
+- [x] 5.6 Handle focus on last-pane-close: switch domain to `.workspace` when persistent panel empties
+- [x] 5.7 Write unit tests for sequential cycling isolation and domain switching
 
 ## 6. Sidebar: Pseudo-Workspace Row
 

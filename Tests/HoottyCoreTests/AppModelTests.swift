@@ -143,6 +143,41 @@ struct AppModelTests {
         #expect(model.findPaneLocation(id: UUID()) == nil)
     }
 
+    @Test func cyclePersistentFocusForward() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        let pane1 = model.persistentNode!.firstPane()!
+        let pane2 = Pane(name: "Pinned 2")
+        model.persistentNode!.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
+        model.persistentFocusedPaneID = pane1.id
+
+        model.cyclePersistentFocus(forward: true)
+        #expect(model.persistentFocusedPaneID == pane2.id)
+
+        model.cyclePersistentFocus(forward: true)
+        #expect(model.persistentFocusedPaneID == pane1.id) // wraps
+    }
+
+    @Test func cyclePersistentFocusBackward() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        let pane1 = model.persistentNode!.firstPane()!
+        let pane2 = Pane(name: "Pinned 2")
+        model.persistentNode!.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
+        model.persistentFocusedPaneID = pane1.id
+
+        model.cyclePersistentFocus(forward: false)
+        #expect(model.persistentFocusedPaneID == pane2.id) // wraps backward
+    }
+
+    @Test func focusDomainSwitchesOnPanelClose() {
+        let model = TestHelpers.makeModel()
+        model.togglePersistentPanel()
+        model.focusDomain = .persistent
+        model.closePersistentPanel()
+        #expect(model.focusDomain == .workspace)
+    }
+
     @Test func resetWorkspacesClearsPersistentPanel() {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()

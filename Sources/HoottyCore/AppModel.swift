@@ -319,6 +319,127 @@ public final class AppModel {
         persistentNode?.allPanes() ?? []
     }
 
+    /// Cycle focus within the persistent panel (next/previous).
+    public func cyclePersistentFocus(forward: Bool) {
+        let panes = persistentPanes
+        guard panes.count > 1, let currentID = persistentFocusedPaneID,
+              let idx = panes.firstIndex(where: { $0.id == currentID }) else { return }
+        let nextIdx = forward ? (idx + 1) % panes.count : (idx - 1 + panes.count) % panes.count
+        persistentFocusedPaneID = panes[nextIdx].id
+    }
+
+    /// Cross-domain directional focus that considers both workspace and persistent panel panes.
+    public func focusPaneInDirection(_ direction: FocusDirection) {
+        // Determine current focused pane ID and build combined rects
+        let currentID: UUID?
+        if focusDomain == .persistent {
+            currentID = persistentFocusedPaneID
+        } else {
+            currentID = selectedWorkspace?.focusedPaneID
+        }
+        guard let currentID else { return }
+
+        // If persistent panel is not visible, delegate to workspace-only focus
+        guard persistentPanelVisible, let persistentNode else {
+            selectedWorkspace?.focusPaneInDirection(direction)
+            return
+        }
+
+        // Build combined rects: workspace in left region, persistent in right region
+        let totalWidth = 1.0 // Normalize to unit space
+        let panelFraction = persistentPanelWidth / (persistentPanelWidth + 800) // Approximate ratio
+        let workspaceFraction = totalWidth - panelFraction
+
+        var combinedRects: [UUID: CGRect] = [:]
+
+        // Workspace panes mapped to left region
+        if let workspace = selectedWorkspace {
+            for (id, rect) in workspace.rootNode.paneRects() {
+                combinedRects[id] = CGRect(
+                    x: rect.origin.x * workspaceFraction,
+                    y: rect.origin.y,
+                    width: rect.width * workspaceFraction,
+                    height: rect.height
+                )
+            }
+        }
+
+        // Persistent panes mapped to right region
+        for (id, rect) in persistentNode.paneRects() {
+            combinedRects[id] = CGRect(
+                x: workspaceFraction + rect.origin.x * panelFraction,
+                y: rect.origin.y,
+                width: rect.width * panelFraction,
+                height: rect.height
+            )
+        }
+
+        guard let focusedRect = combinedRects[currentID] else { return }
+
+        // Run adjacency algorithm
+        let epsilon = 0.001
+        var bestID: UUID?
+        var bestPrimary = Double.infinity
+        var bestPerp = Double.infinity
+
+        for (candidateID, candidateRect) in combinedRects where candidateID != currentID {
+            let adj = Self.adjacency(from: focusedRect, to: candidateRect, direction: direction, epsilon: epsilon)
+            guard adj.isAdjacent && adj.hasOverlap else { continue }
+            if adj.primaryDist < bestPrimary - epsilon
+                || (abs(adj.primaryDist - bestPrimary) < epsilon && adj.perpendicularDist < bestPerp)
+            {
+                bestPrimary = adj.primaryDist
+                bestPerp = adj.perpendicularDist
+                bestID = candidateID
+            }
+        }
+
+        guard let bestID else { return }
+
+        // Determine which domain the best pane belongs to
+        if persistentNode.containsPane(id: bestID) {
+            focusDomain = .persistent
+            persistentFocusedPaneID = bestID
+        } else if let workspace = selectedWorkspace {
+            focusDomain = .workspace
+            workspace.focusPane(id: bestID)
+        }
+    }
+
+    nonisolated private static func adjacency(
+        from src: CGRect, to dst: CGRect, direction: FocusDirection, epsilon: Double
+    ) -> (isAdjacent: Bool, primaryDist: Double, hasOverlap: Bool, perpendicularDist: Double) {
+        let isAdj: Bool
+        let primaryDist: Double
+        let hasOverlap: Bool
+        let perpDist: Double
+
+        switch direction {
+        case .right:
+            isAdj = dst.minX >= src.maxX - epsilon
+            primaryDist = dst.minX - src.maxX
+            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
+            perpDist = abs(dst.midY - src.midY)
+        case .left:
+            isAdj = dst.maxX <= src.minX + epsilon
+            primaryDist = src.minX - dst.maxX
+            hasOverlap = dst.maxY > src.minY + epsilon && dst.minY < src.maxY - epsilon
+            perpDist = abs(dst.midY - src.midY)
+        case .down:
+            isAdj = dst.minY >= src.maxY - epsilon
+            primaryDist = dst.minY - src.maxY
+            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
+            perpDist = abs(dst.midX - src.midX)
+        case .up:
+            isAdj = dst.maxY <= src.minY + epsilon
+            primaryDist = src.minY - dst.maxY
+            hasOverlap = dst.maxX > src.minX + epsilon && dst.minX < src.maxX - epsilon
+            perpDist = abs(dst.midX - src.midX)
+        }
+
+        return (isAdj, primaryDist, hasOverlap, perpDist)
+    }
+
     /// Move a pane from a workspace into the persistent panel.
     public func movePaneToPersistentPanel(paneID: UUID) {
         guard let (workspace, pane) = findPane(id: paneID) else { return }

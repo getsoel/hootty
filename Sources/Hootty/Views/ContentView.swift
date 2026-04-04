@@ -374,11 +374,12 @@ struct ContentView: View {
     private func terminalsDetail(workspace: Workspace) -> some View {
         SplitNodeView(
             node: workspace.rootNode,
-            focusedPaneID: workspace.focusedPaneID,
+            focusedPaneID: appModel.focusDomain == .workspace ? workspace.focusedPaneID : nil,
             tokens: tokens,
             isInSplit: false,
             onFocusPane: { paneID in
                 appModel.sidebarHasFocus = false
+                appModel.focusDomain = .workspace
                 workspace.focusPane(id: paneID)
             },
             onSplitPane: { direction, placeBefore in

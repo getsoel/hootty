@@ -95,22 +95,30 @@ struct HoottyApp: App {
             appModel.selectPreviousWorkspace()
         }
         commandRegistry.register(.focusNextPane) { [appModel] in
-            appModel.selectedWorkspace?.focusNextPane()
+            if appModel.focusDomain == .persistent {
+                appModel.cyclePersistentFocus(forward: true)
+            } else {
+                appModel.selectedWorkspace?.focusNextPane()
+            }
         }
         commandRegistry.register(.focusPreviousPane) { [appModel] in
-            appModel.selectedWorkspace?.focusPreviousPane()
+            if appModel.focusDomain == .persistent {
+                appModel.cyclePersistentFocus(forward: false)
+            } else {
+                appModel.selectedWorkspace?.focusPreviousPane()
+            }
         }
         commandRegistry.register(.focusPaneUp) { [appModel] in
-            appModel.selectedWorkspace?.focusPaneInDirection(.up)
+            appModel.focusPaneInDirection(.up)
         }
         commandRegistry.register(.focusPaneDown) { [appModel] in
-            appModel.selectedWorkspace?.focusPaneInDirection(.down)
+            appModel.focusPaneInDirection(.down)
         }
         commandRegistry.register(.focusPaneLeft) { [appModel] in
-            appModel.selectedWorkspace?.focusPaneInDirection(.left)
+            appModel.focusPaneInDirection(.left)
         }
         commandRegistry.register(.focusPaneRight) { [appModel] in
-            appModel.selectedWorkspace?.focusPaneInDirection(.right)
+            appModel.focusPaneInDirection(.right)
         }
         commandRegistry.register(.equalizeSplits) { [appModel] in
             appModel.selectedWorkspace?.equalizeSplits()
