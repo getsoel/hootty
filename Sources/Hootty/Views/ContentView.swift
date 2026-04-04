@@ -158,46 +158,13 @@ struct ContentView: View {
             workspaces: appModel.workspaces,
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
-            onAddWorkspace: {
-                let workspace = appModel.addWorkspace()
-                appModel.selectedWorkspaceID = workspace.id
-            },
-            onRemoveWorkspace: { id in
-                let repoRoots: Set<String>
-                if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
-                    repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
-                    GhosttyApp.shared.cleanupWorkspace(workspace)
-                } else {
-                    repoRoots = []
-                }
-                appModel.removeWorkspace(id: id)
-                if appModel.selectedWorkspaceID == id {
-                    appModel.selectedWorkspaceID = appModel.workspaces.first?.id
-                }
-                for root in repoRoots {
-                    onCleanupRepoWatchers?(root)
-                }
-            },
+            onAddWorkspace: handleAddWorkspace,
+            onRemoveWorkspace: handleRemoveWorkspace,
             onMoveWorkspace: { id, toIndex in
                 appModel.moveWorkspace(id: id, toIndex: toIndex)
             },
-            onSelectPane: { workspaceID, paneID in
-                appModel.selectedWorkspaceID = workspaceID
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.focusPane(id: paneID)
-                }
-            },
-            onRemovePane: { workspaceID, paneID in
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    let repoRoot = workspace.findPane(id: paneID)?.repoRoot
-                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    workspace.removePane(id: paneID)
-                    appModel.saveWorkspaces()
-                    if let root = repoRoot {
-                        onCleanupRepoWatchers?(root)
-                    }
-                }
-            },
+            onSelectPane: handleSelectPane,
+            onRemovePane: handleRemovePane,
             onToggleNote: { paneID in
                 appModel.modalState = .noteEditor(paneID)
             },
@@ -217,19 +184,9 @@ struct ContentView: View {
             persistentNode: appModel.persistentNode,
             persistentFocusedPaneID: appModel.persistentFocusedPaneID,
             persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
-            onSelectPersistentPane: { paneID in
-                appModel.sidebarHasFocus = false
-                appModel.focusDomain = .persistent
-                appModel.persistentFocusedPaneID = paneID
-                appModel.persistentPanelVisible = true
-            },
-            onRemovePersistentPane: { paneID in
-                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                appModel.removePersistentPane(id: paneID)
-            },
-            onNewPersistentPane: {
-                appModel.addPersistentPane()
-            },
+            onSelectPersistentPane: handleSelectPersistentPane,
+            onRemovePersistentPane: handleRemovePersistentPane,
+            onNewPersistentPane: { appModel.addPersistentPane() },
             onCloseAllPersistentPanes: {
                 if let node = appModel.persistentNode {
                     for pane in node.allPanes() {
@@ -253,32 +210,10 @@ struct ContentView: View {
             selectedWorkspaceID: $appModel.selectedWorkspaceID,
             tokens: tokens,
             onExpandSidebar: { appModel.sidebarMode = .full },
-            onAddWorkspace: {
-                let workspace = appModel.addWorkspace()
-                appModel.selectedWorkspaceID = workspace.id
-            },
-            onRemoveWorkspace: { id in
-                if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
-                    GhosttyApp.shared.cleanupWorkspace(workspace)
-                }
-                appModel.removeWorkspace(id: id)
-                if appModel.selectedWorkspaceID == id {
-                    appModel.selectedWorkspaceID = appModel.workspaces.first?.id
-                }
-            },
-            onSelectPane: { workspaceID, paneID in
-                appModel.selectedWorkspaceID = workspaceID
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    workspace.focusPane(id: paneID)
-                }
-            },
-            onRemovePane: { workspaceID, paneID in
-                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
-                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    workspace.removePane(id: paneID)
-                    appModel.saveWorkspaces()
-                }
-            },
+            onAddWorkspace: handleAddWorkspace,
+            onRemoveWorkspace: handleRemoveWorkspace,
+            onSelectPane: handleSelectPane,
+            onRemovePane: handleRemovePane,
             onToggleCollapse: { id in
                 withAnimation(.easeInOut(duration: 0.15)) {
                     appModel.toggleWorkspaceCollapse(id)
@@ -291,18 +226,9 @@ struct ContentView: View {
             persistentNode: appModel.persistentNode,
             persistentFocusedPaneID: appModel.persistentFocusedPaneID,
             persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
-            onSelectPersistentPane: { paneID in
-                appModel.focusDomain = .persistent
-                appModel.persistentFocusedPaneID = paneID
-                appModel.persistentPanelVisible = true
-            },
-            onRemovePersistentPane: { paneID in
-                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                appModel.removePersistentPane(id: paneID)
-            },
-            onNewPersistentPane: {
-                appModel.addPersistentPane()
-            },
+            onSelectPersistentPane: handleSelectPersistentPane,
+            onRemovePersistentPane: handleRemovePersistentPane,
+            onNewPersistentPane: { appModel.addPersistentPane() },
             onMovePaneToPinned: { paneID in
                 appModel.movePaneToPersistentPanel(paneID: paneID)
             },
@@ -310,6 +236,61 @@ struct ContentView: View {
                 appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
             }
         )
+    }
+
+    // MARK: - Shared Sidebar Callbacks
+
+    private func handleAddWorkspace() {
+        let workspace = appModel.addWorkspace()
+        appModel.selectedWorkspaceID = workspace.id
+    }
+
+    private func handleRemoveWorkspace(_ id: UUID) {
+        let repoRoots: Set<String>
+        if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
+            repoRoots = Set(workspace.allPanes.compactMap(\.repoRoot))
+            GhosttyApp.shared.cleanupWorkspace(workspace)
+        } else {
+            repoRoots = []
+        }
+        appModel.removeWorkspace(id: id)
+        if appModel.selectedWorkspaceID == id {
+            appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+        }
+        for root in repoRoots {
+            onCleanupRepoWatchers?(root)
+        }
+    }
+
+    private func handleSelectPane(_ workspaceID: UUID, _ paneID: UUID) {
+        appModel.selectedWorkspaceID = workspaceID
+        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+            workspace.focusPane(id: paneID)
+        }
+    }
+
+    private func handleRemovePane(_ workspaceID: UUID, _ paneID: UUID) {
+        if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+            let repoRoot = workspace.findPane(id: paneID)?.repoRoot
+            GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+            workspace.removePane(id: paneID)
+            appModel.saveWorkspaces()
+            if let root = repoRoot {
+                onCleanupRepoWatchers?(root)
+            }
+        }
+    }
+
+    private func handleSelectPersistentPane(_ paneID: UUID) {
+        appModel.sidebarHasFocus = false
+        appModel.focusDomain = .persistent
+        appModel.persistentFocusedPaneID = paneID
+        appModel.persistentPanelVisible = true
+    }
+
+    private func handleRemovePersistentPane(_ paneID: UUID) {
+        GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+        appModel.removePersistentPane(id: paneID)
     }
 
     // MARK: - Title Bar

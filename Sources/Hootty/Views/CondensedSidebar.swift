@@ -104,7 +104,7 @@ struct CondensedSidebar: View {
                 icon: "pin.fill",
                 color: tokens.textMuted,
                 tooltip: "Pinned",
-                isSelected: false,
+
                 action: {
                     withAnimation(.easeInOut(duration: 0.15)) {
                         persistentSidebarCollapsed.toggle()
@@ -174,7 +174,7 @@ struct CondensedSidebar: View {
     }
 
     private func workspaceRow(workspace: Workspace, isActive: Bool, isCollapsed: Bool) -> some View {
-        let summary: WorkspaceAttentionSummary? = isCollapsed ? attentionSummary(for: workspace.allPanes) : nil
+        let summary: WorkspaceAttentionSummary? = isCollapsed ? WorkspaceAttentionSummary.summarize(panes: workspace.allPanes) : nil
 
         return HStack(spacing: 0) {
             ZStack {
@@ -268,7 +268,6 @@ struct CondensedSidebar: View {
             icon: iconName,
             color: isActive ? tokens.text : tokens.textMuted,
             tooltip: section.displayLabel ?? "No Branch",
-            isSelected: false,
             action: {}
         )
     }
@@ -340,36 +339,18 @@ struct CondensedSidebar: View {
         icon: String,
         color: NSColor,
         tooltip: String,
-        isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
         CondensedRowView(
             icon: icon,
             color: color,
             tooltip: tooltip,
-            isSelected: isSelected,
             tokens: tokens,
             action: action
         )
     }
 
     // MARK: - Attention
-
-    private func attentionSummary(for panes: [Pane]) -> WorkspaceAttentionSummary? {
-        var hasDone = false
-        var hasBell = false
-        for pane in panes {
-            if pane.isThinking { return .thinking }
-            switch pane.attentionKind {
-            case .done: hasDone = true
-            case .bell: hasBell = true
-            case nil: break
-            }
-        }
-        if hasDone { return .done }
-        if hasBell { return .bell }
-        return nil
-    }
 
     @ViewBuilder
     private func attentionBadge(summary: WorkspaceAttentionSummary) -> some View {
@@ -405,7 +386,6 @@ struct CondensedSidebar: View {
                     break
                 }
             }
-            // Also check persistent panes
             if let pane = persistentNode?.findPane(id: targetID) {
                 pane.customName = trimmed.isEmpty ? nil : trimmed
                 onSave()
@@ -422,7 +402,6 @@ private struct CondensedRowView: View {
     let icon: String
     let color: NSColor
     let tooltip: String
-    let isSelected: Bool
     let tokens: DesignTokens
     let action: () -> Void
 
