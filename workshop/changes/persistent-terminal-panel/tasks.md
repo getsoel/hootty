@@ -48,13 +48,13 @@
 
 ## 6. Sidebar: Pseudo-Workspace Row
 
-- [ ] 6.1 Create `PersistentPanelRow` view (pin icon, "Pinned" label, attention summary dot when collapsed)
-- [ ] 6.2 Render `PersistentPanelRow` at the top of `WorkspaceSidebar` workspace list, above regular workspaces, with a divider below
-- [ ] 6.3 Only show the row when `persistentNode != nil`
-- [ ] 6.4 Wire click to toggle sidebar collapse of the persistent section
-- [ ] 6.5 Wire pane rows: render `SidebarPaneRow` for persistent panes, clicking focuses pane and sets `persistentPanelVisible = true`
-- [ ] 6.6 Add context menu on pseudo-workspace row: "New Pane", "Close All"
-- [ ] 6.7 Add context menu on persistent pane rows: "Close Pane", "Move to Workspace" (submenu with workspace names)
+- [x] 6.1 Create `PersistentPanelRow` view (pin icon, "Pinned" label, attention summary dot when collapsed)
+- [x] 6.2 Render `PersistentPanelRow` at the top of `WorkspaceSidebar` workspace list, above regular workspaces, with a divider below
+- [x] 6.3 Only show the row when `persistentNode != nil`
+- [x] 6.4 Wire click to toggle sidebar collapse of the persistent section
+- [x] 6.5 Wire pane rows: render `SidebarPaneRow` for persistent panes, clicking focuses pane and sets `persistentPanelVisible = true`
+- [x] 6.6 Add context menu on pseudo-workspace row: "New Pane", "Close All"
+- [x] 6.7 Add context menu on persistent pane rows: "Close Pane", "Move to Workspace" (submenu with workspace names)
 
 ## 7. Sidebar: Keyboard Nav & Filters
 

@@ -201,7 +201,45 @@ struct ContentView: View {
             collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs,
             activeSidebarFilters: appModel.activeSidebarFilters,
             onToggleSidebarFilter: { appModel.toggleSidebarFilter($0) },
-            onClearSidebarFilters: { appModel.clearSidebarFilters() }
+            onClearSidebarFilters: { appModel.clearSidebarFilters() },
+            persistentNode: appModel.persistentNode,
+            persistentFocusedPaneID: appModel.persistentFocusedPaneID,
+            persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
+            onSelectPersistentPane: { paneID in
+                appModel.sidebarHasFocus = false
+                appModel.focusDomain = .persistent
+                appModel.persistentFocusedPaneID = paneID
+                appModel.persistentPanelVisible = true
+            },
+            onRemovePersistentPane: { paneID in
+                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                if let node = appModel.persistentNode {
+                    if !node.removePane(id: paneID) {
+                        appModel.closePersistentPanel()
+                    } else if appModel.persistentFocusedPaneID == paneID {
+                        appModel.persistentFocusedPaneID = node.firstPane()?.id
+                    }
+                }
+                appModel.saveWorkspaces()
+            },
+            onNewPersistentPane: {
+                guard let node = appModel.persistentNode, let lastPane = node.allPanes().last else { return }
+                let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
+                node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: newPane)
+                appModel.persistentFocusedPaneID = newPane.id
+                appModel.saveWorkspaces()
+            },
+            onCloseAllPersistentPanes: {
+                if let node = appModel.persistentNode {
+                    for pane in node.allPanes() {
+                        GhosttyApp.shared.removeCachedSurfaceView(for: pane.id)
+                    }
+                }
+                appModel.closePersistentPanel()
+            },
+            onMovePaneToWorkspace: { paneID, workspaceID in
+                appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
+            }
         )
     }
 

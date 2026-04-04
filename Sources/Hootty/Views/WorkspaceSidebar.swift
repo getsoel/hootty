@@ -40,6 +40,16 @@ struct WorkspaceSidebar: View {
     var onToggleSidebarFilter: ((SidebarFilter) -> Void)?
     var onClearSidebarFilters: (() -> Void)?
 
+    // Persistent panel
+    var persistentNode: SplitNode?
+    var persistentFocusedPaneID: UUID?
+    @Binding var persistentSidebarCollapsed: Bool
+    var onSelectPersistentPane: ((UUID) -> Void)?
+    var onRemovePersistentPane: ((UUID) -> Void)?
+    var onNewPersistentPane: (() -> Void)?
+    var onCloseAllPersistentPanes: (() -> Void)?
+    var onMovePaneToWorkspace: ((UUID, UUID) -> Void)?
+
     var body: some View {
         VStack(spacing: 0) {
             sidebarHeader
@@ -92,7 +102,12 @@ struct WorkspaceSidebar: View {
     }
 
     private var statusCounts: AttentionCounts {
-        workspaces.reduce(.zero) { $0 + $1.attentionCounts }
+        var counts = workspaces.reduce(.zero) { $0 + $1.attentionCounts }
+        if let panes = persistentNode?.allPanes() {
+            let persistent = AttentionCounts(panes: panes, focusedPaneID: persistentFocusedPaneID)
+            counts = counts + persistent
+        }
+        return counts
     }
 
     private var sidebarHeader: some View {
@@ -210,6 +225,11 @@ struct WorkspaceSidebar: View {
         ScrollView {
             ScrollViewReader { proxy in
                 VStack(spacing: 0) {
+                    // Persistent panel pseudo-workspace
+                    if persistentNode != nil {
+                        persistentPanelSection
+                    }
+
                     ForEach(workspaces) { workspace in
                         let isActive = workspace.id == selectedWorkspaceID
                         let collapsed = isEffectivelyCollapsed(workspace.id)
@@ -471,6 +491,122 @@ struct WorkspaceSidebar: View {
             break
         }
         sidebarHasFocus = false
+    }
+
+    // MARK: - Persistent Panel Section
+
+    @ViewBuilder
+    private var persistentPanelSection: some View {
+        let isCursor = sidebarHasFocus && sidebarCursorTarget == .workspace(AppModel.persistentWorkspaceID)
+
+        VStack(spacing: 0) {
+            // Row
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: TypeScale.captionSize))
+                    .foregroundStyle(Color(tokens.textMuted))
+
+                if let summary = persistentAttentionSummary, persistentSidebarCollapsed {
+                    StatusDotView(
+                        attentionKind: summary == .done ? .done : summary == .bell ? .bell : nil,
+                        isThinking: summary == .thinking,
+                        isClaudeSession: false,
+                        tokens: tokens
+                    )
+                }
+
+                Text("Pinned")
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(tokens.text))
+                    .lineLimit(1)
+
+                Spacer()
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(Rectangle().fill(Color.clear))
+            .overlay {
+                if isCursor {
+                    Rectangle()
+                        .strokeBorder(Color(tokens.borderFocused), lineWidth: 1)
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    persistentSidebarCollapsed.toggle()
+                }
+            }
+            .contextMenu {
+                Button("New Pane") { onNewPersistentPane?() }
+                Divider()
+                Button("Close All") { onCloseAllPersistentPanes?() }
+            }
+
+            // Pane rows
+            if !persistentSidebarCollapsed, let node = persistentNode {
+                let panes = node.allPanes()
+                let canClose = panes.count > 1
+                ForEach(panes) { pane in
+                    SidebarPaneRow(
+                        pane: pane,
+                        isFocusedPane: persistentFocusedPaneID == pane.id,
+                        isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .pane(pane.id),
+                        canClose: canClose,
+                        layoutRects: [:],
+                        showLayoutThumbnails: false,
+                        depth: 1,
+                        tokens: tokens,
+                        onSelect: {
+                            sidebarHasFocus = false
+                            onSelectPersistentPane?(pane.id)
+                        },
+                        onRename: { id, name in
+                            editingPaneName = name
+                            renamePaneTargetID = id
+                            showRenamePaneAlert = true
+                        },
+                        onClose: { id in onRemovePersistentPane?(id) },
+                        onToggleNote: { onToggleNote?(pane.id) }
+                    )
+                    .id(pane.id)
+                    .contextMenu {
+                        Button("Close Pane") { onRemovePersistentPane?(pane.id) }
+                        if !workspaces.isEmpty {
+                            Menu("Move to Workspace") {
+                                ForEach(workspaces) { ws in
+                                    Button(ws.name) {
+                                        onMovePaneToWorkspace?(pane.id, ws.id)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Divider between persistent and workspaces
+        Rectangle()
+            .fill(Color(tokens.border))
+            .frame(height: 1)
+    }
+
+    private var persistentAttentionSummary: WorkspaceAttentionSummary? {
+        guard let panes = persistentNode?.allPanes() else { return nil }
+        var hasDone = false
+        var hasBell = false
+        for pane in panes {
+            if pane.isThinking { return .thinking }
+            switch pane.attentionKind {
+            case .done: hasDone = true
+            case .bell: hasBell = true
+            case nil: break
+            }
+        }
+        if hasDone { return .done }
+        if hasBell { return .bell }
+        return nil
     }
 }
 

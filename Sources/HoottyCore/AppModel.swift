@@ -20,6 +20,7 @@ public final class AppModel {
     public var persistentPanelVisible: Bool = false
     public var persistentPanelWidth: CGFloat = 400
     public var persistentFocusedPaneID: UUID?
+    public var persistentSidebarCollapsed: Bool = false
     public var focusDomain: FocusDomain = .workspace
 
     public enum ModalState: Equatable {
