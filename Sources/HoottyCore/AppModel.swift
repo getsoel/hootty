@@ -36,7 +36,9 @@ public final class AppModel {
     public var sidebarHasFocus: Bool = false
     public private(set) var paneEventHandler: PaneEventHandler!
 
-    public var sidebarVisible: Bool { sidebarMode != .hidden }
+    public var sidebarVisible: Bool {
+        sidebarMode != .hidden
+    }
 
     public static let sidebarMinWidth: CGFloat = 200
     public static let sidebarMaxWidth: CGFloat = 400

@@ -256,7 +256,7 @@ struct CondensedSidebar: View {
     }
 
     private func branchSectionRow(section: SidebarSection, isActive: Bool) -> some View {
-        let iconName: String = if section.branch == nil {
+        let iconName = if section.branch == nil {
             "cube.transparent"
         } else if section.isHead {
             "cube.fill"
@@ -309,15 +309,15 @@ struct CondensedSidebar: View {
 
     private func paneIconAndColor(pane: Pane, isFocused: Bool) -> (String, NSColor) {
         if pane.attentionKind == .done {
-            return ("checkmark.circle", tokens.statusDone)
+            ("checkmark.circle", tokens.statusDone)
         } else if pane.attentionKind == .bell {
-            return ("bell", tokens.statusBell)
+            ("bell", tokens.statusBell)
         } else if pane.isThinking {
-            return ("arrow.2.circlepath", tokens.statusThinking)
+            ("arrow.2.circlepath", tokens.statusThinking)
         } else if pane.claudeSessionID != nil {
-            return ("bubble.left.fill", isFocused ? tokens.text : tokens.textMuted)
+            ("bubble.left.fill", isFocused ? tokens.text : tokens.textMuted)
         } else {
-            return ("apple.terminal", isFocused ? tokens.text : tokens.textMuted)
+            ("apple.terminal", isFocused ? tokens.text : tokens.textMuted)
         }
     }
 

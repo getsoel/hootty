@@ -52,9 +52,9 @@
 
 ## 7. Tests
 
-- [ ] 7.1 Update `IntegrationTests.sidebarStatePersistsAlongsideWorkspaces` to use `sidebarMode` instead of `sidebarVisible`/`toggleSidebar` bool assertions
-- [ ] 7.2 Update `WorkspaceStoreTests` snapshot decode/encode assertions for `sidebarMode`
-- [ ] 7.3 Add test: `toggleSidebar()` cycles `.full → .condensed → .hidden → .full`
-- [ ] 7.4 Add test: backward-compat decode of old snapshot with `sidebarVisible: true` → `sidebarMode == .full`
-- [ ] 7.5 Add test: backward-compat decode of old snapshot with `sidebarVisible: false` → `sidebarMode == .hidden`
-- [ ] 7.6 Run `swift test`, `make build`, `make format-check`, `make lint` — all pass
+- [x] 7.1 Update `IntegrationTests.sidebarStatePersistsAlongsideWorkspaces` to use `sidebarMode` instead of `sidebarVisible`/`toggleSidebar` bool assertions
+- [x] 7.2 Update `WorkspaceStoreTests` snapshot decode/encode assertions for `sidebarMode`
+- [x] 7.3 Add test: `toggleSidebar()` cycles `.full → .condensed → .hidden → .full`
+- [x] 7.4 Add test: backward-compat decode of old snapshot with `sidebarVisible: true` → `sidebarMode == .full`
+- [x] 7.5 Add test: backward-compat decode of old snapshot with `sidebarVisible: false` → `sidebarMode == .hidden`
+- [x] 7.6 Run `swift test`, `make build`, `make format-check`, `make lint` — all pass

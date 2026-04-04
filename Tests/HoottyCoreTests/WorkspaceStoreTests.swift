@@ -37,7 +37,7 @@ struct WorkspaceStoreTests {
         let data = try JSONSerialization.data(withJSONObject: json)
         let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
         #expect(decoded.sidebarWidth == nil)
-        #expect(decoded.sidebarVisible == nil)
+        #expect(decoded.sidebarMode == nil)
     }
 
     @Test func appModelDefaultsSidebarWhenNotPersisted() throws {
@@ -57,7 +57,80 @@ struct WorkspaceStoreTests {
 
         let model = AppModel(workspaceStore: store)
         #expect(model.sidebarWidth == 260)
-        #expect(model.sidebarVisible == true)
+        #expect(model.sidebarMode == .full)
+    }
+
+    @Test func toggleSidebarCyclesFullCondensedHidden() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
+            .appendingPathComponent("workspaces.json")
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let store = WorkspaceStore(fileURL: url)
+        let model = AppModel(workspaceStore: store)
+        #expect(model.sidebarMode == .full)
+
+        model.toggleSidebar()
+        #expect(model.sidebarMode == .condensed)
+
+        model.toggleSidebar()
+        #expect(model.sidebarMode == .hidden)
+
+        model.toggleSidebar()
+        #expect(model.sidebarMode == .full)
+    }
+
+    @Test func backwardCompatDecodeSidebarVisibleTrue() throws {
+        let ws = Workspace(name: "Old")
+        let json: [String: Any] = try [
+            "workspaces": [JSONSerialization.jsonObject(with: JSONEncoder().encode(ws))],
+            "selectedWorkspaceID": ws.id.uuidString,
+            "sidebarVisible": true
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+        let decoded = try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
+        // sidebarMode not present, sidebarVisible is true
+        #expect(decoded.sidebarMode == nil)
+        #expect(decoded.sidebarVisible == true)
+
+        // AppModel should map to .full
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
+            .appendingPathComponent("workspaces.json")
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        try data.write(to: url)
+        let model = AppModel(workspaceStore: WorkspaceStore(fileURL: url))
+        #expect(model.sidebarMode == .full)
+    }
+
+    @Test func backwardCompatDecodeSidebarVisibleFalse() throws {
+        let ws = Workspace(name: "Old")
+        let json: [String: Any] = try [
+            "workspaces": [JSONSerialization.jsonObject(with: JSONEncoder().encode(ws))],
+            "selectedWorkspaceID": ws.id.uuidString,
+            "sidebarVisible": false
+        ]
+        let data = try JSONSerialization.data(withJSONObject: json)
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("hootty-test-\(UUID().uuidString)")
+            .appendingPathComponent("workspaces.json")
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        try data.write(to: url)
+        let model = AppModel(workspaceStore: WorkspaceStore(fileURL: url))
+        #expect(model.sidebarMode == .hidden)
     }
 
     @Test func appModelFallsBackToDefault() {
