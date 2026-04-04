@@ -7,6 +7,7 @@ struct ContentView: View {
     /// Called after pane/workspace removal to clean up file watchers for a repo root.
     var onCleanupRepoWatchers: ((String) -> Void)?
     @GestureState private var dragOffset: CGFloat = 0
+    @GestureState private var panelDragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorTarget: SidebarCursorTarget?
     @State private var memoryMonitor = MemoryMonitor()
@@ -27,6 +28,16 @@ struct ContentView: View {
     private var effectiveSidebarWidth: CGFloat {
         let w = appModel.sidebarWidth + dragOffset
         return min(max(w, AppModel.sidebarMinWidth), AppModel.sidebarMaxWidth)
+    }
+
+    /// Effective persistent panel width: base - in-flight drag delta (drag left = wider), clamped.
+    private var effectivePanelWidth: CGFloat {
+        let w = appModel.persistentPanelWidth - panelDragOffset
+        return min(max(w, AppModel.persistentPanelMinWidth), AppModel.persistentPanelMaxWidth)
+    }
+
+    private var panelVisible: Bool {
+        appModel.persistentPanelVisible && appModel.persistentNode != nil
     }
 
     var body: some View {
@@ -50,6 +61,7 @@ struct ContentView: View {
             }
         )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarVisible)
+        .animation(.easeInOut(duration: 0.2), value: panelVisible)
         .overlay {
             if appModel.modalState == .commandPalette {
                 CommandPaletteView(
@@ -238,6 +250,11 @@ struct ContentView: View {
             let dividerW: CGFloat = appModel.sidebarVisible ? 1 : 0
             let detailX = sidebarW + dividerW
             let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
+            let panelW = panelVisible ? effectivePanelWidth : 0
+            let panelDividerW: CGFloat = panelVisible ? 1 : 0
+            let detailW = max(0, fullWidth - detailX - panelW - panelDividerW)
+            let panelDividerX = detailX + detailW
+            let panelX = panelDividerX + panelDividerW
 
             ZStack(alignment: .topLeading) {
                 // Sidebar
@@ -287,10 +304,56 @@ struct ContentView: View {
                 // Detail area
                 detailView
                     .frame(
-                        width: max(0, fullWidth - detailX),
+                        width: detailW,
                         height: geometry.size.height
                     )
                     .offset(x: detailX)
+
+                // Persistent panel
+                if panelVisible {
+                    // Visible 1px divider
+                    Rectangle()
+                        .fill(Color(tokens.border))
+                        .frame(width: 1, height: geometry.size.height)
+                        .offset(x: panelDividerX)
+
+                    // Invisible wide drag handle
+                    Color.clear
+                        .frame(width: 16, height: geometry.size.height)
+                        .contentShape(Rectangle())
+                        .offset(x: panelDividerX - 7.5)
+                        .onContinuousHover { phase in
+                            switch phase {
+                            case .active:
+                                DispatchQueue.main.async {
+                                    NSCursor.resizeLeftRight.set()
+                                }
+                            case .ended:
+                                DispatchQueue.main.async {
+                                    NSCursor.arrow.set()
+                                }
+                            }
+                        }
+                        .gesture(
+                            DragGesture(minimumDistance: 0)
+                                .updating($panelDragOffset) { value, state, _ in
+                                    state = value.translation.width
+                                }
+                                .onEnded { value in
+                                    let newWidth = appModel.persistentPanelWidth - value.translation.width
+                                    appModel.persistentPanelWidth = min(
+                                        max(newWidth, AppModel.persistentPanelMinWidth),
+                                        AppModel.persistentPanelMaxWidth
+                                    )
+                                    appModel.debouncedSave()
+                                }
+                        )
+
+                    // Panel content
+                    persistentPanelView
+                        .frame(width: panelW, height: geometry.size.height)
+                        .offset(x: panelX)
+                }
             }
             .frame(width: fullWidth, alignment: .topLeading)
             .clipped()
@@ -352,6 +415,62 @@ struct ContentView: View {
         .environment(\.sidebarCursorPaneID, sidebarCursorTarget?.cursorPaneID)
         .environment(\.modalIsOpen, appModel.modalState != .none)
         .id(workspace.id)
+    }
+
+    @ViewBuilder
+    private var persistentPanelView: some View {
+        if let node = appModel.persistentNode {
+            SplitNodeView(
+                node: node,
+                focusedPaneID: appModel.focusDomain == .persistent ? appModel.persistentFocusedPaneID : nil,
+                tokens: tokens,
+                isInSplit: false,
+                onFocusPane: { paneID in
+                    appModel.sidebarHasFocus = false
+                    appModel.focusDomain = .persistent
+                    appModel.persistentFocusedPaneID = paneID
+                },
+                onSplitPane: { direction, placeBefore in
+                    guard let focused = appModel.persistentFocusedPane else { return }
+                    let parentSurface = GhosttyApp.shared.focusedSurface
+                    let newPane = Pane(name: "Pinned \((node.allPanes().count) + 1)")
+                    if node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) {
+                        if let parentSurface {
+                            GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
+                        }
+                        appModel.persistentFocusedPaneID = newPane.id
+                        appModel.saveWorkspaces()
+                    }
+                },
+                onClosePane: { paneID in
+                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                    if node.removePane(id: paneID) {
+                        // Pane removed; update focus
+                        if appModel.persistentFocusedPaneID == paneID {
+                            appModel.persistentFocusedPaneID = node.firstPane()?.id
+                        }
+                    } else {
+                        // Was the last pane — close the panel
+                        appModel.closePersistentPanel()
+                    }
+                    appModel.saveWorkspaces()
+                },
+                onSwapPanes: { sourceID, targetID in
+                    node.swapPanes(sourceID, targetID)
+                    appModel.saveWorkspaces()
+                },
+                onToggleNote: { paneID in
+                    appModel.modalState = .noteEditor(paneID)
+                },
+                onToggleFlag: {
+                    appModel.persistentFocusedPane?.toggleFlag()
+                },
+                onSave: { appModel.saveWorkspaces() }
+            )
+            .environment(\.sidebarHasFocus, false)
+            .environment(\.sidebarCursorPaneID, nil)
+            .environment(\.modalIsOpen, appModel.modalState != .none)
+        }
     }
 
     private func applyTheme(name: String, fallback: TerminalTheme? = nil) {

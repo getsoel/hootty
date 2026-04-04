@@ -21,12 +21,12 @@
 
 ## 3. Layout
 
-- [ ] 3.1 Add persistent panel rendering in `ContentView.workspacesContent`: panel view + 1px divider + 16px drag handle to the right of detail area
-- [ ] 3.2 Adjust detail area width calculation to subtract `persistentPanelWidth + 1` when visible
-- [ ] 3.3 Implement drag-to-resize with `@GestureState` (mirror left sidebar pattern), clamp to min/max, commit on end, call `debouncedSave()`
-- [ ] 3.4 Wire `SplitNodeView` for the persistent panel with correct callbacks (split/close/focus operating on `persistentNode`)
-- [ ] 3.5 Add show/hide animation (`.easeInOut(duration: 0.2)`) driven by `persistentPanelVisible`
-- [ ] 3.6 Handle surface cleanup: call `GhosttyApp.shared.removeCachedSurfaceView(for:)` when closing persistent panes
+- [x] 3.1 Add persistent panel rendering in `ContentView.workspacesContent`: panel view + 1px divider + 16px drag handle to the right of detail area
+- [x] 3.2 Adjust detail area width calculation to subtract `persistentPanelWidth + 1` when visible
+- [x] 3.3 Implement drag-to-resize with `@GestureState` (mirror left sidebar pattern), clamp to min/max, commit on end, call `debouncedSave()`
+- [x] 3.4 Wire `SplitNodeView` for the persistent panel with correct callbacks (split/close/focus operating on `persistentNode`)
+- [x] 3.5 Add show/hide animation (`.easeInOut(duration: 0.2)`) driven by `persistentPanelVisible`
+- [x] 3.6 Handle surface cleanup: call `GhosttyApp.shared.removeCachedSurfaceView(for:)` when closing persistent panes
 
 ## 4. Commands
 
