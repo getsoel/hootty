@@ -188,6 +188,9 @@ public enum Layout {
     /// Standard bar height for all horizontal bars (titlebar, sidebar header, tab bar, board header).
     public static let barHeight: CGFloat = 38
 
+    /// Fixed width for the condensed sidebar icon rail.
+    public static let condensedSidebarWidth: CGFloat = 48
+
     /// Small element rounding (cards, inputs, badges, hover backgrounds).
     public static let cornerRadiusSm: CGFloat = 4
     /// Container rounding (columns, sections, list rows).

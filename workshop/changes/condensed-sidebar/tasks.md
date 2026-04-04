@@ -19,14 +19,14 @@
 
 ## 3. Layout Constant
 
-- [ ] 3.1 Add `Layout.condensedSidebarWidth: CGFloat = 48` to `DesignTokens.swift`
+- [x] 3.1 Add `Layout.condensedSidebarWidth: CGFloat = 48` to `DesignTokens.swift`
 
 ## 4. ContentView Integration
 
-- [ ] 4.1 Update `ContentView.workspacesContent` sidebar width calculation to switch on `sidebarMode`: `.full` uses `effectiveSidebarWidth`, `.condensed` uses `Layout.condensedSidebarWidth`, `.hidden` uses `0`
-- [ ] 4.2 Update the sidebar rendering block: render `CondensedSidebar` when `.condensed`, `WorkspaceSidebar` when `.full`, nothing when `.hidden`
-- [ ] 4.3 Only show the drag handle overlay when `sidebarMode == .full`
-- [ ] 4.4 Update the `.animation` value from `appModel.sidebarVisible` to `appModel.sidebarMode`
+- [x] 4.1 Update `ContentView.workspacesContent` sidebar width calculation to switch on `sidebarMode`: `.full` uses `effectiveSidebarWidth`, `.condensed` uses `Layout.condensedSidebarWidth`, `.hidden` uses `0`
+- [x] 4.2 Update the sidebar rendering block: render `CondensedSidebar` when `.condensed`, `WorkspaceSidebar` when `.full`, nothing when `.hidden`
+- [x] 4.3 Only show the drag handle overlay when `sidebarMode == .full`
+- [x] 4.4 Update the `.animation` value from `appModel.sidebarVisible` to `appModel.sidebarMode`
 
 ## 5. CondensedSidebar View
 

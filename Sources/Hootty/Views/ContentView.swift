@@ -141,6 +141,18 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
+    private var sidebarContent: some View {
+        switch appModel.sidebarMode {
+        case .full:
+            sidebar
+        case .condensed:
+            condensedSidebar
+        case .hidden:
+            EmptyView()
+        }
+    }
+
     private var sidebar: some View {
         WorkspaceSidebar(
             workspaces: appModel.workspaces,
@@ -235,6 +247,71 @@ struct ContentView: View {
         )
     }
 
+    private var condensedSidebar: some View {
+        CondensedSidebar(
+            workspaces: appModel.workspaces,
+            selectedWorkspaceID: $appModel.selectedWorkspaceID,
+            tokens: tokens,
+            onExpandSidebar: { appModel.sidebarMode = .full },
+            onAddWorkspace: {
+                let workspace = appModel.addWorkspace()
+                appModel.selectedWorkspaceID = workspace.id
+            },
+            onRemoveWorkspace: { id in
+                if let workspace = appModel.workspaces.first(where: { $0.id == id }) {
+                    GhosttyApp.shared.cleanupWorkspace(workspace)
+                }
+                appModel.removeWorkspace(id: id)
+                if appModel.selectedWorkspaceID == id {
+                    appModel.selectedWorkspaceID = appModel.workspaces.first?.id
+                }
+            },
+            onSelectPane: { workspaceID, paneID in
+                appModel.selectedWorkspaceID = workspaceID
+                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                    workspace.focusPane(id: paneID)
+                }
+            },
+            onRemovePane: { workspaceID, paneID in
+                if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
+                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                    workspace.removePane(id: paneID)
+                    appModel.saveWorkspaces()
+                }
+            },
+            onToggleCollapse: { id in
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    appModel.toggleWorkspaceCollapse(id)
+                }
+            },
+            onSave: { appModel.saveWorkspaces() },
+            isEffectivelyCollapsed: { appModel.isWorkspaceEffectivelyCollapsed($0) },
+            collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs,
+            activeSidebarFilters: appModel.activeSidebarFilters,
+            persistentNode: appModel.persistentNode,
+            persistentFocusedPaneID: appModel.persistentFocusedPaneID,
+            persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
+            onSelectPersistentPane: { paneID in
+                appModel.focusDomain = .persistent
+                appModel.persistentFocusedPaneID = paneID
+                appModel.persistentPanelVisible = true
+            },
+            onRemovePersistentPane: { paneID in
+                GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
+                appModel.removePersistentPane(id: paneID)
+            },
+            onNewPersistentPane: {
+                appModel.addPersistentPane()
+            },
+            onMovePaneToPinned: { paneID in
+                appModel.movePaneToPersistentPanel(paneID: paneID)
+            },
+            onMovePaneToWorkspace: { paneID, workspaceID in
+                appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
+            }
+        )
+    }
+
     // MARK: - Title Bar
 
     private var titleBar: some View {
@@ -276,8 +353,12 @@ struct ContentView: View {
 
     private var workspacesContent: some View {
         GeometryReader { geometry in
-            let sidebarW = appModel.sidebarVisible ? effectiveSidebarWidth : 0
-            let dividerW: CGFloat = appModel.sidebarVisible ? 1 : 0
+            let sidebarW: CGFloat = switch appModel.sidebarMode {
+            case .full: effectiveSidebarWidth
+            case .condensed: Layout.condensedSidebarWidth
+            case .hidden: 0
+            }
+            let dividerW: CGFloat = appModel.sidebarMode != .hidden ? 1 : 0
             let detailX = sidebarW + dividerW
             let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
             let panelW = panelVisible ? effectivePanelWidth : 0
@@ -288,8 +369,8 @@ struct ContentView: View {
 
             ZStack(alignment: .topLeading) {
                 // Sidebar
-                if appModel.sidebarVisible {
-                    sidebar
+                if appModel.sidebarMode != .hidden {
+                    sidebarContent
                         .frame(width: sidebarW, height: geometry.size.height)
 
                     // Visible 1px divider line
@@ -298,37 +379,39 @@ struct ContentView: View {
                         .frame(width: 1, height: geometry.size.height)
                         .offset(x: sidebarW)
 
-                    // Invisible wide drag handle overlaying the divider
-                    Color.clear
-                        .frame(width: 16, height: geometry.size.height)
-                        .contentShape(Rectangle())
-                        .offset(x: sidebarW - 7.5)
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                DispatchQueue.main.async {
-                                    NSCursor.resizeLeftRight.set()
-                                }
-                            case .ended:
-                                DispatchQueue.main.async {
-                                    NSCursor.arrow.set()
+                    // Invisible wide drag handle overlaying the divider (full mode only)
+                    if appModel.sidebarMode == .full {
+                        Color.clear
+                            .frame(width: 16, height: geometry.size.height)
+                            .contentShape(Rectangle())
+                            .offset(x: sidebarW - 7.5)
+                            .onContinuousHover { phase in
+                                switch phase {
+                                case .active:
+                                    DispatchQueue.main.async {
+                                        NSCursor.resizeLeftRight.set()
+                                    }
+                                case .ended:
+                                    DispatchQueue.main.async {
+                                        NSCursor.arrow.set()
+                                    }
                                 }
                             }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .updating($dragOffset) { value, state, _ in
-                                    state = value.translation.width
-                                }
-                                .onEnded { value in
-                                    let newWidth = appModel.sidebarWidth + value.translation.width
-                                    appModel.sidebarWidth = min(
-                                        max(newWidth, AppModel.sidebarMinWidth),
-                                        AppModel.sidebarMaxWidth
-                                    )
-                                    appModel.debouncedSave()
-                                }
-                        )
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .updating($dragOffset) { value, state, _ in
+                                        state = value.translation.width
+                                    }
+                                    .onEnded { value in
+                                        let newWidth = appModel.sidebarWidth + value.translation.width
+                                        appModel.sidebarWidth = min(
+                                            max(newWidth, AppModel.sidebarMinWidth),
+                                            AppModel.sidebarMaxWidth
+                                        )
+                                        appModel.debouncedSave()
+                                    }
+                            )
+                    }
                 }
 
                 // Detail area
