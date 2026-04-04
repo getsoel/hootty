@@ -30,20 +30,20 @@
 
 ## 5. CondensedSidebar View
 
-- [ ] 5.1 Create `Sources/Hootty/Views/CondensedSidebar.swift` with struct accepting: workspaces, selectedWorkspaceID binding, tokens, callbacks (onSelectPane, onRemoveWorkspace, onRemovePane, onToggleCollapse, onExpandSidebar, etc.), persistent panel props
-- [ ] 5.2 Build the expand button header row: `sidebar.left` icon in a `BarIconButton`, `Layout.barHeight` height, `tokens.tabBarBackground` background, bottom 1px border
-- [ ] 5.3 Build the pinned section: `pin.fill` header icon (tap toggles `persistentSidebarCollapsed`), pane icon rows when expanded, 1px divider below
-- [ ] 5.4 Build workspace folder icon rows: `folder`/`folder.fill`, tap toggles collapse, selected workspace gets `tokens.elementHover` background
-- [ ] 5.5 Build repo/branch section icon rows: `cube.fill` (HEAD) / `cube` (other), shown when workspace expanded and has branch sections
-- [ ] 5.6 Build pane status icon rows: icon and color matching `StatusDotView` logic (done/bell/thinking/claude/terminal), focused pane gets `tokens.elementSelected` background and `tokens.text` color
-- [ ] 5.7 Add animated rotation on thinking pane icons using `TimelineView(.animation)`
-- [ ] 5.8 Add attention summary indicator on collapsed workspace folder icons (using existing `WorkspaceAttentionSummary`)
-- [ ] 5.9 Add `.help()` tooltips on all rows: workspace name, branch label, pane displayName, "Expand sidebar"
-- [ ] 5.10 Add hover state (`tokens.elementHover` background) and pointing-hand cursor on all interactive rows
-- [ ] 5.11 Add context menus: workspace rows (Rename, Collapse/Expand, Close), pane rows (Rename, Move to Pinned, Close), pinned pane rows (Close, Move to Workspace), rail background ("New Workspace", "New Pinned Pane")
-- [ ] 5.12 Apply `activeSidebarFilters` to pane visibility (reuse `Pane.isVisibleInSidebar`)
-- [ ] 5.13 Set rail width to `Layout.condensedSidebarWidth`, background to `tokens.surfaceLow`
-- [ ] 5.14 Wrap rows in a `ScrollView` with `.scrollIndicators(.never)`
+- [x] 5.1 Create `Sources/Hootty/Views/CondensedSidebar.swift` with struct accepting: workspaces, selectedWorkspaceID binding, tokens, callbacks (onSelectPane, onRemoveWorkspace, onRemovePane, onToggleCollapse, onExpandSidebar, etc.), persistent panel props
+- [x] 5.2 Build the expand button header row: `sidebar.left` icon in a `BarIconButton`, `Layout.barHeight` height, `tokens.tabBarBackground` background, bottom 1px border
+- [x] 5.3 Build the pinned section: `pin.fill` header icon (tap toggles `persistentSidebarCollapsed`), pane icon rows when expanded, 1px divider below
+- [x] 5.4 Build workspace folder icon rows: `folder`/`folder.fill`, tap toggles collapse, selected workspace gets `tokens.elementHover` background
+- [x] 5.5 Build repo/branch section icon rows: `cube.fill` (HEAD) / `cube` (other), shown when workspace expanded and has branch sections
+- [x] 5.6 Build pane status icon rows: icon and color matching `StatusDotView` logic (done/bell/thinking/claude/terminal), focused pane gets `tokens.elementSelected` background and `tokens.text` color
+- [x] 5.7 Add animated rotation on thinking pane icons using `TimelineView(.animation)`
+- [x] 5.8 Add attention summary indicator on collapsed workspace folder icons (using existing `WorkspaceAttentionSummary`)
+- [x] 5.9 Add `.help()` tooltips on all rows: workspace name, branch label, pane displayName, "Expand sidebar"
+- [x] 5.10 Add hover state (`tokens.elementHover` background) and pointing-hand cursor on all interactive rows
+- [x] 5.11 Add context menus: workspace rows (Rename, Collapse/Expand, Close), pane rows (Rename, Move to Pinned, Close), pinned pane rows (Close, Move to Workspace), rail background ("New Workspace", "New Pinned Pane")
+- [x] 5.12 Apply `activeSidebarFilters` to pane visibility (reuse `Pane.isVisibleInSidebar`)
+- [x] 5.13 Set rail width to `Layout.condensedSidebarWidth`, background to `tokens.surfaceLow`
+- [x] 5.14 Wrap rows in a `ScrollView` with `.scrollIndicators(.never)`
 
 ## 6. Command & Menu Updates
 
