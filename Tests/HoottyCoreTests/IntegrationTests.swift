@@ -1278,7 +1278,7 @@ struct PersistentPanelPersistenceIntegration {
         firstPane.customName = "Watcher"
 
         // Split vertically within persistent panel
-        let newPane = Pane(name: "Pinned 2")
+        let newPane = Pane(name: "Docked 2")
         model.persistentNode?.splitPane(paneID: firstPane.id, direction: .vertical, newPane: newPane)
         newPane.customName = "Logs"
         model.persistentFocusedPaneID = newPane.id

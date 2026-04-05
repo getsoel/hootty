@@ -7,6 +7,10 @@ public enum PanelPosition: String, Codable, CaseIterable, Sendable {
     case top
     case bottom
 
+    public var displayName: String {
+        rawValue.capitalized
+    }
+
     /// Whether this position uses horizontal (width) or vertical (height) sizing.
     public var isHorizontal: Bool {
         self == .left || self == .right

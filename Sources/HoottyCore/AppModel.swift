@@ -307,6 +307,7 @@ public final class AppModel {
     // MARK: - Persistent Panel
 
     public func setPanelPosition(_ position: PanelPosition) {
+        guard position != persistentPanelPosition else { return }
         persistentPanelPosition = position
         saveWorkspaces()
     }
@@ -316,7 +317,7 @@ public final class AppModel {
             persistentPanelVisible = false
         } else {
             if persistentNode == nil {
-                let pane = Pane(name: "Pinned 1")
+                let pane = Pane(name: "Docked 1")
                 persistentNode = SplitNode(pane: pane)
                 persistentFocusedPaneID = pane.id
             }
@@ -351,7 +352,7 @@ public final class AppModel {
     public func splitPersistentPane(direction: SplitDirection, placeBefore: Bool = false) -> Pane? {
         guard let node = persistentNode,
               let focused = persistentFocusedPane else { return nil }
-        let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
+        let newPane = Pane(name: "Docked \(node.allPanes().count + 1)")
         guard node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) else { return nil }
         persistentFocusedPaneID = newPane.id
         saveWorkspaces()
@@ -363,7 +364,7 @@ public final class AppModel {
     public func addPersistentPane() -> Pane? {
         guard let node = persistentNode,
               let lastPane = node.allPanes().last else { return nil }
-        let newPane = Pane(name: "Pinned \(node.allPanes().count + 1)")
+        let newPane = Pane(name: "Docked \(node.allPanes().count + 1)")
         guard node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: newPane) else { return nil }
         persistentFocusedPaneID = newPane.id
         saveWorkspaces()

@@ -12,6 +12,8 @@ struct PaneBar: View {
     var onToggleFlag: (() -> Void)?
     var onSave: (() -> Void)?
 
+    @Environment(\.dockPosition) private var dockPosition
+    @Environment(\.setDockPosition) private var setDockPosition
     @State private var renameTargetID: UUID?
     @State private var editingName: String = ""
     @State private var showRenameAlert = false
@@ -85,6 +87,27 @@ struct PaneBar: View {
                     iconColor: pane.isFlagged ? tokens.statusWarning : nil,
                     action: onToggleFlag
                 )
+            }
+
+            if let setDockPosition, let dockPosition {
+                BarIconMenu(
+                    systemImage: "dock.rectangle",
+                    tokens: tokens,
+                    accessibilityLabel: "Dock position",
+                    help: "Dock position"
+                ) {
+                    ForEach(PanelPosition.allCases, id: \.self) { position in
+                        Button {
+                            setDockPosition(position)
+                        } label: {
+                            if position == dockPosition {
+                                Label(position.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(position.displayName)
+                            }
+                        }
+                    }
+                }
             }
 
             if onSplitPane != nil {

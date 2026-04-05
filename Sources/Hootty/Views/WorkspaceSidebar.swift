@@ -51,6 +51,8 @@ struct WorkspaceSidebar: View {
     var onMovePaneToWorkspace: ((UUID, UUID) -> Void)?
     var onMovePaneToPinned: ((UUID) -> Void)?
     var onToggleSidebar: (() -> Void)?
+    var onToggleDockedPanel: (() -> Void)?
+    var dockedPanelVisible: Bool = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -123,6 +125,15 @@ struct WorkspaceSidebar: View {
                     accessibilityLabel: "Toggle Sidebar",
                     help: "Toggle Sidebar",
                     action: { onToggleSidebar?() }
+                )
+
+                BarIconButton(
+                    systemImage: "dock.rectangle",
+                    tokens: tokens,
+                    accessibilityLabel: "Toggle Docked Panel",
+                    help: "Toggle Docked Panel",
+                    iconColor: dockedPanelVisible ? tokens.textAccent : tokens.textMuted,
+                    action: { onToggleDockedPanel?() }
                 )
 
                 BarIconButton(
@@ -229,14 +240,19 @@ struct WorkspaceSidebar: View {
     }
 
     private var workspaceList: some View {
+        VStack(spacing: 0) {
+            if persistentNode != nil {
+                persistentPanelSection
+            }
+
+            workspaceScrollView
+        }
+    }
+
+    private var workspaceScrollView: some View {
         ScrollView {
             ScrollViewReader { proxy in
                 VStack(spacing: 0) {
-                    // Persistent panel pseudo-workspace
-                    if persistentNode != nil {
-                        persistentPanelSection
-                    }
-
                     ForEach(workspaces) { workspace in
                         let isActive = workspace.id == selectedWorkspaceID
                         let collapsed = isEffectivelyCollapsed(workspace.id)
@@ -519,11 +535,11 @@ struct WorkspaceSidebar: View {
         VStack(spacing: 0) {
             // Row
             HStack(spacing: Spacing.sm) {
-                Image(systemName: "pin.fill")
+                Image(systemName: "dock.rectangle")
                     .font(.system(size: TypeScale.captionSize))
                     .foregroundStyle(Color(tokens.textMuted))
 
-                Text("Pinned")
+                Text("Docked")
                     .font(.system(size: TypeScale.bodySize))
                     .foregroundStyle(Color(tokens.text))
                     .lineLimit(1)

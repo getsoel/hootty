@@ -70,7 +70,7 @@ struct CondensedSidebar: View {
         .contextMenu {
             Button("New Workspace") { onAddWorkspace() }
             if persistentNode != nil {
-                Button("New Pinned Pane") { onNewPersistentPane?() }
+                Button("New Docked Pane") { onNewPersistentPane?() }
             }
         }
         .alert("Rename Workspace", isPresented: $showRenameWorkspaceAlert) {
@@ -109,17 +109,19 @@ struct CondensedSidebar: View {
     // MARK: - Scroll Content
 
     private var scrollContent: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                if persistentNode != nil {
-                    pinnedSection
-                }
-                ForEach(workspaces) { workspace in
-                    workspaceSection(workspace)
+        VStack(spacing: 0) {
+            if persistentNode != nil {
+                pinnedSection
+            }
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(workspaces) { workspace in
+                        workspaceSection(workspace)
+                    }
                 }
             }
+            .scrollIndicators(.never)
         }
-        .scrollIndicators(.never)
     }
 
     // MARK: - Pinned Section
@@ -127,9 +129,9 @@ struct CondensedSidebar: View {
     private var pinnedSection: some View {
         VStack(spacing: 0) {
             condensedRow(
-                icon: "pin.fill",
+                icon: "dock.rectangle",
                 color: tokens.textMuted,
-                tooltip: "Pinned",
+                tooltip: "Docked",
                 isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(AppModel.persistentWorkspaceID),
                 action: {
                     withAnimation(.easeInOut(duration: 0.15)) {
@@ -256,7 +258,7 @@ struct CondensedSidebar: View {
                             showRenamePaneAlert = true
                         }
                         if let onMoveToPinned = onMovePaneToPinned {
-                            Button("Move to Pinned") {
+                            Button("Move to Docked") {
                                 onMoveToPinned(pane.id)
                             }
                         }

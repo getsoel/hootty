@@ -209,7 +209,9 @@ struct ContentView: View {
             onMovePaneToPinned: { paneID in
                 appModel.movePaneToPersistentPanel(paneID: paneID)
             },
-            onToggleSidebar: { appModel.toggleSidebar() }
+            onToggleSidebar: { appModel.toggleSidebar() },
+            onToggleDockedPanel: { appModel.togglePersistentPanel() },
+            dockedPanelVisible: appModel.persistentPanelVisible && appModel.persistentNode != nil
         )
     }
 
@@ -635,6 +637,10 @@ struct ContentView: View {
             .environment(\.sidebarHasFocus, false)
             .environment(\.sidebarCursorPaneID, nil)
             .environment(\.modalIsOpen, appModel.modalState != .none)
+            .environment(\.dockPosition, appModel.persistentPanelPosition)
+            .environment(\.setDockPosition) { position in
+                appModel.setPanelPosition(position)
+            }
         }
     }
 

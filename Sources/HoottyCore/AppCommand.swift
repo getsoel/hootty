@@ -55,10 +55,10 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
 
     case clearSidebarFilters
 
-    // Persistent panel
-    case togglePersistentPanel
-    case focusPersistentPanel
-    case movePaneToPersistentPanel
+    // Docked panel
+    case toggleDockedPanel
+    case focusDockedPanel
+    case movePaneToDockedPanel
     case movePaneToWorkspace
     case movePanelLeft
     case movePanelRight
@@ -100,9 +100,9 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .collapseAllWorkspaces: "Collapse All Workspaces"
         case .expandAllWorkspaces: "Expand All Workspaces"
         case .clearSidebarFilters: "Clear Sidebar Filters"
-        case .togglePersistentPanel: "Toggle Persistent Panel"
-        case .focusPersistentPanel: "Focus Persistent Panel"
-        case .movePaneToPersistentPanel: "Move Pane to Pinned"
+        case .toggleDockedPanel: "Toggle Docked Panel"
+        case .focusDockedPanel: "Focus Docked Panel"
+        case .movePaneToDockedPanel: "Move Pane to Docked"
         case .movePaneToWorkspace: "Move Pane to Workspace"
         case .movePanelLeft: "Move Panel Left"
         case .movePanelRight: "Move Panel Right"
@@ -134,8 +134,8 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .equalizeSplits: "⌃⇧="
         case .notePane: "⌃⇧F"
         case .flagPane: "⌃⇧G"
-        case .togglePersistentPanel: "⌘⌥P"
-        case .focusPersistentPanel: "⌘\\"
+        case .toggleDockedPanel: "⌘⌥P"
+        case .focusDockedPanel: "⌘\\"
         default: nil
         }
     }

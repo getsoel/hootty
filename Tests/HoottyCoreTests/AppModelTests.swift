@@ -147,7 +147,7 @@ struct AppModelTests {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()
         let pane1 = try #require(model.persistentNode?.firstPane())
-        let pane2 = Pane(name: "Pinned 2")
+        let pane2 = Pane(name: "Docked 2")
         model.persistentNode?.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
         model.persistentFocusedPaneID = pane1.id
 
@@ -162,7 +162,7 @@ struct AppModelTests {
         let model = TestHelpers.makeModel()
         model.togglePersistentPanel()
         let pane1 = try #require(model.persistentNode?.firstPane())
-        let pane2 = Pane(name: "Pinned 2")
+        let pane2 = Pane(name: "Docked 2")
         model.persistentNode?.splitPane(paneID: pane1.id, direction: .vertical, newPane: pane2)
         model.persistentFocusedPaneID = pane1.id
 

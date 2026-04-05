@@ -179,10 +179,10 @@ struct HoottyApp: App {
             appModel.configFile.ensureExists()
             NSWorkspace.shared.open(ConfigFile.defaultFileURL)
         }
-        commandRegistry.register(.togglePersistentPanel) { [appModel] in
+        commandRegistry.register(.toggleDockedPanel) { [appModel] in
             appModel.togglePersistentPanel()
         }
-        commandRegistry.register(.focusPersistentPanel) { [appModel] in
+        commandRegistry.register(.focusDockedPanel) { [appModel] in
             appModel.sidebarHasFocus = false
             if appModel.focusDomain == .persistent {
                 appModel.focusDomain = .workspace
@@ -193,7 +193,7 @@ struct HoottyApp: App {
                 appModel.focusDomain = .persistent
             }
         }
-        commandRegistry.register(.movePaneToPersistentPanel) { [appModel] in
+        commandRegistry.register(.movePaneToDockedPanel) { [appModel] in
             guard appModel.focusDomain == .workspace,
                   let workspace = appModel.selectedWorkspace,
                   let pane = workspace.focusedPane else { return }
@@ -400,13 +400,13 @@ struct HoottyApp: App {
 
                 Divider()
 
-                Button(appModel.persistentPanelVisible ? "Hide Persistent Panel" : "Show Persistent Panel") {
-                    commandRegistry.execute(.togglePersistentPanel)
+                Button(appModel.persistentPanelVisible ? "Hide Docked Panel" : "Show Docked Panel") {
+                    commandRegistry.execute(.toggleDockedPanel)
                 }
                 .keyboardShortcut("p", modifiers: [.command, .option])
 
-                Button(AppCommand.focusPersistentPanel.title) {
-                    commandRegistry.execute(.focusPersistentPanel)
+                Button(AppCommand.focusDockedPanel.title) {
+                    commandRegistry.execute(.focusDockedPanel)
                 }
                 .keyboardShortcut("\\", modifiers: .command)
             }

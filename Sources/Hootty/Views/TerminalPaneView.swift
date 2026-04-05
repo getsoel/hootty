@@ -13,6 +13,14 @@ private struct ModalIsOpenKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct DockPositionKey: EnvironmentKey {
+    static let defaultValue: PanelPosition? = nil
+}
+
+private struct SetDockPositionKey: EnvironmentKey {
+    static let defaultValue: ((PanelPosition) -> Void)? = nil
+}
+
 extension EnvironmentValues {
     var sidebarHasFocus: Bool {
         get { self[SidebarHasFocusKey.self] }
@@ -27,6 +35,16 @@ extension EnvironmentValues {
     var modalIsOpen: Bool {
         get { self[ModalIsOpenKey.self] }
         set { self[ModalIsOpenKey.self] = newValue }
+    }
+
+    var dockPosition: PanelPosition? {
+        get { self[DockPositionKey.self] }
+        set { self[DockPositionKey.self] = newValue }
+    }
+
+    var setDockPosition: ((PanelPosition) -> Void)? {
+        get { self[SetDockPositionKey.self] }
+        set { self[SetDockPositionKey.self] = newValue }
     }
 }
 

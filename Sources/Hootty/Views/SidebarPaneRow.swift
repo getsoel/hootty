@@ -104,7 +104,7 @@ struct SidebarPaneRow: View {
                 onRename(pane.id, pane.displayName)
             }
             if let onMoveToPinned {
-                Button("Move to Pinned") {
+                Button("Move to Docked") {
                     onMoveToPinned()
                 }
             }
