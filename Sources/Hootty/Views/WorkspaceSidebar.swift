@@ -608,26 +608,3 @@ struct WorkspaceSidebar: View {
             .frame(height: 1)
     }
 }
-
-/// Summary of the highest-priority attention state for a collapsed workspace row.
-enum WorkspaceAttentionSummary {
-    case thinking
-    case done
-    case bell
-
-    @MainActor static func summarize(panes: [Pane]) -> WorkspaceAttentionSummary? {
-        var hasDone = false
-        var hasBell = false
-        for pane in panes {
-            if pane.isThinking { return .thinking }
-            switch pane.attentionKind {
-            case .done: hasDone = true
-            case .bell: hasBell = true
-            case nil: break
-            }
-        }
-        if hasDone { return .done }
-        if hasBell { return .bell }
-        return nil
-    }
-}
