@@ -30,10 +30,17 @@ struct ContentView: View {
         return min(max(w, AppModel.sidebarMinWidth), AppModel.sidebarMaxWidth)
     }
 
-    /// Effective persistent panel width: base - in-flight drag delta (drag left = wider), clamped.
-    private var effectivePanelWidth: CGFloat {
-        let w = appModel.persistentPanelWidth - panelDragOffset
-        return min(max(w, AppModel.persistentPanelMinWidth), AppModel.persistentPanelMaxWidth)
+    /// Effective persistent panel size along the active axis, accounting for in-flight drag.
+    private var effectivePanelSize: CGFloat {
+        let position = appModel.persistentPanelPosition
+        let base = position.isHorizontal ? appModel.persistentPanelWidth : appModel.persistentPanelHeight
+        let minSize = position.isHorizontal ? AppModel.persistentPanelMinWidth : AppModel.persistentPanelMinHeight
+        let maxSize = position.isHorizontal ? AppModel.persistentPanelMaxWidth : AppModel.persistentPanelMaxHeight
+        let adjusted: CGFloat = switch position {
+        case .right, .bottom: base - panelDragOffset
+        case .left, .top: base + panelDragOffset
+        }
+        return min(max(adjusted, minSize), maxSize)
     }
 
     private var panelVisible: Bool {
@@ -62,6 +69,7 @@ struct ContentView: View {
         )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarMode)
         .animation(.easeInOut(duration: 0.2), value: panelVisible)
+        .animation(.easeInOut(duration: 0.2), value: appModel.persistentPanelPosition)
         .overlay {
             if appModel.modalState == .commandPalette {
                 CommandPaletteView(
@@ -335,6 +343,68 @@ struct ContentView: View {
         workspacesContent
     }
 
+    /// Compute layout frames for detail and panel areas based on panel position.
+    private struct PanelLayout {
+        var detailFrame: CGRect
+        var panelFrame: CGRect
+        var dividerFrame: CGRect
+        /// Frame for the invisible drag handle (wider/taller than divider for easier grabbing).
+        var dragHandleFrame: CGRect
+        var isHorizontalDivider: Bool
+    }
+
+    private func computePanelLayout(contentX: CGFloat, contentW: CGFloat, contentH: CGFloat) -> PanelLayout {
+        let position = appModel.persistentPanelPosition
+        let panelSize = panelVisible ? effectivePanelSize : 0
+        let dividerSize: CGFloat = panelVisible ? 1 : 0
+        let remaining = max(0, (position.isHorizontal ? contentW : contentH) - panelSize - dividerSize)
+
+        guard panelVisible else {
+            return PanelLayout(
+                detailFrame: CGRect(x: contentX, y: 0, width: contentW, height: contentH),
+                panelFrame: .zero, dividerFrame: .zero, dragHandleFrame: .zero,
+                isHorizontalDivider: false
+            )
+        }
+
+        switch position {
+        case .right:
+            let divX = contentX + remaining
+            return PanelLayout(
+                detailFrame: CGRect(x: contentX, y: 0, width: remaining, height: contentH),
+                panelFrame: CGRect(x: divX + 1, y: 0, width: panelSize, height: contentH),
+                dividerFrame: CGRect(x: divX, y: 0, width: 1, height: contentH),
+                dragHandleFrame: CGRect(x: divX - 7.5, y: 0, width: 16, height: contentH),
+                isHorizontalDivider: false
+            )
+        case .left:
+            return PanelLayout(
+                detailFrame: CGRect(x: contentX + panelSize + 1, y: 0, width: remaining, height: contentH),
+                panelFrame: CGRect(x: contentX, y: 0, width: panelSize, height: contentH),
+                dividerFrame: CGRect(x: contentX + panelSize, y: 0, width: 1, height: contentH),
+                dragHandleFrame: CGRect(x: contentX + panelSize - 7.5, y: 0, width: 16, height: contentH),
+                isHorizontalDivider: false
+            )
+        case .bottom:
+            let divY = remaining
+            return PanelLayout(
+                detailFrame: CGRect(x: contentX, y: 0, width: contentW, height: remaining),
+                panelFrame: CGRect(x: contentX, y: divY + 1, width: contentW, height: panelSize),
+                dividerFrame: CGRect(x: contentX, y: divY, width: contentW, height: 1),
+                dragHandleFrame: CGRect(x: contentX, y: divY - 7.5, width: contentW, height: 16),
+                isHorizontalDivider: true
+            )
+        case .top:
+            return PanelLayout(
+                detailFrame: CGRect(x: contentX, y: panelSize + 1, width: contentW, height: remaining),
+                panelFrame: CGRect(x: contentX, y: 0, width: contentW, height: panelSize),
+                dividerFrame: CGRect(x: contentX, y: panelSize, width: contentW, height: 1),
+                dragHandleFrame: CGRect(x: contentX, y: panelSize - 7.5, width: contentW, height: 16),
+                isHorizontalDivider: true
+            )
+        }
+    }
+
     private var workspacesContent: some View {
         GeometryReader { geometry in
             let sidebarW: CGFloat = switch appModel.sidebarMode {
@@ -343,118 +413,128 @@ struct ContentView: View {
             case .hidden: 0
             }
             let dividerW: CGFloat = appModel.sidebarMode != .hidden ? 1 : 0
-            let detailX = sidebarW + dividerW
+            let contentX = sidebarW + dividerW
             let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
-            let panelW = panelVisible ? effectivePanelWidth : 0
-            let panelDividerW: CGFloat = panelVisible ? 1 : 0
-            let detailW = max(0, fullWidth - detailX - panelW - panelDividerW)
-            let panelDividerX = detailX + detailW
-            let panelX = panelDividerX + panelDividerW
+            let contentW = max(0, fullWidth - contentX)
+            let contentH = geometry.size.height
+            let layout = computePanelLayout(contentX: contentX, contentW: contentW, contentH: contentH)
 
             ZStack(alignment: .topLeading) {
                 // Sidebar
                 if appModel.sidebarMode != .hidden {
                     sidebarContent
-                        .frame(width: sidebarW, height: geometry.size.height)
+                        .frame(width: sidebarW, height: contentH)
 
                     // Visible 1px divider line
                     Rectangle()
                         .fill(Color(tokens.border))
-                        .frame(width: 1, height: geometry.size.height)
+                        .frame(width: 1, height: contentH)
                         .offset(x: sidebarW)
 
                     // Invisible wide drag handle overlaying the divider (full mode only)
                     if appModel.sidebarMode == .full {
-                        Color.clear
-                            .frame(width: 16, height: geometry.size.height)
-                            .contentShape(Rectangle())
-                            .offset(x: sidebarW - 7.5)
-                            .onContinuousHover { phase in
-                                switch phase {
-                                case .active:
-                                    DispatchQueue.main.async {
-                                        NSCursor.resizeLeftRight.set()
-                                    }
-                                case .ended:
-                                    DispatchQueue.main.async {
-                                        NSCursor.arrow.set()
-                                    }
-                                }
-                            }
-                            .gesture(
-                                DragGesture(minimumDistance: 0)
-                                    .updating($dragOffset) { value, state, _ in
-                                        state = value.translation.width
-                                    }
-                                    .onEnded { value in
-                                        let newWidth = appModel.sidebarWidth + value.translation.width
-                                        appModel.sidebarWidth = min(
-                                            max(newWidth, AppModel.sidebarMinWidth),
-                                            AppModel.sidebarMaxWidth
-                                        )
-                                        appModel.debouncedSave()
-                                    }
-                            )
+                        sidebarDragHandle(sidebarW: sidebarW, contentH: contentH)
                     }
                 }
 
                 // Detail area
                 detailView
-                    .frame(
-                        width: detailW,
-                        height: geometry.size.height
-                    )
-                    .offset(x: detailX)
+                    .frame(width: layout.detailFrame.width, height: layout.detailFrame.height)
+                    .offset(x: layout.detailFrame.origin.x, y: layout.detailFrame.origin.y)
 
                 // Persistent panel
                 if panelVisible {
-                    // Visible 1px divider
-                    Rectangle()
-                        .fill(Color(tokens.border))
-                        .frame(width: 1, height: geometry.size.height)
-                        .offset(x: panelDividerX)
+                    panelDividerAndHandle(layout: layout)
 
-                    // Invisible wide drag handle
-                    Color.clear
-                        .frame(width: 16, height: geometry.size.height)
-                        .contentShape(Rectangle())
-                        .offset(x: panelDividerX - 7.5)
-                        .onContinuousHover { phase in
-                            switch phase {
-                            case .active:
-                                DispatchQueue.main.async {
-                                    NSCursor.resizeLeftRight.set()
-                                }
-                            case .ended:
-                                DispatchQueue.main.async {
-                                    NSCursor.arrow.set()
-                                }
-                            }
-                        }
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .updating($panelDragOffset) { value, state, _ in
-                                    state = value.translation.width
-                                }
-                                .onEnded { value in
-                                    let newWidth = appModel.persistentPanelWidth - value.translation.width
-                                    appModel.persistentPanelWidth = min(
-                                        max(newWidth, AppModel.persistentPanelMinWidth),
-                                        AppModel.persistentPanelMaxWidth
-                                    )
-                                    appModel.debouncedSave()
-                                }
-                        )
-
-                    // Panel content
                     persistentPanelView
-                        .frame(width: panelW, height: geometry.size.height)
-                        .offset(x: panelX)
+                        .frame(width: layout.panelFrame.width, height: layout.panelFrame.height)
+                        .offset(x: layout.panelFrame.origin.x, y: layout.panelFrame.origin.y)
                 }
             }
             .frame(width: fullWidth, alignment: .topLeading)
             .clipped()
         }
+    }
+
+    private func sidebarDragHandle(sidebarW: CGFloat, contentH: CGFloat) -> some View {
+        Color.clear
+            .frame(width: 16, height: contentH)
+            .contentShape(Rectangle())
+            .offset(x: sidebarW - 7.5)
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    DispatchQueue.main.async { NSCursor.resizeLeftRight.set() }
+                case .ended:
+                    DispatchQueue.main.async { NSCursor.arrow.set() }
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($dragOffset) { value, state, _ in
+                        state = value.translation.width
+                    }
+                    .onEnded { value in
+                        let newWidth = appModel.sidebarWidth + value.translation.width
+                        appModel.sidebarWidth = min(
+                            max(newWidth, AppModel.sidebarMinWidth),
+                            AppModel.sidebarMaxWidth
+                        )
+                        appModel.debouncedSave()
+                    }
+            )
+    }
+
+    @ViewBuilder
+    private func panelDividerAndHandle(layout: PanelLayout) -> some View {
+        let cursor: NSCursor = layout.isHorizontalDivider ? .resizeUpDown : .resizeLeftRight
+
+        // Visible 1px divider
+        Rectangle()
+            .fill(Color(tokens.border))
+            .frame(width: layout.dividerFrame.width, height: layout.dividerFrame.height)
+            .offset(x: layout.dividerFrame.origin.x, y: layout.dividerFrame.origin.y)
+
+        // Invisible wide drag handle
+        Color.clear
+            .frame(width: layout.dragHandleFrame.width, height: layout.dragHandleFrame.height)
+            .contentShape(Rectangle())
+            .offset(x: layout.dragHandleFrame.origin.x, y: layout.dragHandleFrame.origin.y)
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    DispatchQueue.main.async { cursor.set() }
+                case .ended:
+                    DispatchQueue.main.async { NSCursor.arrow.set() }
+                }
+            }
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($panelDragOffset) { value, state, _ in
+                        state = appModel.persistentPanelPosition.isHorizontal
+                            ? value.translation.width
+                            : value.translation.height
+                    }
+                    .onEnded { value in
+                        let position = appModel.persistentPanelPosition
+                        if position.isHorizontal {
+                            let delta = position == .right ? -value.translation.width : value.translation.width
+                            let newWidth = appModel.persistentPanelWidth + delta
+                            appModel.persistentPanelWidth = min(
+                                max(newWidth, AppModel.persistentPanelMinWidth),
+                                AppModel.persistentPanelMaxWidth
+                            )
+                        } else {
+                            let delta = position == .bottom ? -value.translation.height : value.translation.height
+                            let newHeight = appModel.persistentPanelHeight + delta
+                            appModel.persistentPanelHeight = min(
+                                max(newHeight, AppModel.persistentPanelMinHeight),
+                                AppModel.persistentPanelMaxHeight
+                            )
+                        }
+                        appModel.debouncedSave()
+                    }
+            )
     }
 
     @ViewBuilder

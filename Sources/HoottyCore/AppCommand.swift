@@ -60,6 +60,10 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case focusPersistentPanel
     case movePaneToPersistentPanel
     case movePaneToWorkspace
+    case movePanelLeft
+    case movePanelRight
+    case movePanelTop
+    case movePanelBottom
 
     public var id: String {
         rawValue
@@ -100,6 +104,10 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .focusPersistentPanel: "Focus Persistent Panel"
         case .movePaneToPersistentPanel: "Move Pane to Pinned"
         case .movePaneToWorkspace: "Move Pane to Workspace"
+        case .movePanelLeft: "Move Panel Left"
+        case .movePanelRight: "Move Panel Right"
+        case .movePanelTop: "Move Panel Top"
+        case .movePanelBottom: "Move Panel Bottom"
         }
     }
 

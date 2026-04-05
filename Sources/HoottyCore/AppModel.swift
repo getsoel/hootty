@@ -18,7 +18,9 @@ public final class AppModel {
 
     public var persistentNode: SplitNode?
     public var persistentPanelVisible: Bool = false
-    public var persistentPanelWidth: CGFloat = 400
+    public var persistentPanelWidth: CGFloat = AppModel.defaultPanelWidth
+    public var persistentPanelHeight: CGFloat = AppModel.defaultPanelHeight
+    public var persistentPanelPosition: PanelPosition = AppModel.defaultPanelPosition
     public var persistentFocusedPaneID: UUID?
     public var persistentSidebarCollapsed: Bool = false
     public var focusDomain: FocusDomain = .workspace
@@ -38,8 +40,13 @@ public final class AppModel {
 
     public static let sidebarMinWidth: CGFloat = 200
     public static let sidebarMaxWidth: CGFloat = 400
+    public static let defaultPanelWidth: CGFloat = 400
+    public static let defaultPanelHeight: CGFloat = 300
+    public static let defaultPanelPosition: PanelPosition = .right
     public static let persistentPanelMinWidth: CGFloat = 200
     public static let persistentPanelMaxWidth: CGFloat = 600
+    public static let persistentPanelMinHeight: CGFloat = 150
+    public static let persistentPanelMaxHeight: CGFloat = 500
     public nonisolated static let persistentWorkspaceID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
@@ -85,6 +92,12 @@ public final class AppModel {
             if let width = snapshot.persistentPanelWidth {
                 self.persistentPanelWidth = width
             }
+            if let height = snapshot.persistentPanelHeight {
+                self.persistentPanelHeight = height
+            }
+            if let position = snapshot.persistentPanelPosition {
+                self.persistentPanelPosition = position
+            }
         } else {
             let workspace = addWorkspace()
             self.selectedWorkspaceID = workspace.id
@@ -107,7 +120,9 @@ public final class AppModel {
             collapsedWorkspaceIDs: collapsedWorkspaceIDs.isEmpty ? nil : collapsedWorkspaceIDs,
             persistentNode: persistentNode,
             persistentPanelVisible: persistentPanelVisible ? true : nil,
-            persistentPanelWidth: persistentPanelWidth != 400 ? persistentPanelWidth : nil
+            persistentPanelWidth: persistentPanelWidth != Self.defaultPanelWidth ? persistentPanelWidth : nil,
+            persistentPanelHeight: persistentPanelHeight != Self.defaultPanelHeight ? persistentPanelHeight : nil,
+            persistentPanelPosition: persistentPanelPosition != Self.defaultPanelPosition ? persistentPanelPosition : nil
         )
         workspaceStore.save(snapshot)
     }
@@ -251,7 +266,9 @@ public final class AppModel {
         sidebarMode = .full
         persistentNode = nil
         persistentPanelVisible = false
-        persistentPanelWidth = 400
+        persistentPanelWidth = Self.defaultPanelWidth
+        persistentPanelHeight = Self.defaultPanelHeight
+        persistentPanelPosition = Self.defaultPanelPosition
         persistentFocusedPaneID = nil
         focusDomain = .workspace
         let workspace = addWorkspace()
@@ -288,6 +305,11 @@ public final class AppModel {
     }
 
     // MARK: - Persistent Panel
+
+    public func setPanelPosition(_ position: PanelPosition) {
+        persistentPanelPosition = position
+        saveWorkspaces()
+    }
 
     public func togglePersistentPanel() {
         if persistentPanelVisible {
@@ -379,27 +401,31 @@ public final class AppModel {
         // Map both domain rects into a shared coordinate space (approximate; actual
         // window geometry isn't available in the model layer, but the ratio only
         // affects edge-case tie-breaking between candidates).
-        let panelFraction = persistentPanelWidth / (persistentPanelWidth + 800)
+        let panelSize = persistentPanelPosition.isHorizontal ? persistentPanelWidth : persistentPanelHeight
+        let panelFraction = panelSize / (panelSize + 800)
         let workspaceFraction = 1.0 - panelFraction
 
         var combinedRects: [UUID: CGRect] = [:]
+        let horizontal = persistentPanelPosition.isHorizontal
+        let panelFirst = (persistentPanelPosition == .left || persistentPanelPosition == .top)
+        let wsOffset: CGFloat = panelFirst ? panelFraction : 0
+        let pOffset: CGFloat = panelFirst ? 0 : workspaceFraction
+
         if let workspace = selectedWorkspace {
             for (id, rect) in workspace.rootNode.paneRects() {
-                combinedRects[id] = CGRect(
-                    x: rect.origin.x * workspaceFraction,
-                    y: rect.origin.y,
-                    width: rect.width * workspaceFraction,
-                    height: rect.height
-                )
+                combinedRects[id] = horizontal
+                    ? CGRect(x: wsOffset + rect.origin.x * workspaceFraction, y: rect.origin.y,
+                             width: rect.width * workspaceFraction, height: rect.height)
+                    : CGRect(x: rect.origin.x, y: wsOffset + rect.origin.y * workspaceFraction,
+                             width: rect.width, height: rect.height * workspaceFraction)
             }
         }
         for (id, rect) in persistentNode.paneRects() {
-            combinedRects[id] = CGRect(
-                x: workspaceFraction + rect.origin.x * panelFraction,
-                y: rect.origin.y,
-                width: rect.width * panelFraction,
-                height: rect.height
-            )
+            combinedRects[id] = horizontal
+                ? CGRect(x: pOffset + rect.origin.x * panelFraction, y: rect.origin.y,
+                         width: rect.width * panelFraction, height: rect.height)
+                : CGRect(x: rect.origin.x, y: pOffset + rect.origin.y * panelFraction,
+                         width: rect.width, height: rect.height * panelFraction)
         }
 
         guard let bestID = FocusDirection.nearestPane(from: currentID, in: combinedRects, direction: direction) else { return }

@@ -1307,6 +1307,30 @@ struct PersistentPanelPersistenceIntegration {
         #expect(restored.persistentPanelVisible == false)
         #expect(restored.persistentPanelWidth == 400)
     }
+
+    @Test func panelPositionPersistsAcrossReload() {
+        let (model, url) = makeModel()
+        model.togglePersistentPanel()
+        model.setPanelPosition(.bottom)
+        model.persistentPanelHeight = 350
+        model.saveWorkspaces()
+
+        let restored = reloadModel(from: url)
+        #expect(restored.persistentPanelPosition == .bottom)
+        #expect(restored.persistentPanelHeight == 350)
+        #expect(restored.persistentPanelVisible == true)
+    }
+
+    @Test func defaultPositionNotWrittenToSnapshot() {
+        let (model, url) = makeModel()
+        model.togglePersistentPanel()
+        // Position stays .right (default), height stays 300 (default) — not written to JSON
+        model.saveWorkspaces()
+
+        let restored = reloadModel(from: url)
+        #expect(restored.persistentPanelPosition == .right)
+        #expect(restored.persistentPanelHeight == 300)
+    }
 }
 
 // MARK: - Suite: Pane Movement

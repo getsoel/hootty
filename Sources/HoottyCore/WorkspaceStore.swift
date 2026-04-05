@@ -10,6 +10,8 @@ public struct WorkspaceSnapshot: Codable {
     public var persistentNode: SplitNode?
     public var persistentPanelVisible: Bool?
     public var persistentPanelWidth: CGFloat?
+    public var persistentPanelHeight: CGFloat?
+    public var persistentPanelPosition: PanelPosition?
 
     /// Legacy field for backward-compatible decoding only. Not written on new saves.
     public var sidebarVisible: Bool?
@@ -22,7 +24,9 @@ public struct WorkspaceSnapshot: Codable {
         collapsedWorkspaceIDs: Set<UUID>? = nil,
         persistentNode: SplitNode? = nil,
         persistentPanelVisible: Bool? = nil,
-        persistentPanelWidth: CGFloat? = nil
+        persistentPanelWidth: CGFloat? = nil,
+        persistentPanelHeight: CGFloat? = nil,
+        persistentPanelPosition: PanelPosition? = nil
     ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
@@ -32,11 +36,14 @@ public struct WorkspaceSnapshot: Codable {
         self.persistentNode = persistentNode
         self.persistentPanelVisible = persistentPanelVisible
         self.persistentPanelWidth = persistentPanelWidth
+        self.persistentPanelHeight = persistentPanelHeight
+        self.persistentPanelPosition = persistentPanelPosition
     }
 
     private enum CodingKeys: String, CodingKey {
         case workspaces, selectedWorkspaceID, sidebarWidth, sidebarMode, sidebarVisible
         case collapsedWorkspaceIDs, persistentNode, persistentPanelVisible, persistentPanelWidth
+        case persistentPanelHeight, persistentPanelPosition
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -50,6 +57,8 @@ public struct WorkspaceSnapshot: Codable {
         try container.encodeIfPresent(persistentNode, forKey: .persistentNode)
         try container.encodeIfPresent(persistentPanelVisible, forKey: .persistentPanelVisible)
         try container.encodeIfPresent(persistentPanelWidth, forKey: .persistentPanelWidth)
+        try container.encodeIfPresent(persistentPanelHeight, forKey: .persistentPanelHeight)
+        try container.encodeIfPresent(persistentPanelPosition, forKey: .persistentPanelPosition)
     }
 }
 

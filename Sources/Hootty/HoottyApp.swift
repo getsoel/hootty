@@ -205,6 +205,10 @@ struct HoottyApp: App {
                   let workspace = appModel.selectedWorkspace else { return }
             appModel.movePaneToWorkspace(paneID: pane.id, workspaceID: workspace.id)
         }
+        commandRegistry.register(.movePanelLeft) { [appModel] in appModel.setPanelPosition(.left) }
+        commandRegistry.register(.movePanelRight) { [appModel] in appModel.setPanelPosition(.right) }
+        commandRegistry.register(.movePanelTop) { [appModel] in appModel.setPanelPosition(.top) }
+        commandRegistry.register(.movePanelBottom) { [appModel] in appModel.setPanelPosition(.bottom) }
         // Wire the registry into GhosttyApp for action callback routing
         GhosttyApp.shared.commandRegistry = commandRegistry
     }
