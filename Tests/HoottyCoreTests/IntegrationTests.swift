@@ -155,7 +155,6 @@ struct MultiWorkspaceIntegration {
     @Test func sidebarStatePersistsAlongsideWorkspaces() {
         let (model, url) = makeModel()
         model.toggleSidebar() // full → condensed
-        model.toggleSidebar() // condensed → hidden
         model.sidebarWidth = 300
         _ = model.addWorkspace()
         let ws3 = model.addWorkspace()
@@ -163,7 +162,7 @@ struct MultiWorkspaceIntegration {
         model.saveWorkspaces()
 
         let restored = reloadModel(from: url)
-        #expect(restored.sidebarMode == .hidden)
+        #expect(restored.sidebarMode == .condensed)
         #expect(restored.sidebarWidth == 300)
         #expect(restored.workspaces.count == 3)
         #expect(restored.workspaces[0].id == ws3.id)

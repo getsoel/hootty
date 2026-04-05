@@ -479,4 +479,21 @@ struct WorkspaceTests {
         let ws = Workspace(name: "Test")
         #expect(ws.hasBranchSections == false)
     }
+
+    @Test func sidebarSectionsOrphanedWorktreeNotDropped() {
+        let repo = "/Users/test/project"
+        let worktreePath = "/Users/test/project/.worktrees/feature-x"
+        let pA = Pane(name: "A", branch: "feature-x", repoRoot: repo, worktreePath: worktreePath)
+        let ws = Workspace(
+            id: UUID(), name: "Test",
+            rootNode: SplitNode(pane: pA),
+            focusedPaneID: pA.id
+        )
+
+        let sections = ws.sidebarSections
+        #expect(sections.count == 1)
+        #expect(sections[0].branch == "feature-x")
+        #expect(sections[0].panes.count == 1)
+        #expect(sections[0].panes[0].id == pA.id)
+    }
 }

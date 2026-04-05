@@ -200,7 +200,8 @@ struct ContentView: View {
             },
             onMovePaneToPinned: { paneID in
                 appModel.movePaneToPersistentPanel(paneID: paneID)
-            }
+            },
+            onToggleSidebar: { appModel.toggleSidebar() }
         )
     }
 
@@ -234,7 +235,9 @@ struct ContentView: View {
             },
             onMovePaneToWorkspace: { paneID, workspaceID in
                 appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
-            }
+            },
+            sidebarHasFocus: $appModel.sidebarHasFocus,
+            sidebarCursorTarget: $sidebarCursorTarget
         )
     }
 

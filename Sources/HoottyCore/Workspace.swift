@@ -207,12 +207,18 @@ public final class Workspace: Identifiable {
         ungroupedPanes: [Pane]
     ) -> [SidebarSection] {
         var result: [SidebarSection] = []
+        var emittedRepoRoots: Set<String> = []
         for headSection in headSections {
             result.append(headSection)
             if let root = headSection.repoRoot,
                let worktrees = worktreeSectionsByRepo[root] {
                 result.append(contentsOf: worktrees)
+                emittedRepoRoots.insert(root)
             }
+        }
+        // Append orphaned worktree sections (no HEAD pane in this workspace)
+        for (root, worktrees) in worktreeSectionsByRepo where !emittedRepoRoots.contains(root) {
+            result.append(contentsOf: worktrees)
         }
         result.append(contentsOf: otherSections)
         if !ungroupedPanes.isEmpty {

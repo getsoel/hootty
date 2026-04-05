@@ -142,7 +142,6 @@ struct HoottyApp: App {
             appModel.toggleSidebar()
         }
         commandRegistry.register(.focusSidebar) { [appModel] in
-            appModel.sidebarMode = .full
             appModel.sidebarHasFocus = true
         }
         commandRegistry.register(.toggleCommandPalette) { [appModel] in

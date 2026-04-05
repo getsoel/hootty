@@ -78,9 +78,6 @@ struct WorkspaceStoreTests {
         #expect(model.sidebarMode == .condensed)
 
         model.toggleSidebar()
-        #expect(model.sidebarMode == .hidden)
-
-        model.toggleSidebar()
         #expect(model.sidebarMode == .full)
     }
 

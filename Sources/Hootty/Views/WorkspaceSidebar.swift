@@ -50,6 +50,7 @@ struct WorkspaceSidebar: View {
     var onCloseAllPersistentPanes: (() -> Void)?
     var onMovePaneToWorkspace: ((UUID, UUID) -> Void)?
     var onMovePaneToPinned: ((UUID) -> Void)?
+    var onToggleSidebar: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -116,6 +117,14 @@ struct WorkspaceSidebar: View {
             Spacer(minLength: 0)
 
             HStack(spacing: Spacing.xs) {
+                BarIconButton(
+                    systemImage: "sidebar.left",
+                    tokens: tokens,
+                    accessibilityLabel: "Toggle Sidebar",
+                    help: "Toggle Sidebar",
+                    action: { onToggleSidebar?() }
+                )
+
                 BarIconButton(
                     systemImage: "squareshape.split.2x2",
                     tokens: tokens,
@@ -237,7 +246,6 @@ struct WorkspaceSidebar: View {
                                 isSelected: isActive,
                                 isCollapsed: collapsed,
                                 isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(workspace.id),
-                                summaryAttention: collapsed ? workspaceAttentionSummary(workspace) : nil,
                                 tokens: tokens,
                                 onSelect: { selectedWorkspaceID = workspace.id },
                                 onRename: { id, name in
@@ -384,12 +392,6 @@ struct WorkspaceSidebar: View {
         }
     }
 
-    // MARK: - Attention Summary
-
-    private func workspaceAttentionSummary(_ workspace: Workspace) -> WorkspaceAttentionSummary? {
-        WorkspaceAttentionSummary.summarize(panes: workspace.allPanes)
-    }
-
     // MARK: - Rename
 
     private func commitRename() {
@@ -521,15 +523,6 @@ struct WorkspaceSidebar: View {
                     .font(.system(size: TypeScale.captionSize))
                     .foregroundStyle(Color(tokens.textMuted))
 
-                if let summary = persistentAttentionSummary, persistentSidebarCollapsed {
-                    StatusDotView(
-                        attentionKind: summary == .done ? .done : summary == .bell ? .bell : nil,
-                        isThinking: summary == .thinking,
-                        isClaudeSession: false,
-                        tokens: tokens
-                    )
-                }
-
                 Text("Pinned")
                     .font(.system(size: TypeScale.bodySize))
                     .foregroundStyle(Color(tokens.text))
@@ -613,11 +606,6 @@ struct WorkspaceSidebar: View {
         Rectangle()
             .fill(Color(tokens.border))
             .frame(height: 1)
-    }
-
-    private var persistentAttentionSummary: WorkspaceAttentionSummary? {
-        guard let panes = persistentNode?.allPanes() else { return nil }
-        return WorkspaceAttentionSummary.summarize(panes: panes)
     }
 }
 

@@ -189,7 +189,7 @@ public enum Layout {
     public static let barHeight: CGFloat = 38
 
     /// Fixed width for the condensed sidebar icon rail.
-    public static let condensedSidebarWidth: CGFloat = 48
+    public static let condensedSidebarWidth: CGFloat = 38
 
     /// Small element rounding (cards, inputs, badges, hover backgrounds).
     public static let cornerRadiusSm: CGFloat = 4

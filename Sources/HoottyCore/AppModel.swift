@@ -266,8 +266,7 @@ public final class AppModel {
     public func toggleSidebar() {
         switch sidebarMode {
         case .full: sidebarMode = .condensed
-        case .condensed: sidebarMode = .hidden
-        case .hidden: sidebarMode = .full
+        case .condensed, .hidden: sidebarMode = .full
         }
         saveWorkspaces()
     }

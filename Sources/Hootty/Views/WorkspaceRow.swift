@@ -7,7 +7,6 @@ struct WorkspaceRow: View {
     let isSelected: Bool
     let isCollapsed: Bool
     let isCursorTarget: Bool
-    let summaryAttention: WorkspaceAttentionSummary?
     let tokens: DesignTokens
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
@@ -22,7 +21,7 @@ struct WorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: isCollapsed ? "folder.fill" : "folder")
+            Image(systemName: isCollapsed ? "folder" : "folder.fill")
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
@@ -32,15 +31,6 @@ struct WorkspaceRow: View {
                         onToggleCollapse()
                     }
                 }
-
-            if let summary = summaryAttention {
-                StatusDotView(
-                    attentionKind: summary == .done ? .done : summary == .bell ? .bell : nil,
-                    isThinking: summary == .thinking,
-                    isClaudeSession: false,
-                    tokens: tokens
-                )
-            }
 
             Text(workspace.name)
                 .font(.system(size: TypeScale.bodySize))
