@@ -17,6 +17,7 @@ struct CondensedSidebar: View {
     let activeSidebarFilters: Set<SidebarFilter>
     @Binding var sidebarHasFocus: Bool
     @Binding var sidebarCursorTarget: SidebarCursorTarget?
+    var pinnedWorkspaceID: UUID?
 
     @FocusState private var isFocused: Bool
     @State private var renameTargetID: UUID?
@@ -93,13 +94,24 @@ struct CondensedSidebar: View {
         }
     }
 
+    private var sortedWorkspaces: [Workspace] {
+        guard let pinnedID = pinnedWorkspaceID,
+              let idx = workspaces.firstIndex(where: { $0.id == pinnedID }) else {
+            return workspaces
+        }
+        var result = workspaces
+        let pinned = result.remove(at: idx)
+        result.insert(pinned, at: 0)
+        return result
+    }
+
     // MARK: - Scroll Content
 
     private var scrollContent: some View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(workspaces) { workspace in
+                    ForEach(sortedWorkspaces) { workspace in
                         workspaceSection(workspace)
                     }
                 }
@@ -275,7 +287,7 @@ struct CondensedSidebar: View {
     private func moveCursor(direction: Int) {
         sidebarCursorTarget = SidebarKeyboardNav.moveCursor(
             direction: direction,
-            workspaces: workspaces,
+            workspaces: sortedWorkspaces,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
             currentTarget: sidebarCursorTarget,

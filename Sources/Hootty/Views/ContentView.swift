@@ -195,7 +195,8 @@ struct ContentView: View {
             collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs,
             activeSidebarFilters: appModel.activeSidebarFilters,
             sidebarHasFocus: $appModel.sidebarHasFocus,
-            sidebarCursorTarget: $sidebarCursorTarget
+            sidebarCursorTarget: $sidebarCursorTarget,
+            pinnedWorkspaceID: appModel.pinnedWorkspaceID
         )
     }
 

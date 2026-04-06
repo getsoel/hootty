@@ -203,7 +203,7 @@ struct WorkspaceSidebar: View {
 
     private var scrollTargetIDs: [UUID] {
         var ids: [UUID] = []
-        for workspace in workspaces {
+        for workspace in sortedWorkspaces {
             ids.append(workspace.id)
             if !isEffectivelyCollapsed(workspace.id) {
                 let isSelectedWs = workspace.id == selectedWorkspaceID
@@ -424,7 +424,7 @@ struct WorkspaceSidebar: View {
     private func moveCursor(direction: Int) {
         sidebarCursorTarget = SidebarKeyboardNav.moveCursor(
             direction: direction,
-            workspaces: workspaces,
+            workspaces: sortedWorkspaces,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
             currentTarget: sidebarCursorTarget,
