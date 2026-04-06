@@ -55,15 +55,9 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
 
     case clearSidebarFilters
 
-    // Docked panel
-    case toggleDockedPanel
-    case focusDockedPanel
-    case movePaneToDockedPanel
-    case movePaneToWorkspace
-    case movePanelLeft
-    case movePanelRight
-    case movePanelTop
-    case movePanelBottom
+    // Pin workspace
+    case pinWorkspace
+    case focusPinnedWorkspace
 
     public var id: String {
         rawValue
@@ -100,14 +94,8 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .collapseAllWorkspaces: "Collapse All Workspaces"
         case .expandAllWorkspaces: "Expand All Workspaces"
         case .clearSidebarFilters: "Clear Sidebar Filters"
-        case .toggleDockedPanel: "Toggle Docked Panel"
-        case .focusDockedPanel: "Focus Docked Panel"
-        case .movePaneToDockedPanel: "Move Pane to Docked"
-        case .movePaneToWorkspace: "Move Pane to Workspace"
-        case .movePanelLeft: "Move Panel Left"
-        case .movePanelRight: "Move Panel Right"
-        case .movePanelTop: "Move Panel Top"
-        case .movePanelBottom: "Move Panel Bottom"
+        case .pinWorkspace: "Pin/Unpin Workspace"
+        case .focusPinnedWorkspace: "Focus Pinned Workspace"
         }
     }
 
@@ -134,8 +122,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .equalizeSplits: "⌃⇧="
         case .notePane: "⌃⇧F"
         case .flagPane: "⌃⇧G"
-        case .toggleDockedPanel: "⌘⌥P"
-        case .focusDockedPanel: "⌘\\"
+        case .focusPinnedWorkspace: "⌘\\"
         default: nil
         }
     }

@@ -8,10 +8,12 @@ struct WorkspaceRow: View {
     let isCollapsed: Bool
     let isCursorTarget: Bool
     let tokens: DesignTokens
+    var isPinned: Bool = false
     var onSelect: () -> Void
     var onRename: (UUID, String) -> Void
     var onRemove: (UUID) -> Void
     var onToggleCollapse: () -> Void
+    var onTogglePinWorkspace: (() -> Void)?
     var onMove: (UUID, VerticalEdge?) -> Void
     @Binding var dropTargetWorkspaceID: UUID?
     @Binding var dropEdge: VerticalEdge?
@@ -36,6 +38,11 @@ struct WorkspaceRow: View {
                 .font(.system(size: TypeScale.bodySize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
+
+            Image(systemName: "pin.fill")
+                .font(.system(size: TypeScale.captionSize))
+                .foregroundStyle(Color(tokens.textMuted))
+                .opacity(isPinned ? 1 : 0)
 
             Spacer(minLength: 0)
         }
@@ -95,6 +102,9 @@ struct WorkspaceRow: View {
         .contextMenu {
             Button("Rename Workspace") {
                 onRename(workspace.id, workspace.name)
+            }
+            Button(isPinned ? "Unpin Workspace" : "Pin Workspace") {
+                onTogglePinWorkspace?()
             }
             Button(isCollapsed ? "Expand" : "Collapse") {
                 onToggleCollapse()

@@ -29,26 +29,9 @@ public enum SidebarKeyboardNav {
         workspaces: [Workspace],
         collapsedWorkspaceIDs: Set<UUID>,
         selectedWorkspaceID: UUID?,
-        activeFilters: Set<SidebarFilter> = [],
-        persistentNode: SplitNode? = nil,
-        persistentSidebarCollapsed: Bool = false,
-        persistentFocusedPaneID: UUID? = nil
+        activeFilters: Set<SidebarFilter> = []
     ) -> [SidebarNavItem] {
         var items: [SidebarNavItem] = []
-
-        // Persistent pseudo-workspace at top
-        if let node = persistentNode {
-            let persistentID = AppModel.persistentWorkspaceID
-            items.append(.workspace(persistentID))
-            if !persistentSidebarCollapsed {
-                for pane in node.allPanes() where pane.isVisibleInSidebar(
-                    isFocusedInSelectedWorkspace: pane.id == persistentFocusedPaneID,
-                    filters: activeFilters
-                ) {
-                    items.append(.pane(workspaceID: persistentID, paneID: pane.id))
-                }
-            }
-        }
 
         for ws in workspaces {
             items.append(.workspace(ws.id))
@@ -70,19 +53,13 @@ public enum SidebarKeyboardNav {
         collapsedWorkspaceIDs: Set<UUID>,
         selectedWorkspaceID: UUID?,
         currentTarget: SidebarCursorTarget?,
-        activeFilters: Set<SidebarFilter> = [],
-        persistentNode: SplitNode? = nil,
-        persistentSidebarCollapsed: Bool = false,
-        persistentFocusedPaneID: UUID? = nil
+        activeFilters: Set<SidebarFilter> = []
     ) -> SidebarCursorTarget? {
         let items = allNavigableItems(
             workspaces: workspaces,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
-            activeFilters: activeFilters,
-            persistentNode: persistentNode,
-            persistentSidebarCollapsed: persistentSidebarCollapsed,
-            persistentFocusedPaneID: persistentFocusedPaneID
+            activeFilters: activeFilters
         )
         guard !items.isEmpty else { return nil }
 
@@ -136,12 +113,8 @@ public enum SidebarKeyboardNav {
     /// Find the workspace ID that owns a given pane.
     public static func workspaceForPane(
         paneID: UUID,
-        workspaces: [Workspace],
-        persistentNode: SplitNode? = nil
+        workspaces: [Workspace]
     ) -> UUID? {
-        if let node = persistentNode, node.containsPane(id: paneID) {
-            return AppModel.persistentWorkspaceID
-        }
         for ws in workspaces where ws.findPane(id: paneID) != nil {
             return ws.id
         }

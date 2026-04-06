@@ -39,20 +39,9 @@ struct WorkspaceSidebar: View {
     let activeSidebarFilters: Set<SidebarFilter>
     var onToggleSidebarFilter: ((SidebarFilter) -> Void)?
     var onClearSidebarFilters: (() -> Void)?
-
-    // Persistent panel
-    var persistentNode: SplitNode?
-    var persistentFocusedPaneID: UUID?
-    @Binding var persistentSidebarCollapsed: Bool
-    var onSelectPersistentPane: ((UUID) -> Void)?
-    var onRemovePersistentPane: ((UUID) -> Void)?
-    var onNewPersistentPane: (() -> Void)?
-    var onCloseAllPersistentPanes: (() -> Void)?
-    var onMovePaneToWorkspace: ((UUID, UUID) -> Void)?
-    var onMovePaneToPinned: ((UUID) -> Void)?
     var onToggleSidebar: (() -> Void)?
-    var onToggleDockedPanel: (() -> Void)?
-    var dockedPanelVisible: Bool = false
+    var pinnedWorkspaceID: UUID?
+    var onTogglePinWorkspace: ((UUID) -> Void)?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -106,9 +95,7 @@ struct WorkspaceSidebar: View {
     }
 
     private var statusCounts: AttentionCounts {
-        let base = workspaces.reduce(.zero) { $0 + $1.attentionCounts }
-        guard let panes = persistentNode?.allPanes() else { return base }
-        return base + AttentionCounts(panes: panes, focusedPaneID: persistentFocusedPaneID)
+        workspaces.reduce(.zero) { $0 + $1.attentionCounts }
     }
 
     private var sidebarHeader: some View {
@@ -125,15 +112,6 @@ struct WorkspaceSidebar: View {
                     accessibilityLabel: "Toggle Sidebar",
                     help: "Toggle Sidebar",
                     action: { onToggleSidebar?() }
-                )
-
-                BarIconButton(
-                    systemImage: "dock.rectangle",
-                    tokens: tokens,
-                    accessibilityLabel: "Toggle Docked Panel",
-                    help: "Toggle Docked Panel",
-                    iconColor: dockedPanelVisible ? tokens.textAccent : tokens.textMuted,
-                    action: { onToggleDockedPanel?() }
                 )
 
                 BarIconButton(
@@ -239,23 +217,29 @@ struct WorkspaceSidebar: View {
         return ids
     }
 
-    private var workspaceList: some View {
-        VStack(spacing: 0) {
-            if persistentNode != nil {
-                persistentPanelSection
-            }
-
-            workspaceScrollView
+    private var sortedWorkspaces: [Workspace] {
+        guard let pinnedID = pinnedWorkspaceID,
+              let idx = workspaces.firstIndex(where: { $0.id == pinnedID }) else {
+            return workspaces
         }
+        var result = workspaces
+        let pinned = result.remove(at: idx)
+        result.insert(pinned, at: 0)
+        return result
+    }
+
+    private var workspaceList: some View {
+        workspaceScrollView
     }
 
     private var workspaceScrollView: some View {
         ScrollView {
             ScrollViewReader { proxy in
                 VStack(spacing: 0) {
-                    ForEach(workspaces) { workspace in
+                    ForEach(sortedWorkspaces) { workspace in
                         let isActive = workspace.id == selectedWorkspaceID
                         let collapsed = isEffectivelyCollapsed(workspace.id)
+                        let isPinned = workspace.id == pinnedWorkspaceID
                         VStack(spacing: 0) {
                             WorkspaceRow(
                                 workspace: workspace,
@@ -263,6 +247,7 @@ struct WorkspaceSidebar: View {
                                 isCollapsed: collapsed,
                                 isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(workspace.id),
                                 tokens: tokens,
+                                isPinned: isPinned,
                                 onSelect: { selectedWorkspaceID = workspace.id },
                                 onRename: { id, name in
                                     editingName = name
@@ -275,14 +260,12 @@ struct WorkspaceSidebar: View {
                                         onToggleCollapse?(workspace.id)
                                     }
                                 },
+                                onTogglePinWorkspace: { onTogglePinWorkspace?(workspace.id) },
                                 onMove: { sourceID, _ in
-                                    if workspaces.contains(where: { $0.id == sourceID }) {
-                                        guard let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                                        let insertIndex = targetIndex + 1
-                                        onMoveWorkspace(sourceID, insertIndex)
-                                    } else {
-                                        onMovePaneToWorkspace?(sourceID, workspace.id)
-                                    }
+                                    guard workspaces.contains(where: { $0.id == sourceID }),
+                                          let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                                    let insertIndex = targetIndex + 1
+                                    onMoveWorkspace(sourceID, insertIndex)
                                 },
                                 dropTargetWorkspaceID: $dropTargetWorkspaceID,
                                 dropEdge: $dropEdge,
@@ -397,9 +380,6 @@ struct WorkspaceSidebar: View {
                         },
                         onToggleNote: {
                             onToggleNote?(pane.id)
-                        },
-                        onMoveToPinned: {
-                            onMovePaneToPinned?(pane.id)
                         }
                     )
                     .id(pane.id)
@@ -448,10 +428,7 @@ struct WorkspaceSidebar: View {
             collapsedWorkspaceIDs: collapsedWorkspaceIDs,
             selectedWorkspaceID: selectedWorkspaceID,
             currentTarget: sidebarCursorTarget,
-            activeFilters: activeSidebarFilters,
-            persistentNode: persistentNode,
-            persistentSidebarCollapsed: persistentSidebarCollapsed,
-            persistentFocusedPaneID: persistentFocusedPaneID
+            activeFilters: activeSidebarFilters
         )
     }
 
@@ -459,19 +436,13 @@ struct WorkspaceSidebar: View {
         guard let target = sidebarCursorTarget else { return }
         switch target {
         case let .workspace(id):
-            if id == AppModel.persistentWorkspaceID {
-                if !persistentSidebarCollapsed {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        persistentSidebarCollapsed = true
-                    }
-                }
-            } else if !collapsedWorkspaceIDs.contains(id) {
+            if !collapsedWorkspaceIDs.contains(id) {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     onToggleCollapse?(id)
                 }
             }
         case let .pane(paneID):
-            if let wsID = SidebarKeyboardNav.workspaceForPane(paneID: paneID, workspaces: workspaces, persistentNode: persistentNode) {
+            if let wsID = SidebarKeyboardNav.workspaceForPane(paneID: paneID, workspaces: workspaces) {
                 sidebarCursorTarget = .workspace(wsID)
             }
         }
@@ -480,13 +451,7 @@ struct WorkspaceSidebar: View {
     private func handleRightArrow() {
         guard let target = sidebarCursorTarget else { return }
         if case let .workspace(id) = target {
-            if id == AppModel.persistentWorkspaceID {
-                if persistentSidebarCollapsed {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        persistentSidebarCollapsed = false
-                    }
-                }
-            } else if collapsedWorkspaceIDs.contains(id) {
+            if collapsedWorkspaceIDs.contains(id) {
                 withAnimation(.easeInOut(duration: 0.15)) {
                     onToggleCollapse?(id)
                 }
@@ -507,120 +472,12 @@ struct WorkspaceSidebar: View {
         )
         switch item {
         case let .workspace(id):
-            if id == AppModel.persistentWorkspaceID {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    persistentSidebarCollapsed.toggle()
-                }
-                return // Don't exit sidebar focus
-            }
             selectedWorkspaceID = id
         case let .pane(workspaceID, paneID):
-            if workspaceID == AppModel.persistentWorkspaceID {
-                onSelectPersistentPane?(paneID)
-            } else {
-                onSelectPane(workspaceID, paneID)
-            }
+            onSelectPane(workspaceID, paneID)
         case nil:
             break
         }
         sidebarHasFocus = false
-    }
-
-    // MARK: - Persistent Panel Section
-
-    @ViewBuilder
-    private var persistentPanelSection: some View {
-        let isCursor = sidebarHasFocus && sidebarCursorTarget == .workspace(AppModel.persistentWorkspaceID)
-
-        VStack(spacing: 0) {
-            // Row
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: "dock.rectangle")
-                    .font(.system(size: TypeScale.captionSize))
-                    .foregroundStyle(Color(tokens.textMuted))
-
-                Text("Docked")
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(tokens.text))
-                    .lineLimit(1)
-
-                Spacer()
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-            .background(Rectangle().fill(Color.clear))
-            .overlay {
-                if isCursor {
-                    Rectangle()
-                        .strokeBorder(Color(tokens.borderFocused), lineWidth: 1)
-                }
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    persistentSidebarCollapsed.toggle()
-                }
-            }
-            .dropDestination(for: String.self) { items, _ in
-                guard let uuidString = items.first,
-                      let paneID = UUID(uuidString: uuidString) else { return false }
-                // Only accept panes from workspaces (not already persistent)
-                if persistentNode?.findPane(id: paneID) != nil { return false }
-                onMovePaneToPinned?(paneID)
-                return true
-            }
-            .contextMenu {
-                Button("New Pane") { onNewPersistentPane?() }
-                Divider()
-                Button("Close All") { onCloseAllPersistentPanes?() }
-            }
-
-            // Pane rows
-            if !persistentSidebarCollapsed, let node = persistentNode {
-                let panes = node.allPanes()
-                let canClose = panes.count > 1
-                ForEach(panes) { pane in
-                    SidebarPaneRow(
-                        pane: pane,
-                        isFocusedPane: persistentFocusedPaneID == pane.id,
-                        isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .pane(pane.id),
-                        canClose: canClose,
-                        layoutRects: [:],
-                        showLayoutThumbnails: false,
-                        depth: 1,
-                        tokens: tokens,
-                        onSelect: {
-                            sidebarHasFocus = false
-                            onSelectPersistentPane?(pane.id)
-                        },
-                        onRename: { id, name in
-                            editingPaneName = name
-                            renamePaneTargetID = id
-                            showRenamePaneAlert = true
-                        },
-                        onClose: { id in onRemovePersistentPane?(id) },
-                        onToggleNote: { onToggleNote?(pane.id) }
-                    )
-                    .id(pane.id)
-                    .contextMenu {
-                        Button("Close Pane") { onRemovePersistentPane?(pane.id) }
-                        if !workspaces.isEmpty {
-                            Menu("Move to Workspace") {
-                                ForEach(workspaces) { ws in
-                                    Button(ws.name) {
-                                        onMovePaneToWorkspace?(pane.id, ws.id)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Divider between persistent and workspaces
-        Rectangle()
-            .fill(Color(tokens.border))
-            .frame(height: 1)
     }
 }

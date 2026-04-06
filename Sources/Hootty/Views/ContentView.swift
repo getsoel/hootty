@@ -7,7 +7,6 @@ struct ContentView: View {
     /// Called after pane/workspace removal to clean up file watchers for a repo root.
     var onCleanupRepoWatchers: ((String) -> Void)?
     @GestureState private var dragOffset: CGFloat = 0
-    @GestureState private var panelDragOffset: CGFloat = 0
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorTarget: SidebarCursorTarget?
     @State private var memoryMonitor = MemoryMonitor()
@@ -28,23 +27,6 @@ struct ContentView: View {
     private var effectiveSidebarWidth: CGFloat {
         let w = appModel.sidebarWidth + dragOffset
         return min(max(w, AppModel.sidebarMinWidth), AppModel.sidebarMaxWidth)
-    }
-
-    /// Effective persistent panel size along the active axis, accounting for in-flight drag.
-    private var effectivePanelSize: CGFloat {
-        let position = appModel.persistentPanelPosition
-        let base = position.isHorizontal ? appModel.persistentPanelWidth : appModel.persistentPanelHeight
-        let minSize = position.isHorizontal ? AppModel.persistentPanelMinWidth : AppModel.persistentPanelMinHeight
-        let maxSize = position.isHorizontal ? AppModel.persistentPanelMaxWidth : AppModel.persistentPanelMaxHeight
-        let adjusted: CGFloat = switch position {
-        case .right, .bottom: base - panelDragOffset
-        case .left, .top: base + panelDragOffset
-        }
-        return min(max(adjusted, minSize), maxSize)
-    }
-
-    private var panelVisible: Bool {
-        appModel.persistentPanelVisible && appModel.persistentNode != nil
     }
 
     var body: some View {
@@ -68,8 +50,6 @@ struct ContentView: View {
             }
         )
         .animation(.easeInOut(duration: 0.2), value: appModel.sidebarMode)
-        .animation(.easeInOut(duration: 0.2), value: panelVisible)
-        .animation(.easeInOut(duration: 0.2), value: appModel.persistentPanelPosition)
         .overlay {
             if appModel.modalState == .commandPalette {
                 CommandPaletteView(
@@ -189,29 +169,9 @@ struct ContentView: View {
             activeSidebarFilters: appModel.activeSidebarFilters,
             onToggleSidebarFilter: { appModel.toggleSidebarFilter($0) },
             onClearSidebarFilters: { appModel.clearSidebarFilters() },
-            persistentNode: appModel.persistentNode,
-            persistentFocusedPaneID: appModel.persistentFocusedPaneID,
-            persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
-            onSelectPersistentPane: handleSelectPersistentPane,
-            onRemovePersistentPane: handleRemovePersistentPane,
-            onNewPersistentPane: { appModel.addPersistentPane() },
-            onCloseAllPersistentPanes: {
-                if let node = appModel.persistentNode {
-                    for pane in node.allPanes() {
-                        GhosttyApp.shared.removeCachedSurfaceView(for: pane.id)
-                    }
-                }
-                appModel.closePersistentPanel()
-            },
-            onMovePaneToWorkspace: { paneID, workspaceID in
-                appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
-            },
-            onMovePaneToPinned: { paneID in
-                appModel.movePaneToPersistentPanel(paneID: paneID)
-            },
             onToggleSidebar: { appModel.toggleSidebar() },
-            onToggleDockedPanel: { appModel.togglePersistentPanel() },
-            dockedPanelVisible: appModel.persistentPanelVisible && appModel.persistentNode != nil
+            pinnedWorkspaceID: appModel.pinnedWorkspaceID,
+            onTogglePinWorkspace: { appModel.togglePinWorkspace(id: $0) }
         )
     }
 
@@ -234,18 +194,6 @@ struct ContentView: View {
             isEffectivelyCollapsed: { appModel.isWorkspaceEffectivelyCollapsed($0) },
             collapsedWorkspaceIDs: appModel.collapsedWorkspaceIDs,
             activeSidebarFilters: appModel.activeSidebarFilters,
-            persistentNode: appModel.persistentNode,
-            persistentFocusedPaneID: appModel.persistentFocusedPaneID,
-            persistentSidebarCollapsed: $appModel.persistentSidebarCollapsed,
-            onSelectPersistentPane: handleSelectPersistentPane,
-            onRemovePersistentPane: handleRemovePersistentPane,
-            onNewPersistentPane: { appModel.addPersistentPane() },
-            onMovePaneToPinned: { paneID in
-                appModel.movePaneToPersistentPanel(paneID: paneID)
-            },
-            onMovePaneToWorkspace: { paneID, workspaceID in
-                appModel.movePaneToWorkspace(paneID: paneID, workspaceID: workspaceID)
-            },
             sidebarHasFocus: $appModel.sidebarHasFocus,
             sidebarCursorTarget: $sidebarCursorTarget
         )
@@ -294,18 +242,6 @@ struct ContentView: View {
         }
     }
 
-    private func handleSelectPersistentPane(_ paneID: UUID) {
-        appModel.sidebarHasFocus = false
-        appModel.focusDomain = .persistent
-        appModel.persistentFocusedPaneID = paneID
-        appModel.persistentPanelVisible = true
-    }
-
-    private func handleRemovePersistentPane(_ paneID: UUID) {
-        GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-        appModel.removePersistentPane(id: paneID)
-    }
-
     // MARK: - Title Bar
 
     private var titleBar: some View {
@@ -345,68 +281,6 @@ struct ContentView: View {
         workspacesContent
     }
 
-    /// Compute layout frames for detail and panel areas based on panel position.
-    private struct PanelLayout {
-        var detailFrame: CGRect
-        var panelFrame: CGRect
-        var dividerFrame: CGRect
-        /// Frame for the invisible drag handle (wider/taller than divider for easier grabbing).
-        var dragHandleFrame: CGRect
-        var isHorizontalDivider: Bool
-    }
-
-    private func computePanelLayout(contentX: CGFloat, contentW: CGFloat, contentH: CGFloat) -> PanelLayout {
-        let position = appModel.persistentPanelPosition
-        let panelSize = panelVisible ? effectivePanelSize : 0
-        let dividerSize: CGFloat = panelVisible ? 1 : 0
-        let remaining = max(0, (position.isHorizontal ? contentW : contentH) - panelSize - dividerSize)
-
-        guard panelVisible else {
-            return PanelLayout(
-                detailFrame: CGRect(x: contentX, y: 0, width: contentW, height: contentH),
-                panelFrame: .zero, dividerFrame: .zero, dragHandleFrame: .zero,
-                isHorizontalDivider: false
-            )
-        }
-
-        switch position {
-        case .right:
-            let divX = contentX + remaining
-            return PanelLayout(
-                detailFrame: CGRect(x: contentX, y: 0, width: remaining, height: contentH),
-                panelFrame: CGRect(x: divX + 1, y: 0, width: panelSize, height: contentH),
-                dividerFrame: CGRect(x: divX, y: 0, width: 1, height: contentH),
-                dragHandleFrame: CGRect(x: divX - 7.5, y: 0, width: 16, height: contentH),
-                isHorizontalDivider: false
-            )
-        case .left:
-            return PanelLayout(
-                detailFrame: CGRect(x: contentX + panelSize + 1, y: 0, width: remaining, height: contentH),
-                panelFrame: CGRect(x: contentX, y: 0, width: panelSize, height: contentH),
-                dividerFrame: CGRect(x: contentX + panelSize, y: 0, width: 1, height: contentH),
-                dragHandleFrame: CGRect(x: contentX + panelSize - 7.5, y: 0, width: 16, height: contentH),
-                isHorizontalDivider: false
-            )
-        case .bottom:
-            let divY = remaining
-            return PanelLayout(
-                detailFrame: CGRect(x: contentX, y: 0, width: contentW, height: remaining),
-                panelFrame: CGRect(x: contentX, y: divY + 1, width: contentW, height: panelSize),
-                dividerFrame: CGRect(x: contentX, y: divY, width: contentW, height: 1),
-                dragHandleFrame: CGRect(x: contentX, y: divY - 7.5, width: contentW, height: 16),
-                isHorizontalDivider: true
-            )
-        case .top:
-            return PanelLayout(
-                detailFrame: CGRect(x: contentX, y: panelSize + 1, width: contentW, height: remaining),
-                panelFrame: CGRect(x: contentX, y: 0, width: contentW, height: panelSize),
-                dividerFrame: CGRect(x: contentX, y: panelSize, width: contentW, height: 1),
-                dragHandleFrame: CGRect(x: contentX, y: panelSize - 7.5, width: contentW, height: 16),
-                isHorizontalDivider: true
-            )
-        }
-    }
-
     private var workspacesContent: some View {
         GeometryReader { geometry in
             let sidebarW: CGFloat = switch appModel.sidebarMode {
@@ -419,7 +293,6 @@ struct ContentView: View {
             let fullWidth = geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing
             let contentW = max(0, fullWidth - contentX)
             let contentH = geometry.size.height
-            let layout = computePanelLayout(contentX: contentX, contentW: contentW, contentH: contentH)
 
             ZStack(alignment: .topLeading) {
                 // Sidebar
@@ -441,17 +314,8 @@ struct ContentView: View {
 
                 // Detail area
                 detailView
-                    .frame(width: layout.detailFrame.width, height: layout.detailFrame.height)
-                    .offset(x: layout.detailFrame.origin.x, y: layout.detailFrame.origin.y)
-
-                // Persistent panel
-                if panelVisible {
-                    panelDividerAndHandle(layout: layout)
-
-                    persistentPanelView
-                        .frame(width: layout.panelFrame.width, height: layout.panelFrame.height)
-                        .offset(x: layout.panelFrame.origin.x, y: layout.panelFrame.origin.y)
-                }
+                    .frame(width: contentW, height: contentH)
+                    .offset(x: contentX)
             }
             .frame(width: fullWidth, alignment: .topLeading)
             .clipped()
@@ -488,58 +352,6 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func panelDividerAndHandle(layout: PanelLayout) -> some View {
-        let cursor: NSCursor = layout.isHorizontalDivider ? .resizeUpDown : .resizeLeftRight
-
-        // Visible 1px divider
-        Rectangle()
-            .fill(Color(tokens.border))
-            .frame(width: layout.dividerFrame.width, height: layout.dividerFrame.height)
-            .offset(x: layout.dividerFrame.origin.x, y: layout.dividerFrame.origin.y)
-
-        // Invisible wide drag handle
-        Color.clear
-            .frame(width: layout.dragHandleFrame.width, height: layout.dragHandleFrame.height)
-            .contentShape(Rectangle())
-            .offset(x: layout.dragHandleFrame.origin.x, y: layout.dragHandleFrame.origin.y)
-            .onContinuousHover { phase in
-                switch phase {
-                case .active:
-                    DispatchQueue.main.async { cursor.set() }
-                case .ended:
-                    DispatchQueue.main.async { NSCursor.arrow.set() }
-                }
-            }
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($panelDragOffset) { value, state, _ in
-                        state = appModel.persistentPanelPosition.isHorizontal
-                            ? value.translation.width
-                            : value.translation.height
-                    }
-                    .onEnded { value in
-                        let position = appModel.persistentPanelPosition
-                        if position.isHorizontal {
-                            let delta = position == .right ? -value.translation.width : value.translation.width
-                            let newWidth = appModel.persistentPanelWidth + delta
-                            appModel.persistentPanelWidth = min(
-                                max(newWidth, AppModel.persistentPanelMinWidth),
-                                AppModel.persistentPanelMaxWidth
-                            )
-                        } else {
-                            let delta = position == .bottom ? -value.translation.height : value.translation.height
-                            let newHeight = appModel.persistentPanelHeight + delta
-                            appModel.persistentPanelHeight = min(
-                                max(newHeight, AppModel.persistentPanelMinHeight),
-                                AppModel.persistentPanelMaxHeight
-                            )
-                        }
-                        appModel.debouncedSave()
-                    }
-            )
-    }
-
-    @ViewBuilder
     private var detailView: some View {
         if let workspace = selectedWorkspace {
             terminalsDetail(workspace: workspace)
@@ -553,12 +365,11 @@ struct ContentView: View {
     private func terminalsDetail(workspace: Workspace) -> some View {
         SplitNodeView(
             node: workspace.rootNode,
-            focusedPaneID: appModel.focusDomain == .workspace ? workspace.focusedPaneID : nil,
+            focusedPaneID: workspace.focusedPaneID,
             tokens: tokens,
             isInSplit: false,
             onFocusPane: { paneID in
                 appModel.sidebarHasFocus = false
-                appModel.focusDomain = .workspace
                 workspace.focusPane(id: paneID)
             },
             onSplitPane: { direction, placeBefore in
@@ -595,53 +406,6 @@ struct ContentView: View {
         .environment(\.sidebarCursorPaneID, sidebarCursorTarget?.cursorPaneID)
         .environment(\.modalIsOpen, appModel.modalState != .none)
         .id(workspace.id)
-    }
-
-    @ViewBuilder
-    private var persistentPanelView: some View {
-        if let node = appModel.persistentNode {
-            SplitNodeView(
-                node: node,
-                focusedPaneID: appModel.focusDomain == .persistent ? appModel.persistentFocusedPaneID : nil,
-                tokens: tokens,
-                isInSplit: false,
-                onFocusPane: { paneID in
-                    appModel.sidebarHasFocus = false
-                    appModel.focusDomain = .persistent
-                    appModel.persistentFocusedPaneID = paneID
-                },
-                onSplitPane: { direction, placeBefore in
-                    let parentSurface = GhosttyApp.shared.focusedSurface
-                    if let newPane = appModel.splitPersistentPane(direction: direction, placeBefore: placeBefore) {
-                        if let parentSurface {
-                            GhosttyApp.shared.registerParentSurface(newPane.id, surface: parentSurface)
-                        }
-                    }
-                },
-                onClosePane: { paneID in
-                    GhosttyApp.shared.removeCachedSurfaceView(for: paneID)
-                    appModel.removePersistentPane(id: paneID)
-                },
-                onSwapPanes: { sourceID, targetID in
-                    node.swapPanes(sourceID, targetID)
-                    appModel.saveWorkspaces()
-                },
-                onToggleNote: { paneID in
-                    appModel.modalState = .noteEditor(paneID)
-                },
-                onToggleFlag: {
-                    appModel.persistentFocusedPane?.toggleFlag()
-                },
-                onSave: { appModel.saveWorkspaces() }
-            )
-            .environment(\.sidebarHasFocus, false)
-            .environment(\.sidebarCursorPaneID, nil)
-            .environment(\.modalIsOpen, appModel.modalState != .none)
-            .environment(\.dockPosition, appModel.persistentPanelPosition)
-            .environment(\.setDockPosition) { position in
-                appModel.setPanelPosition(position)
-            }
-        }
     }
 
     private func applyTheme(name: String, fallback: TerminalTheme? = nil) {

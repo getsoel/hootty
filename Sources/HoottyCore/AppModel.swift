@@ -13,17 +13,7 @@ public final class AppModel {
     public var sidebarWidth: CGFloat = 260
     public var collapsedWorkspaceIDs: Set<UUID> = []
     public var activeSidebarFilters: Set<SidebarFilter> = []
-
-    // MARK: - Persistent Panel
-
-    public var persistentNode: SplitNode?
-    public var persistentPanelVisible: Bool = false
-    public var persistentPanelWidth: CGFloat = AppModel.defaultPanelWidth
-    public var persistentPanelHeight: CGFloat = AppModel.defaultPanelHeight
-    public var persistentPanelPosition: PanelPosition = AppModel.defaultPanelPosition
-    public var persistentFocusedPaneID: UUID?
-    public var persistentSidebarCollapsed: Bool = false
-    public var focusDomain: FocusDomain = .workspace
+    public var pinnedWorkspaceID: UUID?
 
     public enum ModalState: Equatable {
         case none
@@ -40,24 +30,8 @@ public final class AppModel {
 
     public static let sidebarMinWidth: CGFloat = 200
     public static let sidebarMaxWidth: CGFloat = 400
-    public static let defaultPanelWidth: CGFloat = 400
-    public static let defaultPanelHeight: CGFloat = 300
-    public static let defaultPanelPosition: PanelPosition = .right
-    public static let persistentPanelMinWidth: CGFloat = 200
-    public static let persistentPanelMaxWidth: CGFloat = 600
-    public static let persistentPanelMinHeight: CGFloat = 150
-    public static let persistentPanelMaxHeight: CGFloat = 500
-    public nonisolated static let persistentWorkspaceID = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
     public var selectedWorkspace: Workspace? {
         workspaces.first { $0.id == selectedWorkspaceID }
-    }
-
-    public var persistentFocusedPane: Pane? {
-        guard let node = persistentNode else { return nil }
-        if let id = persistentFocusedPaneID, let pane = node.findPane(id: id) {
-            return pane
-        }
-        return node.firstPane()
     }
 
     public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil) {
@@ -82,22 +56,7 @@ public final class AppModel {
             if let collapsed = snapshot.collapsedWorkspaceIDs {
                 self.collapsedWorkspaceIDs = collapsed
             }
-            if let node = snapshot.persistentNode {
-                self.persistentNode = node
-                self.persistentFocusedPaneID = node.firstPane()?.id
-            }
-            if let visible = snapshot.persistentPanelVisible {
-                self.persistentPanelVisible = visible
-            }
-            if let width = snapshot.persistentPanelWidth {
-                self.persistentPanelWidth = width
-            }
-            if let height = snapshot.persistentPanelHeight {
-                self.persistentPanelHeight = height
-            }
-            if let position = snapshot.persistentPanelPosition {
-                self.persistentPanelPosition = position
-            }
+            self.pinnedWorkspaceID = snapshot.pinnedWorkspaceID
         } else {
             let workspace = addWorkspace()
             self.selectedWorkspaceID = workspace.id
@@ -118,11 +77,7 @@ public final class AppModel {
             sidebarWidth: sidebarWidth,
             sidebarMode: sidebarMode,
             collapsedWorkspaceIDs: collapsedWorkspaceIDs.isEmpty ? nil : collapsedWorkspaceIDs,
-            persistentNode: persistentNode,
-            persistentPanelVisible: persistentPanelVisible ? true : nil,
-            persistentPanelWidth: persistentPanelWidth != Self.defaultPanelWidth ? persistentPanelWidth : nil,
-            persistentPanelHeight: persistentPanelHeight != Self.defaultPanelHeight ? persistentPanelHeight : nil,
-            persistentPanelPosition: persistentPanelPosition != Self.defaultPanelPosition ? persistentPanelPosition : nil
+            pinnedWorkspaceID: pinnedWorkspaceID
         )
         workspaceStore.save(snapshot)
     }
@@ -161,7 +116,9 @@ public final class AppModel {
 
     public func removeWorkspace(at offsets: IndexSet) {
         for index in offsets.reversed() {
-            collapsedWorkspaceIDs.remove(workspaces[index].id)
+            let id = workspaces[index].id
+            collapsedWorkspaceIDs.remove(id)
+            if pinnedWorkspaceID == id { pinnedWorkspaceID = nil }
             workspaces.remove(at: index)
         }
         saveWorkspaces()
@@ -169,7 +126,13 @@ public final class AppModel {
 
     public func removeWorkspace(id: UUID) {
         collapsedWorkspaceIDs.remove(id)
+        if pinnedWorkspaceID == id { pinnedWorkspaceID = nil }
         workspaces.removeAll { $0.id == id }
+        saveWorkspaces()
+    }
+
+    public func togglePinWorkspace(id: UUID) {
+        pinnedWorkspaceID = pinnedWorkspaceID == id ? nil : id
         saveWorkspaces()
     }
 
@@ -214,22 +177,6 @@ public final class AppModel {
         return nil
     }
 
-    /// Find a pane by ID across both workspaces and the persistent panel.
-    public enum PaneLocation {
-        case workspace(Workspace, Pane)
-        case persistent(Pane)
-    }
-
-    public func findPaneLocation(id: UUID) -> PaneLocation? {
-        if let (workspace, pane) = findPane(id: id) {
-            return .workspace(workspace, pane)
-        }
-        if let pane = persistentNode?.findPane(id: id) {
-            return .persistent(pane)
-        }
-        return nil
-    }
-
     /// Convenience: look up a pane by ID and execute a closure if found.
     @discardableResult
     public func withPane<T>(id: UUID, _ body: (Workspace, Pane) -> T) -> T? {
@@ -264,13 +211,6 @@ public final class AppModel {
         workspaces = []
         sidebarWidth = 260
         sidebarMode = .full
-        persistentNode = nil
-        persistentPanelVisible = false
-        persistentPanelWidth = Self.defaultPanelWidth
-        persistentPanelHeight = Self.defaultPanelHeight
-        persistentPanelPosition = Self.defaultPanelPosition
-        persistentFocusedPaneID = nil
-        focusDomain = .workspace
         let workspace = addWorkspace()
         selectedWorkspaceID = workspace.id
     }
@@ -304,195 +244,9 @@ public final class AppModel {
         selectedWorkspaceID = workspaces[prevIdx].id
     }
 
-    // MARK: - Persistent Panel
-
-    public func setPanelPosition(_ position: PanelPosition) {
-        guard position != persistentPanelPosition else { return }
-        persistentPanelPosition = position
-        saveWorkspaces()
-    }
-
-    public func togglePersistentPanel() {
-        if persistentPanelVisible {
-            persistentPanelVisible = false
-        } else {
-            if persistentNode == nil {
-                let pane = Pane(name: "Docked 1")
-                persistentNode = SplitNode(pane: pane)
-                persistentFocusedPaneID = pane.id
-            }
-            persistentPanelVisible = true
-        }
-        saveWorkspaces()
-    }
-
-    public func closePersistentPanel() {
-        persistentNode = nil
-        persistentPanelVisible = false
-        persistentFocusedPaneID = nil
-        if focusDomain == .persistent {
-            focusDomain = .workspace
-        }
-        saveWorkspaces()
-    }
-
-    /// Remove a pane from the persistent panel. Closes the panel if it was the last pane.
-    public func removePersistentPane(id: UUID) {
-        guard let node = persistentNode else { return }
-        if !node.removePane(id: id) {
-            closePersistentPanel()
-        } else if persistentFocusedPaneID == id {
-            persistentFocusedPaneID = node.firstPane()?.id
-        }
-        saveWorkspaces()
-    }
-
-    /// Split the focused persistent pane. Returns the new pane if successful.
-    @discardableResult
-    public func splitPersistentPane(direction: SplitDirection, placeBefore: Bool = false) -> Pane? {
-        guard let node = persistentNode,
-              let focused = persistentFocusedPane else { return nil }
-        let newPane = Pane(name: "Docked \(node.allPanes().count + 1)")
-        guard node.splitPane(paneID: focused.id, direction: direction, newPane: newPane, placeBefore: placeBefore) else { return nil }
-        persistentFocusedPaneID = newPane.id
-        saveWorkspaces()
-        return newPane
-    }
-
-    /// Add a new pane to the persistent panel (appended as a vertical split).
-    @discardableResult
-    public func addPersistentPane() -> Pane? {
-        guard let node = persistentNode,
-              let lastPane = node.allPanes().last else { return nil }
-        let newPane = Pane(name: "Docked \(node.allPanes().count + 1)")
-        guard node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: newPane) else { return nil }
-        persistentFocusedPaneID = newPane.id
-        saveWorkspaces()
-        return newPane
-    }
-
-    /// All panes in the persistent panel (empty if no panel).
-    public var persistentPanes: [Pane] {
-        persistentNode?.allPanes() ?? []
-    }
-
-    /// Cycle focus within the persistent panel (next/previous).
-    public func cyclePersistentFocus(forward: Bool) {
-        let panes = persistentPanes
-        guard panes.count > 1, let currentID = persistentFocusedPaneID,
-              let idx = panes.firstIndex(where: { $0.id == currentID }) else { return }
-        let nextIdx = forward ? (idx + 1) % panes.count : (idx - 1 + panes.count) % panes.count
-        persistentFocusedPaneID = panes[nextIdx].id
-    }
-
-    /// Cross-domain directional focus that considers both workspace and persistent panel panes.
+    /// Directional focus within the selected workspace.
     public func focusPaneInDirection(_ direction: FocusDirection) {
-        let currentID: UUID? = if focusDomain == .persistent {
-            persistentFocusedPaneID
-        } else {
-            selectedWorkspace?.focusedPaneID
-        }
-        guard let currentID else { return }
-
-        guard persistentPanelVisible, let persistentNode else {
-            selectedWorkspace?.focusPaneInDirection(direction)
-            return
-        }
-
-        // Map both domain rects into a shared coordinate space (approximate; actual
-        // window geometry isn't available in the model layer, but the ratio only
-        // affects edge-case tie-breaking between candidates).
-        let panelSize = persistentPanelPosition.isHorizontal ? persistentPanelWidth : persistentPanelHeight
-        let panelFraction = panelSize / (panelSize + 800)
-        let workspaceFraction = 1.0 - panelFraction
-
-        var combinedRects: [UUID: CGRect] = [:]
-        let horizontal = persistentPanelPosition.isHorizontal
-        let panelFirst = (persistentPanelPosition == .left || persistentPanelPosition == .top)
-        let wsOffset: CGFloat = panelFirst ? panelFraction : 0
-        let pOffset: CGFloat = panelFirst ? 0 : workspaceFraction
-
-        if let workspace = selectedWorkspace {
-            for (id, rect) in workspace.rootNode.paneRects() {
-                combinedRects[id] = horizontal
-                    ? CGRect(x: wsOffset + rect.origin.x * workspaceFraction, y: rect.origin.y,
-                             width: rect.width * workspaceFraction, height: rect.height)
-                    : CGRect(x: rect.origin.x, y: wsOffset + rect.origin.y * workspaceFraction,
-                             width: rect.width, height: rect.height * workspaceFraction)
-            }
-        }
-        for (id, rect) in persistentNode.paneRects() {
-            combinedRects[id] = horizontal
-                ? CGRect(x: pOffset + rect.origin.x * panelFraction, y: rect.origin.y,
-                         width: rect.width * panelFraction, height: rect.height)
-                : CGRect(x: rect.origin.x, y: pOffset + rect.origin.y * panelFraction,
-                         width: rect.width, height: rect.height * panelFraction)
-        }
-
-        guard let bestID = FocusDirection.nearestPane(from: currentID, in: combinedRects, direction: direction) else { return }
-
-        if persistentNode.containsPane(id: bestID) {
-            focusDomain = .persistent
-            persistentFocusedPaneID = bestID
-        } else if let workspace = selectedWorkspace {
-            focusDomain = .workspace
-            workspace.focusPane(id: bestID)
-        }
-    }
-
-    /// Move a pane from a workspace into the persistent panel.
-    public func movePaneToPersistentPanel(paneID: UUID) {
-        guard let (workspace, pane) = findPane(id: paneID) else { return }
-
-        let wasOnlyPane = workspace.allPanes.count == 1
-        if !wasOnlyPane {
-            workspace.rootNode.removePane(id: paneID)
-            if workspace.focusedPaneID == paneID {
-                workspace.focusedPaneID = workspace.rootNode.firstPane()?.id
-            }
-        } else {
-            let replacement = Pane(name: "Pane 1")
-            workspace.rootNode = SplitNode(pane: replacement)
-            workspace.focusedPaneID = replacement.id
-        }
-
-        if let node = persistentNode, let lastPane = node.allPanes().last {
-            node.splitPane(paneID: lastPane.id, direction: .vertical, newPane: pane)
-        } else {
-            persistentNode = SplitNode(pane: pane)
-        }
-        persistentFocusedPaneID = pane.id
-        persistentPanelVisible = true
-        focusDomain = .persistent
-        saveWorkspaces()
-    }
-
-    /// Move a pane from the persistent panel into a workspace.
-    public func movePaneToWorkspace(paneID: UUID, workspaceID: UUID) {
-        guard let node = persistentNode,
-              let pane = node.findPane(id: paneID),
-              let workspace = workspaces.first(where: { $0.id == workspaceID }) else { return }
-
-        // Remove from persistent panel
-        let wasOnlyPane = node.allPanes().count == 1
-        if !wasOnlyPane {
-            node.removePane(id: paneID)
-            if persistentFocusedPaneID == paneID {
-                persistentFocusedPaneID = node.firstPane()?.id
-            }
-        } else {
-            persistentNode = nil
-            persistentPanelVisible = false
-            persistentFocusedPaneID = nil
-        }
-
-        // Add to workspace
-        if let focused = workspace.focusedPane {
-            workspace.rootNode.splitPane(paneID: focused.id, direction: .vertical, newPane: pane)
-        }
-        workspace.focusedPaneID = pane.id
-        focusDomain = .workspace
-        saveWorkspaces()
+        selectedWorkspace?.focusPaneInDirection(direction)
     }
 
     // MARK: - Workspace Collapse

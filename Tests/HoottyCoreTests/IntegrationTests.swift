@@ -1265,138 +1265,59 @@ struct SidebarKeyboardNavTests {
     }
 }
 
-// MARK: - Suite: Persistent Panel Persistence
+// MARK: - Suite: Pin Workspace
 
 @MainActor
-struct PersistentPanelPersistenceIntegration {
-    @Test func persistentPanelRoundTrips() throws {
-        let (model, url) = makeModel()
-
-        // Open the persistent panel and split
-        model.togglePersistentPanel()
-        let firstPane = try #require(model.persistentNode?.firstPane())
-        firstPane.customName = "Watcher"
-
-        // Split vertically within persistent panel
-        let newPane = Pane(name: "Docked 2")
-        model.persistentNode?.splitPane(paneID: firstPane.id, direction: .vertical, newPane: newPane)
-        newPane.customName = "Logs"
-        model.persistentFocusedPaneID = newPane.id
-        model.persistentPanelWidth = 500
-
-        model.saveWorkspaces()
-
-        // Reload
-        let restored = reloadModel(from: url)
-        #expect(restored.persistentPanelVisible == true)
-        #expect(restored.persistentPanelWidth == 500)
-        let restoredPanes = try #require(restored.persistentNode?.allPanes())
-        #expect(restoredPanes.count == 2)
-        let names = restoredPanes.compactMap(\.customName)
-        #expect(names.contains("Watcher"))
-        #expect(names.contains("Logs"))
-    }
-
-    @Test func oldSnapshotWithoutPersistentFieldsLoadsCleanly() {
-        let (model, url) = makeModel()
-        // Save without persistent panel (default state)
-        model.saveWorkspaces()
-
-        let restored = reloadModel(from: url)
-        #expect(restored.persistentNode == nil)
-        #expect(restored.persistentPanelVisible == false)
-        #expect(restored.persistentPanelWidth == 400)
-    }
-
-    @Test func panelPositionPersistsAcrossReload() {
-        let (model, url) = makeModel()
-        model.togglePersistentPanel()
-        model.setPanelPosition(.bottom)
-        model.persistentPanelHeight = 350
-        model.saveWorkspaces()
-
-        let restored = reloadModel(from: url)
-        #expect(restored.persistentPanelPosition == .bottom)
-        #expect(restored.persistentPanelHeight == 350)
-        #expect(restored.persistentPanelVisible == true)
-    }
-
-    @Test func defaultPositionNotWrittenToSnapshot() {
-        let (model, url) = makeModel()
-        model.togglePersistentPanel()
-        // Position stays .right (default), height stays 300 (default) — not written to JSON
-        model.saveWorkspaces()
-
-        let restored = reloadModel(from: url)
-        #expect(restored.persistentPanelPosition == .right)
-        #expect(restored.persistentPanelHeight == 300)
-    }
-}
-
-// MARK: - Suite: Pane Movement
-
-@MainActor
-struct PaneMovementIntegration {
-    @Test func movePaneToAndFromPersistentPanel() throws {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        let pane1 = ws.allPanes[0]
-        pane1.customName = "Mover"
-
-        // Split to have 2 panes
-        let pane2 = try #require(ws.splitFocusedPane(direction: .horizontal))
-        pane2.customName = "Stays"
-
-        // Move pane1 to persistent panel
-        model.movePaneToPersistentPanel(paneID: pane1.id)
-
-        // Pane1 should now be in persistent panel
-        #expect(model.persistentNode != nil)
-        #expect(model.persistentPanelVisible == true)
-        #expect(model.persistentFocusedPaneID == pane1.id)
-        #expect(model.persistentNode?.findPane(id: pane1.id) != nil)
-        #expect(ws.findPane(id: pane1.id) == nil)
-        #expect(ws.allPanes.count == 1)
-        #expect(ws.allPanes[0].customName == "Stays")
-
-        // Pane object identity preserved
-        #expect(model.persistentNode?.findPane(id: pane1.id)?.customName == "Mover")
-
-        // Move pane1 back to workspace
-        model.movePaneToWorkspace(paneID: pane1.id, workspaceID: ws.id)
-
-        #expect(ws.findPane(id: pane1.id) != nil)
-        #expect(model.persistentNode == nil) // was the only persistent pane
-        #expect(model.persistentPanelVisible == false)
-        #expect(ws.allPanes.count == 2)
-    }
-
-    @Test func moveLastWorkspacePaneCreatesDefault() {
-        let (model, _) = makeModel()
-        let ws = model.workspaces[0]
-        let pane = ws.allPanes[0]
-
-        // Only one pane in workspace — moving it should create a replacement
-        model.movePaneToPersistentPanel(paneID: pane.id)
-
-        #expect(ws.allPanes.count == 1) // New default created
-        #expect(ws.allPanes[0].id != pane.id) // Different pane
-        #expect(model.persistentNode?.findPane(id: pane.id) != nil)
-    }
-
-    @Test func moveLastPersistentPaneClosesPanel() throws {
+struct PinWorkspaceIntegration {
+    @Test func togglePinWorkspacePinsAndUnpins() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
 
-        // Create persistent panel with one pane
-        model.togglePersistentPanel()
-        let persistentPane = try #require(model.persistentNode?.firstPane())
+        #expect(model.pinnedWorkspaceID == nil)
 
-        // Move it to workspace
-        model.movePaneToWorkspace(paneID: persistentPane.id, workspaceID: ws.id)
+        model.togglePinWorkspace(id: ws.id)
+        #expect(model.pinnedWorkspaceID == ws.id)
 
-        #expect(model.persistentNode == nil)
-        #expect(model.persistentPanelVisible == false)
-        #expect(ws.findPane(id: persistentPane.id) != nil)
+        model.togglePinWorkspace(id: ws.id)
+        #expect(model.pinnedWorkspaceID == nil)
+    }
+
+    @Test func deletingPinnedWorkspaceClearsPin() {
+        let (model, _) = makeModel()
+        let ws1 = model.workspaces[0]
+        let ws2 = model.addWorkspace()
+
+        model.togglePinWorkspace(id: ws1.id)
+        #expect(model.pinnedWorkspaceID == ws1.id)
+
+        model.removeWorkspace(id: ws1.id)
+        #expect(model.pinnedWorkspaceID == nil)
+
+        // Pinning ws2 and removing via offsets
+        model.togglePinWorkspace(id: ws2.id)
+        #expect(model.pinnedWorkspaceID == ws2.id)
+
+        model.removeWorkspace(at: IndexSet(integer: 0))
+        #expect(model.pinnedWorkspaceID == nil)
+    }
+
+    @Test func pinnedWorkspaceIDPersistenceRoundTrip() {
+        let (model, url) = makeModel()
+        let ws = model.workspaces[0]
+
+        model.togglePinWorkspace(id: ws.id)
+        model.saveWorkspaces()
+
+        let restored = reloadModel(from: url)
+        #expect(restored.pinnedWorkspaceID == ws.id)
+    }
+
+    @Test func oldSnapshotWithoutPinnedFieldLoadsCleanly() {
+        let (model, url) = makeModel()
+        // Save without pinning anything
+        model.saveWorkspaces()
+
+        let restored = reloadModel(from: url)
+        #expect(restored.pinnedWorkspaceID == nil)
     }
 }

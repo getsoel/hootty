@@ -14,7 +14,6 @@ struct SidebarPaneRow: View {
     var onRename: (UUID, String) -> Void
     var onClose: (UUID) -> Void
     var onToggleNote: () -> Void
-    var onMoveToPinned: (() -> Void)?
 
     @State private var isHovered = false
 
@@ -102,11 +101,6 @@ struct SidebarPaneRow: View {
         .contextMenu {
             Button("Rename Pane") {
                 onRename(pane.id, pane.displayName)
-            }
-            if let onMoveToPinned {
-                Button("Move to Docked") {
-                    onMoveToPinned()
-                }
             }
             if canClose {
                 Button("Close Pane") {

@@ -7,11 +7,7 @@ public struct WorkspaceSnapshot: Codable {
     public var sidebarWidth: CGFloat?
     public var sidebarMode: SidebarMode?
     public var collapsedWorkspaceIDs: Set<UUID>?
-    public var persistentNode: SplitNode?
-    public var persistentPanelVisible: Bool?
-    public var persistentPanelWidth: CGFloat?
-    public var persistentPanelHeight: CGFloat?
-    public var persistentPanelPosition: PanelPosition?
+    public var pinnedWorkspaceID: UUID?
 
     /// Legacy field for backward-compatible decoding only. Not written on new saves.
     public var sidebarVisible: Bool?
@@ -22,28 +18,19 @@ public struct WorkspaceSnapshot: Codable {
         sidebarWidth: CGFloat? = nil,
         sidebarMode: SidebarMode? = nil,
         collapsedWorkspaceIDs: Set<UUID>? = nil,
-        persistentNode: SplitNode? = nil,
-        persistentPanelVisible: Bool? = nil,
-        persistentPanelWidth: CGFloat? = nil,
-        persistentPanelHeight: CGFloat? = nil,
-        persistentPanelPosition: PanelPosition? = nil
+        pinnedWorkspaceID: UUID? = nil
     ) {
         self.workspaces = workspaces
         self.selectedWorkspaceID = selectedWorkspaceID
         self.sidebarWidth = sidebarWidth
         self.sidebarMode = sidebarMode
         self.collapsedWorkspaceIDs = collapsedWorkspaceIDs
-        self.persistentNode = persistentNode
-        self.persistentPanelVisible = persistentPanelVisible
-        self.persistentPanelWidth = persistentPanelWidth
-        self.persistentPanelHeight = persistentPanelHeight
-        self.persistentPanelPosition = persistentPanelPosition
+        self.pinnedWorkspaceID = pinnedWorkspaceID
     }
 
     private enum CodingKeys: String, CodingKey {
         case workspaces, selectedWorkspaceID, sidebarWidth, sidebarMode, sidebarVisible
-        case collapsedWorkspaceIDs, persistentNode, persistentPanelVisible, persistentPanelWidth
-        case persistentPanelHeight, persistentPanelPosition
+        case collapsedWorkspaceIDs, pinnedWorkspaceID
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -54,11 +41,7 @@ public struct WorkspaceSnapshot: Codable {
         try container.encodeIfPresent(sidebarMode, forKey: .sidebarMode)
         // sidebarVisible intentionally not written
         try container.encodeIfPresent(collapsedWorkspaceIDs, forKey: .collapsedWorkspaceIDs)
-        try container.encodeIfPresent(persistentNode, forKey: .persistentNode)
-        try container.encodeIfPresent(persistentPanelVisible, forKey: .persistentPanelVisible)
-        try container.encodeIfPresent(persistentPanelWidth, forKey: .persistentPanelWidth)
-        try container.encodeIfPresent(persistentPanelHeight, forKey: .persistentPanelHeight)
-        try container.encodeIfPresent(persistentPanelPosition, forKey: .persistentPanelPosition)
+        try container.encodeIfPresent(pinnedWorkspaceID, forKey: .pinnedWorkspaceID)
     }
 }
 
