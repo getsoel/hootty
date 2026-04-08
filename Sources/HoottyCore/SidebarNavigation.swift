@@ -35,7 +35,7 @@ public enum SidebarKeyboardNav {
 
         for ws in workspaces {
             items.append(.workspace(ws.id))
-            let effectivelyCollapsed = collapsedWorkspaceIDs.contains(ws.id) && ws.id != selectedWorkspaceID
+            let effectivelyCollapsed = collapsedWorkspaceIDs.contains(ws.id)
             if !effectivelyCollapsed {
                 let isSelectedWs = ws.id == selectedWorkspaceID
                 for pane in ws.allPanes where pane.isVisibleInSidebar(isFocusedInSelectedWorkspace: isSelectedWs && pane.id == ws.focusedPaneID, filters: activeFilters) {

@@ -30,6 +30,10 @@ struct CondensedSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             expandHeader
+            if let pinned = pinnedWorkspace {
+                workspaceSection(pinned)
+                Rectangle().fill(Color(tokens.border)).frame(height: 1)
+            }
             scrollContent
             Spacer(minLength: 0)
         }
@@ -94,15 +98,19 @@ struct CondensedSidebar: View {
         }
     }
 
+    private var pinnedWorkspace: Workspace? {
+        guard let pinnedID = pinnedWorkspaceID else { return nil }
+        return workspaces.first { $0.id == pinnedID }
+    }
+
+    private var scrollableWorkspaces: [Workspace] {
+        guard let pinnedID = pinnedWorkspaceID else { return workspaces }
+        return workspaces.filter { $0.id != pinnedID }
+    }
+
     private var sortedWorkspaces: [Workspace] {
-        guard let pinnedID = pinnedWorkspaceID,
-              let idx = workspaces.firstIndex(where: { $0.id == pinnedID }) else {
-            return workspaces
-        }
-        var result = workspaces
-        let pinned = result.remove(at: idx)
-        result.insert(pinned, at: 0)
-        return result
+        guard let pinned = pinnedWorkspace else { return workspaces }
+        return [pinned] + scrollableWorkspaces
     }
 
     // MARK: - Scroll Content
@@ -111,7 +119,7 @@ struct CondensedSidebar: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: 0) {
-                    ForEach(sortedWorkspaces) { workspace in
+                    ForEach(scrollableWorkspaces) { workspace in
                         workspaceSection(workspace)
                     }
                 }

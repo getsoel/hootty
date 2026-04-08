@@ -1004,7 +1004,7 @@ struct WorkspaceCollapseIntegration {
         #expect(!restored.collapsedWorkspaceIDs.contains(ws2.id))
     }
 
-    @Test func effectiveCollapseRespectsSelectedWorkspace() {
+    @Test func effectiveCollapseReflectsExplicitToggle() {
         let (model, _) = makeModel()
         let ws1 = model.workspaces[0]
         let ws2 = model.addWorkspace()
@@ -1012,14 +1012,12 @@ struct WorkspaceCollapseIntegration {
         model.selectedWorkspaceID = ws1.id
         model.toggleWorkspaceCollapse(ws1.id)
 
-        // ws1 is collapsed but selected — not effectively collapsed
-        #expect(!model.isWorkspaceEffectivelyCollapsed(ws1.id))
-        // ws2 is not collapsed at all
+        // Selected workspace can be explicitly collapsed
+        #expect(model.isWorkspaceEffectivelyCollapsed(ws1.id))
         #expect(!model.isWorkspaceEffectivelyCollapsed(ws2.id))
 
-        // Switch selection to ws2
+        // Selection change doesn't affect collapse state
         model.selectedWorkspaceID = ws2.id
-        // Now ws1 is effectively collapsed
         #expect(model.isWorkspaceEffectivelyCollapsed(ws1.id))
     }
 
@@ -1087,18 +1085,18 @@ struct SidebarKeyboardNavTests {
         #expect(items[2] == .workspace(ws2.id))
     }
 
-    @Test func selectedCollapsedWorkspaceShowsPanes() {
+    @Test func selectedCollapsedWorkspaceHidesPanes() {
         let (model, _) = makeModel()
         let ws1 = model.workspaces[0]
 
-        // ws1 is both collapsed AND selected — panes should still show
+        // Collapsing a selected workspace hides its panes — user is in control
         let items = SidebarKeyboardNav.allNavigableItems(
             workspaces: model.workspaces,
             collapsedWorkspaceIDs: [ws1.id],
             selectedWorkspaceID: ws1.id
         )
 
-        #expect(items.count == 2) // workspace row + pane
+        #expect(items.count == 1) // just the workspace row
     }
 
     @Test func moveCursorAcrossWorkspaceBoundary() {

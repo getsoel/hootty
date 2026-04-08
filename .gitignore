@@ -31,3 +31,6 @@ repomix-output.xml
 docs/
 cli/node_modules/
 .workshop/
+contractor/.state/
+contractor/.retrospective/
+contractor/.worktrees/

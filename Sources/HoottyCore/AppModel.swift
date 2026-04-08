@@ -271,7 +271,7 @@ public final class AppModel {
     }
 
     public func isWorkspaceEffectivelyCollapsed(_ id: UUID) -> Bool {
-        collapsedWorkspaceIDs.contains(id) && id != selectedWorkspaceID
+        collapsedWorkspaceIDs.contains(id)
     }
 
     // MARK: - Sidebar Filters

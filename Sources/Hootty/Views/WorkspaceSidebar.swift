@@ -47,6 +47,11 @@ struct WorkspaceSidebar: View {
         VStack(spacing: 0) {
             sidebarHeader
 
+            if let pinned = pinnedWorkspace {
+                workspaceEntry(pinned)
+                Rectangle().fill(Color(tokens.border)).frame(height: 1)
+            }
+
             workspaceList
 
             Spacer(minLength: 0)
@@ -203,7 +208,7 @@ struct WorkspaceSidebar: View {
 
     private var scrollTargetIDs: [UUID] {
         var ids: [UUID] = []
-        for workspace in sortedWorkspaces {
+        for workspace in scrollableWorkspaces {
             ids.append(workspace.id)
             if !isEffectivelyCollapsed(workspace.id) {
                 let isSelectedWs = workspace.id == selectedWorkspaceID
@@ -217,70 +222,92 @@ struct WorkspaceSidebar: View {
         return ids
     }
 
+    private var pinnedWorkspace: Workspace? {
+        guard let pinnedID = pinnedWorkspaceID else { return nil }
+        return workspaces.first { $0.id == pinnedID }
+    }
+
+    private var scrollableWorkspaces: [Workspace] {
+        guard let pinnedID = pinnedWorkspaceID else { return workspaces }
+        return workspaces.filter { $0.id != pinnedID }
+    }
+
     private var sortedWorkspaces: [Workspace] {
-        guard let pinnedID = pinnedWorkspaceID,
-              let idx = workspaces.firstIndex(where: { $0.id == pinnedID }) else {
-            return workspaces
-        }
-        var result = workspaces
-        let pinned = result.remove(at: idx)
-        result.insert(pinned, at: 0)
-        return result
+        guard let pinned = pinnedWorkspace else { return workspaces }
+        return [pinned] + scrollableWorkspaces
     }
 
     private var workspaceList: some View {
         workspaceScrollView
     }
 
+    @ViewBuilder
+    private func workspaceEntry(_ workspace: Workspace) -> some View {
+        let isActive = workspace.id == selectedWorkspaceID
+        let collapsed = isEffectivelyCollapsed(workspace.id)
+        let isPinned = workspace.id == pinnedWorkspaceID
+        VStack(spacing: 0) {
+            WorkspaceRow(
+                workspace: workspace,
+                isSelected: isActive,
+                isCollapsed: collapsed,
+                isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(workspace.id),
+                tokens: tokens,
+                isPinned: isPinned,
+                onSelect: {
+                    if isActive {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            onToggleCollapse?(workspace.id)
+                        }
+                    } else {
+                        selectedWorkspaceID = workspace.id
+                        if collapsedWorkspaceIDs.contains(workspace.id) {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                onToggleCollapse?(workspace.id)
+                            }
+                        }
+                    }
+                },
+                onRename: { id, name in
+                    editingName = name
+                    renameTargetID = id
+                    showRenameWorkspaceAlert = true
+                },
+                onRemove: onRemoveWorkspace,
+                onToggleCollapse: {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        onToggleCollapse?(workspace.id)
+                    }
+                },
+                onTogglePinWorkspace: { onTogglePinWorkspace?(workspace.id) },
+                onMove: { sourceID, _ in
+                    guard workspaces.contains(where: { $0.id == sourceID }),
+                          let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                    let insertIndex = targetIndex + 1
+                    onMoveWorkspace(sourceID, insertIndex)
+                },
+                dropTargetWorkspaceID: $dropTargetWorkspaceID,
+                dropEdge: $dropEdge,
+                workspaceRowHeight: $workspaceRowHeight
+            )
+            .id(workspace.id)
+            if !collapsed {
+                workspacePaneList(workspace)
+            }
+        }
+        .background {
+            if isActive {
+                Color(tokens.elementHover)
+            }
+        }
+    }
+
     private var workspaceScrollView: some View {
         ScrollView {
             ScrollViewReader { proxy in
                 VStack(spacing: 0) {
-                    ForEach(sortedWorkspaces) { workspace in
-                        let isActive = workspace.id == selectedWorkspaceID
-                        let collapsed = isEffectivelyCollapsed(workspace.id)
-                        let isPinned = workspace.id == pinnedWorkspaceID
-                        VStack(spacing: 0) {
-                            WorkspaceRow(
-                                workspace: workspace,
-                                isSelected: isActive,
-                                isCollapsed: collapsed,
-                                isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(workspace.id),
-                                tokens: tokens,
-                                isPinned: isPinned,
-                                onSelect: { selectedWorkspaceID = workspace.id },
-                                onRename: { id, name in
-                                    editingName = name
-                                    renameTargetID = id
-                                    showRenameWorkspaceAlert = true
-                                },
-                                onRemove: onRemoveWorkspace,
-                                onToggleCollapse: {
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        onToggleCollapse?(workspace.id)
-                                    }
-                                },
-                                onTogglePinWorkspace: { onTogglePinWorkspace?(workspace.id) },
-                                onMove: { sourceID, _ in
-                                    guard workspaces.contains(where: { $0.id == sourceID }),
-                                          let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                                    let insertIndex = targetIndex + 1
-                                    onMoveWorkspace(sourceID, insertIndex)
-                                },
-                                dropTargetWorkspaceID: $dropTargetWorkspaceID,
-                                dropEdge: $dropEdge,
-                                workspaceRowHeight: $workspaceRowHeight
-                            )
-                            .id(workspace.id)
-                            if !collapsed {
-                                workspacePaneList(workspace)
-                            }
-                        }
-                        .background {
-                            if isActive {
-                                Color(tokens.elementHover)
-                            }
-                        }
+                    ForEach(scrollableWorkspaces) { workspace in
+                        workspaceEntry(workspace)
                     }
                 }
                 .background {
