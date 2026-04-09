@@ -6,14 +6,14 @@
 
 ## 2. ProfileStore and Persistence
 
-- [ ] 2.1 Create `Sources/HoottyCore/ProfileStore.swift` with `init(rootDirectory: URL)` and `init()` (defaults to `Hootty[-Dev]` under app support)
-- [ ] 2.2 Implement `loadMetadata()` and `saveMetadata(_:)` reading and writing `profiles.json` atomically
-- [ ] 2.3 Implement `profileDirectory(for: UUID)` that returns `rootDirectory/profiles/<uuid>/`
-- [ ] 2.4 Implement `workspaceStore(for: UUID) -> WorkspaceStore` returning a `WorkspaceStore(fileURL:)` pointed at the profile's `workspaces.json`
-- [ ] 2.5 Implement `configFile(for: UUID) -> ConfigFile` returning a `ConfigFile(fileURL:)` pointed at the profile's `config`
-- [ ] 2.6 Implement `createProfileDirectory(id:seedingDefaultConfig:)` that creates the directory and writes a fresh `config` from `ConfigFile.defaultConfigContent()`
-- [ ] 2.7 Implement `deleteProfileDirectory(id:)` that recursively removes the profile's directory
-- [ ] 2.8 Add integration tests in `Tests/HoottyCoreTests/ProfileStoreTests.swift` for metadata round-trips and directory creation using temp directories
+- [x] 2.1 Create `Sources/HoottyCore/ProfileStore.swift` with `init(rootDirectory: URL)` and `init()` (defaults to `Hootty[-Dev]` under app support)
+- [x] 2.2 Implement `loadMetadata()` and `saveMetadata(_:)` reading and writing `profiles.json` atomically
+- [x] 2.3 Implement `profileDirectory(for: UUID)` that returns `rootDirectory/profiles/<uuid>/`
+- [x] 2.4 Implement `workspaceStore(for: UUID) -> WorkspaceStore` returning a `WorkspaceStore(fileURL:)` pointed at the profile's `workspaces.json`
+- [x] 2.5 Implement `configFile(for: UUID) -> ConfigFile` returning a `ConfigFile(fileURL:)` pointed at the profile's `config`
+- [x] 2.6 Implement `createProfileDirectory(id:seedingDefaultConfig:)` that creates the directory and writes a fresh `config` from `ConfigFile.defaultConfigContent()`
+- [x] 2.7 Implement `deleteProfileDirectory(id:)` that recursively removes the profile's directory
+- [x] 2.8 Add integration tests in `Tests/HoottyCoreTests/ProfileStoreTests.swift` for metadata round-trips and directory creation using temp directories
 
 ## 3. Migration from Legacy Layout
 
