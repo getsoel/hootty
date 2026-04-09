@@ -39,13 +39,13 @@
 
 ## 6. Gemini wrapper script (Phase 2)
 
-- [ ] 6.1 Create `Sources/Hootty/Resources/bin/gemini` (bash script, executable bit set, chmod `755`). Script MUST pass through to the real `gemini` binary when `HOOTTY_PANE_ID` is unset. Use the existing `find_real_claude`-style pattern, renamed to `find_real_gemini`.
-- [ ] 6.2 Implement settings-file generation: write `${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty/gemini-settings.json` with JSON containing `SessionStart` and `CwdChanged` hooks referencing the sibling hook scripts by absolute path.
-- [ ] 6.3 Set `GEMINI_CLI_SYSTEM_SETTINGS_PATH=<settings-file>` in the environment before `exec`-ing the real `gemini` binary.
-- [ ] 6.4 Create `Sources/Hootty/Resources/bin/gemini-session-hook` that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`. Nothing to stdout.
-- [ ] 6.5 Create `Sources/Hootty/Resources/bin/gemini-cwd-hook` that reads the cwd from the hook's stdin JSON payload (key path per Gemini docs) and writes `\e]7;file://<host><path>\a` to `/dev/tty`.
-- [ ] 6.6 Add the three new files to `Package.swift` resources for the `Hootty` target.
-- [ ] 6.7 Verify the wrapper resolves correctly: `make run`, open a pane, run `which gemini`, confirm it points to the bundle's `bin/gemini`.
+- [x] 6.1 Create `Sources/Hootty/Resources/bin/gemini` (bash script, executable bit set, chmod `755`). Script MUST pass through to the real `gemini` binary when `HOOTTY_PANE_ID` is unset. Use the existing `find_real_claude`-style pattern, renamed to `find_real_gemini`.
+- [x] 6.2 Implement settings-file generation: write `${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty/gemini-settings.json` with JSON containing `SessionStart` and `CwdChanged` hooks referencing the sibling hook scripts by absolute path.
+- [x] 6.3 Set `GEMINI_CLI_SYSTEM_SETTINGS_PATH=<settings-file>` in the environment before `exec`-ing the real `gemini` binary.
+- [x] 6.4 Create `Sources/Hootty/Resources/bin/gemini-session-hook` that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`. Nothing to stdout.
+- [x] 6.5 Create `Sources/Hootty/Resources/bin/gemini-cwd-hook` that reads the cwd from the hook's stdin JSON payload (key path per Gemini docs) and writes `\e]7;file://<host><path>\a` to `/dev/tty`.
+- [x] 6.6 Add the three new files to `Package.swift` resources for the `Hootty` target. *(No changes needed — `Package.swift` uses `.copy("Resources/bin")` to ship the entire directory.)*
+- [ ] 6.7 Verify the wrapper resolves correctly: `make run`, open a pane, run `which gemini`, confirm it points to the bundle's `bin/gemini`. *(Manual smoke test, deferred to verification group.)*
 
 ## 7. Codex wrapper script (Phase 3)
 

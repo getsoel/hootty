@@ -1,0 +1,11 @@
+#!/bin/bash
+# Hootty CwdChanged hook for Gemini CLI — reads cwd from the hook's stdin
+# JSON payload and emits OSC 7 directly to /dev/tty so ghostty updates the
+# pane's working directory (enables worktree detection in the sidebar while
+# Gemini is running). Falls back to pwd if the JSON doesn't contain a cwd.
+# Gemini consumes hook stdout as a structured response channel, so the
+# OSC sequence must be written to /dev/tty.
+CWD=$(tr -d '\n' | sed -n 's/.*"cwd" *: *"\([^"]*\)".*/\1/p')
+[ -z "$CWD" ] && CWD="$(pwd)"
+[ -n "$CWD" ] && printf '\e]7;file://%s%s\a' "$(hostname)" "$CWD" > /dev/tty 2>/dev/null
+exit 0
