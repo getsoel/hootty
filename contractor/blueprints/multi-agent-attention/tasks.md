@@ -63,16 +63,16 @@
 
 ## 8. Documentation updates
 
-- [ ] 8.1 Rewrite `docs/HOOKS.md` as `docs/AGENTS.md` (or keep the name and re-title): cover multi-agent detection, the three wrapper scripts, the `CODEX_HOME` isolation strategy, and the documented limitation (no Codex approval-prompt attention).
-- [ ] 8.2 Update the Architecture tree in `CLAUDE.md` to mention `Sources/HoottyCore/Agents/`, the renamed `agentSessionID` field, and the new `Gemini`/`Codex` wrappers in `Sources/Hootty/Resources/bin/`.
-- [ ] 8.3 Update `.claude/rules/coding/ghostty.md` if any new ghostty-specific patterns are discovered during wrapper implementation (probably not, since we reuse the existing OSC 9 / 7 routing).
+- [ ] 8.1 Rewrite `docs/HOOKS.md` as `docs/AGENTS.md` (or keep the name and re-title): cover multi-agent detection, the three wrapper scripts, the `CODEX_HOME` isolation strategy, and the documented limitation (no Codex approval-prompt attention). *(Skipped — `docs/` is gitignored per `e39fbeb`; local-only doc, not shipped. User can refresh manually post-merge.)*
+- [x] 8.2 Update the Architecture tree in `CLAUDE.md` to mention `Sources/HoottyCore/Agents/`, the renamed `agentSessionID` field, and the new `Gemini`/`Codex` wrappers in `Sources/Hootty/Resources/bin/`.
+- [x] 8.3 Update `.claude/rules/coding/ghostty.md` if any new ghostty-specific patterns are discovered during wrapper implementation (probably not, since we reuse the existing OSC 9 / 7 routing). *(No new ghostty patterns discovered — wrappers reuse the existing OSC 9 / 7 routing via `GHOSTTY_ACTION_DESKTOP_NOTIFICATION`.)*
 
 ## 9. Verification
 
-- [ ] 9.1 `make build` succeeds.
-- [ ] 9.2 `swift test` passes (ignore the signal-10 XCTest runner exit).
-- [ ] 9.3 `make format-check` passes.
-- [ ] 9.4 `make lint` passes.
-- [ ] 9.5 Manual smoke test — Claude Code: open a Claude session in one pane, focus another, trigger a long task, verify the thinking spinner animates in the sidebar and `.done` fires when it finishes (unfocused).
-- [ ] 9.6 Manual smoke test — Gemini CLI: run `gemini` in a pane, verify `which gemini` points at the bundle wrapper, verify thinking state lights up, verify `✋` fires `.done` attention when unfocused.
-- [ ] 9.7 Manual smoke test — Codex CLI: run `codex` in a pane, verify `which codex` points at the bundle wrapper, verify thinking state lights up via Braille detection, verify `~/.codex/` is unchanged after running, verify `$CODEX_HOME` is set to the Hootty-managed directory inside the running process (inspect via `env` in a Codex shell tool call).
+- [x] 9.1 `make build` succeeds.
+- [x] 9.2 `swift test` passes (316 tests in 38 suites — no signal-10 this run since tomllib was not invoked).
+- [x] 9.3 `make format-check` passes (0/94 files require formatting).
+- [x] 9.4 `make lint` passes (0 violations in 282 files).
+- [ ] 9.5 Manual smoke test — Claude Code: open a Claude session in one pane, focus another, trigger a long task, verify the thinking spinner animates in the sidebar and `.done` fires when it finishes (unfocused). *(Requires live interaction — deferred for user verification.)*
+- [ ] 9.6 Manual smoke test — Gemini CLI: run `gemini` in a pane, verify `which gemini` points at the bundle wrapper, verify thinking state lights up, verify `✋` fires `.done` attention when unfocused. *(Requires live interaction — deferred for user verification.)*
+- [ ] 9.7 Manual smoke test — Codex CLI: run `codex` in a pane, verify `which codex` points at the bundle wrapper, verify thinking state lights up via Braille detection, verify `~/.codex/` is unchanged after running, verify `$CODEX_HOME` is set to the Hootty-managed directory inside the running process (inspect via `env` in a Codex shell tool call). *(Wrapper logic was dry-run verified in a sandboxed `/tmp` directory — see commit f195d19. Live verification deferred for user.)*
