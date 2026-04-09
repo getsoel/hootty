@@ -308,4 +308,125 @@ public final class AppModel {
     public func clearSidebarFilters() {
         activeSidebarFilters.removeAll()
     }
+
+    // MARK: - Profile CRUD
+
+    private func saveProfileMetadata() {
+        let metadata = ProfilesMetadata(activeProfileID: activeProfileID, profiles: profiles)
+        profileStore.saveMetadata(metadata)
+    }
+
+    private func nextProfileName(base: String) -> String {
+        let existingNames = Set(profiles.map(\.name))
+        if !existingNames.contains(base) { return base }
+        var n = 2
+        while existingNames.contains("\(base) \(n)") {
+            n += 1
+        }
+        return "\(base) \(n)"
+    }
+
+    @discardableResult
+    public func createProfile(named name: String) -> Profile {
+        let disambiguated = nextProfileName(base: name)
+        let profile = Profile(name: disambiguated)
+        profileStore.createProfileDirectory(id: profile.id)
+        profiles.append(profile)
+        saveProfileMetadata()
+        return profile
+    }
+
+    public func renameProfile(id: UUID, to newName: String) {
+        guard !newName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else { return }
+        profiles[index].name = newName
+        saveProfileMetadata()
+    }
+
+    public func deleteProfile(id: UUID) {
+        guard profiles.count > 1 else { return }
+        // If deleting the active profile, switch to the first other profile
+        if id == activeProfileID {
+            if let other = profiles.first(where: { $0.id != id }) {
+                switchProfile(to: other.id)
+            }
+        }
+        profiles.removeAll { $0.id == id }
+        profileStore.deleteProfileDirectory(id: id)
+        saveProfileMetadata()
+    }
+
+    // MARK: - Profile Switching
+
+    /// Closure called during profile switch to tear down ghostty surfaces for a workspace.
+    /// Set by the UI layer (HoottyApp) since HoottyCore cannot import AppKit/GhosttyApp.
+    public var onTeardownWorkspace: ((Workspace) -> Void)?
+
+    /// Closure called during profile switch to reload ghostty config.
+    /// Set by the UI layer (HoottyApp).
+    public var onReloadConfig: ((String) -> Void)?
+
+    public func switchProfile(to targetID: UUID) {
+        guard targetID != activeProfileID else { return }
+        guard profiles.contains(where: { $0.id == targetID }) else { return }
+
+        // 1. Flush pending debounced save and persist current state
+        saveDebounceTask?.cancel()
+        saveDebounceTask = nil
+        saveWorkspaces()
+
+        // 2. Tear down surfaces for all current workspaces
+        for workspace in workspaces {
+            onTeardownWorkspace?(workspace)
+        }
+
+        // 3. Swap workspace store and config file to the target profile's instances
+        let newWorkspaceStore = profileStore.workspaceStore(for: targetID)
+        let newConfigFile = profileStore.configFile(for: targetID)
+        newConfigFile.ensureExists()
+
+        workspaceStore = newWorkspaceStore
+        configFile = newConfigFile
+
+        // 4. Reload ghostty config with new profile's settings
+        onReloadConfig?(newConfigFile.ghosttyConfigContent())
+
+        // 5. Update theme manager to use new config
+        themeManager.updateConfigFile(newConfigFile)
+        soundManager.updateConfigFile(newConfigFile)
+
+        // 6. Hydrate workspace state from the target profile
+        if let snapshot = newWorkspaceStore.load() {
+            workspaces = snapshot.workspaces
+            selectedWorkspaceID = snapshot.selectedWorkspaceID
+            if let width = snapshot.sidebarWidth {
+                sidebarWidth = width
+            }
+            if let mode = snapshot.sidebarMode {
+                sidebarMode = mode
+            }
+            if let collapsed = snapshot.collapsedWorkspaceIDs {
+                collapsedWorkspaceIDs = collapsed
+            } else {
+                collapsedWorkspaceIDs = []
+            }
+            pinnedWorkspaceID = snapshot.pinnedWorkspaceID
+        } else {
+            // Empty profile — start fresh
+            workspaces = []
+            sidebarMode = .full
+            sidebarWidth = 260
+            collapsedWorkspaceIDs = []
+            pinnedWorkspaceID = nil
+            activeSidebarFilters = []
+            let workspace = addWorkspace()
+            selectedWorkspaceID = workspace.id
+        }
+
+        // 7. Update active profile ID
+        activeProfileID = targetID
+
+        // 8. Persist metadata
+        saveProfileMetadata()
+    }
 }

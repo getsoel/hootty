@@ -34,23 +34,23 @@
 
 ## 5. AppModel Profile CRUD
 
-- [ ] 5.1 Implement `createProfile(named:)` that disambiguates duplicate names (same suffix scheme as `nextWorkspaceName()`), calls `ProfileStore.createProfileDirectory`, appends to `profiles`, and persists metadata; does not activate
-- [ ] 5.2 Implement `renameProfile(id:to:)` that rejects empty names, updates in-memory state, and persists metadata
-- [ ] 5.3 Implement `deleteProfile(id:)` that rejects deletion of the last profile, switches active profile first if deleting the active one, then removes from `profiles`, deletes the directory, and persists metadata
-- [ ] 5.4 Add integration tests in `Tests/HoottyCoreTests/ProfileCRUDTests.swift` covering each operation and its guardrails (empty name, last profile, duplicate names, delete-active)
+- [x] 5.1 Implement `createProfile(named:)` that disambiguates duplicate names (same suffix scheme as `nextWorkspaceName()`), calls `ProfileStore.createProfileDirectory`, appends to `profiles`, and persists metadata; does not activate
+- [x] 5.2 Implement `renameProfile(id:to:)` that rejects empty names, updates in-memory state, and persists metadata
+- [x] 5.3 Implement `deleteProfile(id:)` that rejects deletion of the last profile, switches active profile first if deleting the active one, then removes from `profiles`, deletes the directory, and persists metadata
+- [x] 5.4 Add integration tests in `Tests/HoottyCoreTests/ProfileCRUDTests.swift` covering each operation and its guardrails (empty name, last profile, duplicate names, delete-active)
 
 ## 6. Profile Switching
 
-- [ ] 6.1 Add `switchProfile(to:)` to `AppModel` with a same-id no-op short-circuit and an unknown-id rejection
-- [ ] 6.2 In the switch implementation, step 1: flush any pending debounced save and call `saveWorkspaces()` on the current profile's `WorkspaceStore`
-- [ ] 6.3 Step 2: tear down surfaces by iterating `workspaces` and calling `GhosttyApp.cleanupWorkspace(_:)` (this requires passing a teardown closure into `AppModel` or exposing a hook — choose whichever keeps `HoottyCore` UI-free)
-- [ ] 6.4 Step 3: mutate `workspaces`, `selectedWorkspaceID`, `collapsedWorkspaceIDs`, `pinnedWorkspaceID`, `activeSidebarFilters` with the target profile's loaded snapshot (or empty-state defaults if no snapshot)
-- [ ] 6.5 Step 4: swap `workspaceStore` and `configFile` to the target profile's instances from `ProfileStore`
-- [ ] 6.6 Step 5: invoke a caller-provided ghostty reload closure (same injection strategy as 6.3) that calls `GhosttyApp.shared.reloadConfig(ghosttyContent:)`
-- [ ] 6.7 Step 6: update `activeProfileID`
-- [ ] 6.8 Step 7: persist `profiles.json`
-- [ ] 6.9 Add a post-condition assertion/log verifying `GhosttyApp.surfaceViews.isEmpty` and `focusedSurface == nil` after teardown
-- [ ] 6.10 Add integration tests in `Tests/HoottyCoreTests/ProfileSwitchTests.swift` that exercise save → swap → hydrate round-trips across two profiles using a mock teardown/reload closure
+- [x] 6.1 Add `switchProfile(to:)` to `AppModel` with a same-id no-op short-circuit and an unknown-id rejection
+- [x] 6.2 In the switch implementation, step 1: flush any pending debounced save and call `saveWorkspaces()` on the current profile's `WorkspaceStore`
+- [x] 6.3 Step 2: tear down surfaces by iterating `workspaces` and calling `GhosttyApp.cleanupWorkspace(_:)` (this requires passing a teardown closure into `AppModel` or exposing a hook — choose whichever keeps `HoottyCore` UI-free)
+- [x] 6.4 Step 3: mutate `workspaces`, `selectedWorkspaceID`, `collapsedWorkspaceIDs`, `pinnedWorkspaceID`, `activeSidebarFilters` with the target profile's loaded snapshot (or empty-state defaults if no snapshot)
+- [x] 6.5 Step 4: swap `workspaceStore` and `configFile` to the target profile's instances from `ProfileStore`
+- [x] 6.6 Step 5: invoke a caller-provided ghostty reload closure (same injection strategy as 6.3) that calls `GhosttyApp.shared.reloadConfig(ghosttyContent:)`
+- [x] 6.7 Step 6: update `activeProfileID`
+- [x] 6.8 Step 7: persist `profiles.json`
+- [x] 6.9 Add a post-condition assertion/log verifying `GhosttyApp.surfaceViews.isEmpty` and `focusedSurface == nil` after teardown
+- [x] 6.10 Add integration tests in `Tests/HoottyCoreTests/ProfileSwitchTests.swift` that exercise save → swap → hydrate round-trips across two profiles using a mock teardown/reload closure
 
 ## 7. AppKit Prompt Helper
 
