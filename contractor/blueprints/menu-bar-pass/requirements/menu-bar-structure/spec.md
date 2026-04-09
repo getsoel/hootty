@@ -136,7 +136,7 @@ Menu items whose targets cannot act MUST be disabled:
 
 - `Close Workspace` — disabled when `AppModel.selectedWorkspace` is `nil`.
 - `Next Workspace` / `Previous Workspace` — disabled when fewer than two workspaces exist in the active profile.
-- `Pin/Unpin Workspace` — disabled when `AppModel.selectedWorkspaceID` is `nil`.
+- `Pin/Unpin Workspace` — disabled when `AppModel.selectedWorkspace` is `nil`.
 
 Split, pane focus, equalize, note, and flag commands MAY remain enabled even when no focused pane exists; their handlers already guard with `guard let`.
 

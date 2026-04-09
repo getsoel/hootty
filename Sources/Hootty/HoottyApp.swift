@@ -177,7 +177,7 @@ struct HoottyApp: App {
         Button(AppCommand.pinWorkspace.title) {
             commandRegistry.execute(.pinWorkspace)
         }
-        .disabled(appModel.selectedWorkspaceID == nil)
+        .disabled(appModel.selectedWorkspace == nil)
 
         Button(AppCommand.refreshTerminal.title) {
             commandRegistry.execute(.refreshTerminal)
@@ -540,6 +540,9 @@ struct HoottyApp: App {
                 }
                 .keyboardShortcut("\\", modifiers: .command)
             }
+            CommandMenu("Workspace") {
+                workspaceMenuContents
+            }
             CommandMenu("Profile") {
                 Picker("Active", selection: profileSwitchBinding) {
                     ForEach(appModel.profiles) { profile in
@@ -562,9 +565,6 @@ struct HoottyApp: App {
                     commandRegistry.execute(.deleteCurrentProfile)
                 }
                 .disabled(appModel.profiles.count <= 1)
-            }
-            CommandMenu("Workspace") {
-                workspaceMenuContents
             }
         }
     }
