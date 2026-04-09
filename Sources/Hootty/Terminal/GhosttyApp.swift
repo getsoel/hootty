@@ -92,6 +92,17 @@ final class GhosttyApp {
         }
     }
 
+    /// Log a warning if any surfaces remain after a profile-switch teardown (task 6.9).
+    func assertTeardownComplete() {
+        let remainingCount = surfaceViews.count
+        if remainingCount > 0 {
+            Log.ghostty.warning("Profile switch: \(remainingCount) surface view(s) remain after teardown — potential dangling ghostty_surface_t")
+        }
+        if focusedSurface != nil {
+            Log.ghostty.warning("Profile switch: focusedSurface is not nil after teardown")
+        }
+    }
+
     /// Pending commands to send to surfaces after creation (for session resume).
     private var pendingCommands: [UUID: String] = [:]
 

@@ -49,6 +49,9 @@ struct HoottyApp: App {
                 model.themeManager.setResolvedTheme(resolved)
             }
         }
+        model.onAfterTeardown = {
+            GhosttyApp.shared.assertTeardownComplete()
+        }
 
         _commandRegistry = State(initialValue: CommandRegistry())
 
@@ -206,7 +209,8 @@ struct HoottyApp: App {
                 title: "New Profile",
                 prompt: "Enter a name for the new profile:"
             ) else { return }
-            _ = appModel.createProfile(named: name)
+            let profile = appModel.createProfile(named: name)
+            appModel.switchProfile(to: profile.id)
             Self.refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
         }
         commandRegistry.register(.renameCurrentProfile) { [appModel, commandRegistry] in

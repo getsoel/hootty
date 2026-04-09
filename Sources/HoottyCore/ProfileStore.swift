@@ -23,12 +23,7 @@ public final class ProfileStore {
     }
 
     public convenience init() {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        #if DEBUG
-            let dir = appSupport.appendingPathComponent("Hootty-Dev", isDirectory: true)
-        #else
-            let dir = appSupport.appendingPathComponent("Hootty", isDirectory: true)
-        #endif
+        let dir = ConfigFile.appSupportDirectory
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         self.init(rootDirectory: dir)
     }

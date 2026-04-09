@@ -52,8 +52,9 @@ public final class AppModel {
 
         // Run migration and load profile metadata
         resolvedProfileStore.migrateIfNeeded()
+        let defaultProfile = Profile(name: "Default")
         let metadata = resolvedProfileStore.loadMetadata()
-            ?? ProfilesMetadata(activeProfileID: UUID(), profiles: [Profile(name: "Default")])
+            ?? ProfilesMetadata(activeProfileID: defaultProfile.id, profiles: [defaultProfile])
         self.profiles = metadata.profiles
         self.activeProfileID = metadata.activeProfileID
 
@@ -366,6 +367,10 @@ public final class AppModel {
     /// Set by the UI layer (HoottyApp).
     public var onReloadConfig: ((String) -> Void)?
 
+    /// Called once after all workspace surfaces are torn down, before state swap.
+    /// Used by the UI layer to verify teardown completeness (task 6.9).
+    public var onAfterTeardown: (() -> Void)?
+
     public func switchProfile(to targetID: UUID) {
         guard targetID != activeProfileID else { return }
         guard profiles.contains(where: { $0.id == targetID }) else { return }
@@ -379,6 +384,7 @@ public final class AppModel {
         for workspace in workspaces {
             onTeardownWorkspace?(workspace)
         }
+        onAfterTeardown?()
 
         // 3. Swap workspace store and config file to the target profile's instances
         let newWorkspaceStore = profileStore.workspaceStore(for: targetID)
@@ -411,6 +417,7 @@ public final class AppModel {
                 collapsedWorkspaceIDs = []
             }
             pinnedWorkspaceID = snapshot.pinnedWorkspaceID
+            activeSidebarFilters = []
         } else {
             // Empty profile — start fresh
             workspaces = []
