@@ -1,8 +1,8 @@
 ## 1. Core Types
 
-- [ ] 1.1 Create `Sources/HoottyCore/Profile.swift` with the `Profile` struct (`id: UUID`, `name: String`), `Codable` and `Equatable` conformance
-- [ ] 1.2 Add a `ProfilesMetadata` `Codable` struct (`activeProfileID: UUID`, `profiles: [Profile]`) in the same file or a sibling file
-- [ ] 1.3 Add unit tests in `Tests/HoottyCoreTests/ProfileTests.swift` covering Codable round-trips for `Profile` and `ProfilesMetadata`
+- [x] 1.1 Create `Sources/HoottyCore/Profile.swift` with the `Profile` struct (`id: UUID`, `name: String`), `Codable` and `Equatable` conformance
+- [x] 1.2 Add a `ProfilesMetadata` `Codable` struct (`activeProfileID: UUID`, `profiles: [Profile]`) in the same file or a sibling file
+- [x] 1.3 Add unit tests in `Tests/HoottyCoreTests/ProfileTests.swift` covering Codable round-trips for `Profile` and `ProfilesMetadata`
 
 ## 2. ProfileStore and Persistence
 
