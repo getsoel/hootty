@@ -71,25 +71,33 @@ public final class PaneEventHandler {
 
     public func handleTitleChange(_ paneID: UUID, title: String) {
         withPane(id: paneID) { workspace, pane in
-            guard let state = ClaudeTitleParser.parse(title) else {
-                // Title no longer matches Claude pattern — clear auto-detected session
-                if pane.claudeSessionID == "auto" {
-                    pane.claudeSessionID = nil
+            guard let presence = AgentTitleDetection.detect(title) else {
+                // Title no longer matches any agent pattern. If the pane has
+                // an auto-detected agent session and was thinking, treat this
+                // as an implicit idle transition (e.g. Codex, which has no
+                // dedicated idle glyph). Preserve the session marker — there
+                // is no reliable way to distinguish "agent went idle" from
+                // "agent quit" via title alone, so clearing is deferred to
+                // `processDidExit`.
+                if pane.agentSessionID == "auto", pane.isThinking {
                     endThinking(workspace, pane)
                 }
                 return
             }
 
-            if pane.claudeSessionID == nil {
-                pane.claudeSessionID = "auto"
+            if pane.agentSessionID == nil {
+                pane.agentSessionID = "auto"
             }
 
-            switch state {
+            switch presence {
             case .thinking:
                 pane.isThinking = true
                 pane.attentionKind = nil
             case .idle:
                 endThinking(workspace, pane)
+            case .needsAttention:
+                pane.isThinking = false
+                _ = handlePaneNeedsAttention(paneID, kind: .done)
             }
         }
     }

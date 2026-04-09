@@ -19,7 +19,7 @@ struct SidebarPaneRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isClaudeSession: pane.claudeSessionID != nil, tokens: tokens)
+            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isAgentSession: pane.agentSessionID != nil, tokens: tokens)
                 .frame(width: TreeLayout.columnWidth)
 
             Text(pane.displayName)

@@ -126,28 +126,90 @@ struct PaneEventHandlerTests {
         #expect(p1.hasNote)
     }
 
-    // MARK: - Title-Based Claude Detection
+    // MARK: - Title-Based Agent Detection (Claude)
 
     @Test func claudeTitleSetsAutoSession() {
         let (handler, _, pane) = makeHandler()
         handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
-        #expect(pane.claudeSessionID == "auto")
+        #expect(pane.agentSessionID == "auto")
         #expect(pane.isThinking)
-    }
-
-    @Test func nonClaudeTitleClearsAutoSession() {
-        let (handler, _, pane) = makeHandler()
-        handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
-        #expect(pane.claudeSessionID == "auto")
-        handler.handleTitleChange(pane.id, title: "zsh")
-        #expect(pane.claudeSessionID == nil)
-        #expect(!pane.isThinking)
     }
 
     @Test func claudeIdleSetsThinkingFalse() {
         let (handler, _, pane) = makeHandler()
         handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
         handler.handleTitleChange(pane.id, title: "✳ project-name")
+        #expect(!pane.isThinking)
+    }
+
+    // MARK: - Implicit Idle (Codex has no idle glyph)
+
+    @Test func unmatchedTitlePreservesAgentSessionMarker() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
+        #expect(pane.agentSessionID == "auto")
+        // Transition to a non-agent-looking title (Codex idle pattern).
+        handler.handleTitleChange(pane.id, title: "my-project")
+        // Session marker is preserved — clearing is deferred to processDidExit.
+        #expect(pane.agentSessionID == "auto")
+        // Thinking is ended (implicit idle).
+        #expect(!pane.isThinking)
+    }
+
+    @Test func codexImplicitIdleFiresDoneWhenUnfocused() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        // p1 is unfocused. Simulate Codex thinking → idle.
+        handler.handleTitleChange(p1.id, title: "\u{280B} hootty")
+        #expect(p1.isThinking)
+        #expect(p1.agentSessionID == "auto")
+        // Codex idle: title collapses to plain project name.
+        handler.handleTitleChange(p1.id, title: "hootty")
+        #expect(!p1.isThinking)
+        #expect(p1.attentionKind == .done)
+        #expect(p1.agentSessionID == "auto")
+    }
+
+    @Test func nonAgentPaneIgnoresUnmatchedTitles() {
+        let (handler, _, pane) = makeHandler()
+        // Pane has never been detected as an agent.
+        handler.handleTitleChange(pane.id, title: "vim main.swift")
+        #expect(pane.agentSessionID == nil)
+        #expect(!pane.isThinking)
+    }
+
+    // MARK: - Gemini needsAttention Focus Gating
+
+    @Test func geminiNeedsAttentionFiresWhenUnfocused() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        // p1 is unfocused. Send Gemini "Action Required" (✋).
+        handler.handleTitleChange(p1.id, title: "\u{270B}  Action Required (my-folder)")
+        #expect(p1.agentSessionID == "auto")
+        #expect(!p1.isThinking)
+        #expect(p1.attentionKind == .done)
+    }
+
+    @Test func geminiNeedsAttentionDoesNotFireWhenFocused() throws {
+        let (handler, _, _, p2) = try makeHandlerWithSplit()
+        // p2 is focused. Send Gemini "Action Required" (✋).
+        handler.handleTitleChange(p2.id, title: "\u{270B}  Action Required (my-folder)")
+        #expect(p2.agentSessionID == "auto")
+        #expect(!p2.isThinking)
+        #expect(p2.attentionKind == nil)
+    }
+
+    // MARK: - Gemini Thinking / Idle
+
+    @Test func geminiFourPointedStarSetsThinking() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleTitleChange(pane.id, title: "\u{2726}  Working…")
+        #expect(pane.agentSessionID == "auto")
+        #expect(pane.isThinking)
+    }
+
+    @Test func geminiDiamondSetsIdle() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleTitleChange(pane.id, title: "\u{2726}  Working…")
+        handler.handleTitleChange(pane.id, title: "\u{25C7}  Ready (my-folder)")
         #expect(!pane.isThinking)
     }
 

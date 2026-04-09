@@ -62,14 +62,17 @@ struct TerminalPaneView: NSViewRepresentable {
             pendingTitleUpdate?.cancel()
             let work = DispatchWorkItem { [weak pane] in
                 guard let pane, pane.customName == nil else { return }
-                if let clean = ClaudeTitleParser.stripPrefix(title) {
+                if let clean = AgentTitleDetection.stripPrefix(title) {
                     pane.name = clean
-                    if pane.claudeSessionID == nil {
-                        pane.claudeSessionID = "auto"
+                    if pane.agentSessionID == nil {
+                        pane.agentSessionID = "auto"
                     }
-                } else if pane.claudeSessionID == "auto" {
-                    pane.claudeSessionID = nil
                 }
+                // Note: unlike the previous Claude-only behavior, we do NOT
+                // clear `agentSessionID` when a title stops matching. Codex
+                // has no idle glyph, so its idle titles look like ordinary
+                // text — clearing would prematurely drop the session marker.
+                // The marker is cleared on `processDidExit`.
             }
             pendingTitleUpdate = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
@@ -80,7 +83,7 @@ struct TerminalPaneView: NSViewRepresentable {
         view.processDidExit = { [weak pane] _ in
             pane?.isRunning = false
             pane?.isThinking = false
-            pane?.claudeSessionID = nil
+            pane?.agentSessionID = nil
             if let paneID = pane?.id {
                 GhosttyApp.requestCloseSurface(paneID: paneID)
             }

@@ -109,11 +109,11 @@ extension GhosttyApp {
         if let body, body.hasPrefix(hoottySessionPrefix) {
             let sessionID = String(body.dropFirst(hoottySessionPrefix.count))
             guard UUID(uuidString: sessionID) != nil else {
-                Log.ghostty.warning("Invalid Claude session ID received: \(sessionID)")
+                Log.ghostty.warning("Invalid agent session ID received: \(sessionID)")
                 return true
             }
             DispatchQueue.main.async {
-                GhosttyApp.shared.onEvent?(.claudeSessionDetected(paneID: paneID, sessionID: sessionID))
+                GhosttyApp.shared.onEvent?(.agentSessionDetected(paneID: paneID, sessionID: sessionID))
             }
         } else {
             GhosttyApp.shared.onEvent?(.paneNeedsAttention(paneID, .bell))

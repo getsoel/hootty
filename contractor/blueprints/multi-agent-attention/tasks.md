@@ -1,41 +1,41 @@
 ## 1. Detection layer foundation (Phase 1)
 
-- [ ] 1.1 Create `Sources/HoottyCore/Agents/` directory and add `AgentPresence.swift` with the three-case enum (`thinking`, `idle`, `needsAttention`), `Equatable`, `Sendable`.
-- [ ] 1.2 Add `Sources/HoottyCore/Agents/AgentTitleDetector.swift` defining the `AgentTitleDetector` protocol (static `detect` + static `stripPrefix`) and the `AgentTitleDetection` registry enum with `detect(_:)` and `stripPrefix(_:)` fan-out methods.
-- [ ] 1.3 Move `Sources/HoottyCore/ClaudeTitleParser.swift` to `Sources/HoottyCore/Agents/ClaudeTitleParser.swift`. Update its signature to conform to `AgentTitleDetector` — rename the existing `parse(_:)` helper to `detect(_:)` and return the new `AgentPresence` type. Preserve the existing Braille / `✳` / `*` semantics exactly.
-- [ ] 1.4 Create `Sources/HoottyCore/Agents/GeminiTitleParser.swift` implementing detection of `◇` → idle, `✦` → thinking, `⏲` → thinking, `✋` → needsAttention. `stripPrefix` MUST drop the first scalar, any adjacent whitespace, and trailing padding whitespace.
-- [ ] 1.5 Create `Sources/HoottyCore/Agents/CodexTitleParser.swift` implementing the Braille-only thinking rule (no idle, no needsAttention). Returns `nil` for any title without a Braille prefix.
-- [ ] 1.6 Register all three detectors in `AgentTitleDetection.detectors` in the order: Gemini, Claude, Codex.
+- [x] 1.1 Create `Sources/HoottyCore/Agents/` directory and add `AgentPresence.swift` with the three-case enum (`thinking`, `idle`, `needsAttention`), `Equatable`, `Sendable`.
+- [x] 1.2 Add `Sources/HoottyCore/Agents/AgentTitleDetector.swift` defining the `AgentTitleDetector` protocol (static `detect` + static `stripPrefix`) and the `AgentTitleDetection` registry enum with `detect(_:)` and `stripPrefix(_:)` fan-out methods.
+- [x] 1.3 Move `Sources/HoottyCore/ClaudeTitleParser.swift` to `Sources/HoottyCore/Agents/ClaudeTitleParser.swift`. Update its signature to conform to `AgentTitleDetector` — rename the existing `parse(_:)` helper to `detect(_:)` and return the new `AgentPresence` type. Preserve the existing Braille / `✳` / `*` semantics exactly.
+- [x] 1.4 Create `Sources/HoottyCore/Agents/GeminiTitleParser.swift` implementing detection of `◇` → idle, `✦` → thinking, `⏲` → thinking, `✋` → needsAttention. `stripPrefix` MUST drop the first scalar, any adjacent whitespace, and trailing padding whitespace.
+- [x] 1.5 Create `Sources/HoottyCore/Agents/CodexTitleParser.swift` implementing the Braille-only thinking rule (no idle, no needsAttention). Returns `nil` for any title without a Braille prefix.
+- [x] 1.6 Register all three detectors in `AgentTitleDetection.detectors` in the order: Gemini, Claude, Codex.
 
 ## 2. Model and persistence migration
 
-- [ ] 2.1 In `Sources/HoottyCore/Pane.swift`, rename the `claudeSessionID` property to `agentSessionID`. Update the designated initializer parameter name and default.
-- [ ] 2.2 Update `Pane`'s Codable `init(from:)` to read `agentSessionID` first, falling back to `claudeSessionID` when absent. Add both keys to `CodingKeys` with only `agentSessionID` in `encode(to:)`.
-- [ ] 2.3 Change `AttentionKind.done.displayName` from `"Claude Done"` to `"Agent Done"`.
+- [x] 2.1 In `Sources/HoottyCore/Pane.swift`, rename the `claudeSessionID` property to `agentSessionID`. Update the designated initializer parameter name and default.
+- [x] 2.2 Update `Pane`'s Codable `init(from:)` to read `agentSessionID` first, falling back to `claudeSessionID` when absent. Add both keys to `CodingKeys` with only `agentSessionID` in `encode(to:)`.
+- [x] 2.3 Change `AttentionKind.done.displayName` from `"Claude Done"` to `"Agent Done"`.
 
 ## 3. PaneEventHandler rewiring
 
-- [ ] 3.1 In `Sources/HoottyCore/PaneEventHandler.swift`, rewrite `handleTitleChange` to use `AgentTitleDetection.detect(_:)`. Replace all `claudeSessionID` references with `agentSessionID`.
-- [ ] 3.2 Add the detected-presence switch: `.thinking` sets `pane.isThinking = true` and clears attention; `.idle` calls `endThinking`; `.needsAttention` sets `pane.isThinking = false` and routes through `handlePaneNeedsAttention(kind: .done)` so the focus gate applies.
-- [ ] 3.3 Add the implicit-idle branch: when no detector matches AND `pane.agentSessionID == "auto"` AND `pane.isThinking == true`, invoke `endThinking` while preserving `agentSessionID`. Do NOT clear the session marker on unmatched titles.
-- [ ] 3.4 When a detector matches and `pane.agentSessionID` is nil, set it to `"auto"` before applying the state.
+- [x] 3.1 In `Sources/HoottyCore/PaneEventHandler.swift`, rewrite `handleTitleChange` to use `AgentTitleDetection.detect(_:)`. Replace all `claudeSessionID` references with `agentSessionID`.
+- [x] 3.2 Add the detected-presence switch: `.thinking` sets `pane.isThinking = true` and clears attention; `.idle` calls `endThinking`; `.needsAttention` sets `pane.isThinking = false` and routes through `handlePaneNeedsAttention(kind: .done)` so the focus gate applies.
+- [x] 3.3 Add the implicit-idle branch: when no detector matches AND `pane.agentSessionID == "auto"` AND `pane.isThinking == true`, invoke `endThinking` while preserving `agentSessionID`. Do NOT clear the session marker on unmatched titles.
+- [x] 3.4 When a detector matches and `pane.agentSessionID` is nil, set it to `"auto"` before applying the state.
 
 ## 4. UI rename and wiring
 
-- [ ] 4.1 In `Sources/Hootty/Views/StatusDotView.swift`, rename the `isClaudeSession` parameter to `isAgentSession`.
-- [ ] 4.2 Update call sites in `Sources/Hootty/Views/SidebarPaneRow.swift` and `Sources/Hootty/Views/PaneGroupTabBar.swift` to pass `isAgentSession: pane.agentSessionID != nil`.
-- [ ] 4.3 Update `Sources/Hootty/Views/CondensedSidebar.swift` line 481 to reference `pane.agentSessionID` instead of `claudeSessionID`.
-- [ ] 4.4 Update `Sources/Hootty/Views/TerminalPaneView.swift` title-change closure to use `AgentTitleDetection.stripPrefix(_:)` and `pane.agentSessionID`. Remove the direct Claude-specific references.
-- [ ] 4.5 Update `Sources/Hootty/HoottyApp.swift` `onClaudeSessionDetected` (or equivalent callback that assigns to `claudeSessionID`) to write to `agentSessionID` instead. Consider renaming the closure to `onAgentSessionDetected`.
+- [x] 4.1 In `Sources/Hootty/Views/StatusDotView.swift`, rename the `isClaudeSession` parameter to `isAgentSession`.
+- [x] 4.2 Update call sites in `Sources/Hootty/Views/SidebarPaneRow.swift` and `Sources/Hootty/Views/PaneGroupTabBar.swift` to pass `isAgentSession: pane.agentSessionID != nil`.
+- [x] 4.3 Update `Sources/Hootty/Views/CondensedSidebar.swift` line 481 to reference `pane.agentSessionID` instead of `claudeSessionID`.
+- [x] 4.4 Update `Sources/Hootty/Views/TerminalPaneView.swift` title-change closure to use `AgentTitleDetection.stripPrefix(_:)` and `pane.agentSessionID`. Remove the direct Claude-specific references.
+- [x] 4.5 Update `Sources/Hootty/HoottyApp.swift` `onClaudeSessionDetected` (or equivalent callback that assigns to `claudeSessionID`) to write to `agentSessionID` instead. Consider renaming the closure to `onAgentSessionDetected`.
 
 ## 5. Tests — detection and model
 
-- [ ] 5.1 Update or relocate `Tests/HoottyCoreTests/ClaudeTitleParserTests.swift` for the new module path and `AgentPresence` return type. All existing assertions MUST continue to pass.
-- [ ] 5.2 Add `Tests/HoottyCoreTests/GeminiTitleParserTests.swift` covering each glyph (`◇✦⏲✋`), non-matching titles, `stripPrefix` with trailing 80-char padding, and edge cases (empty title, title with only the glyph).
-- [ ] 5.3 Add `Tests/HoottyCoreTests/CodexTitleParserTests.swift` covering Braille detection, non-Braille titles (returning nil), and confirming Codex does NOT match `✳`/`*`.
-- [ ] 5.4 Add `Tests/HoottyCoreTests/AgentTitleDetectionTests.swift` covering detector ordering (first-match-wins for Braille collision), `stripPrefix` fan-out, and nil-on-no-match.
-- [ ] 5.5 In `Tests/HoottyCoreTests/PaneEventHandlerTests.swift`, add tests for: Gemini `✋` needsAttention focus gating (fires when unfocused, no-op when focused), Codex implicit-idle transition (thinking → no prefix → `.done` when unfocused), and auto session marker persistence across unmatched titles.
-- [ ] 5.6 In `Tests/HoottyCoreTests/IntegrationTests.swift`, add a persist/restore test that loads a workspace fixture containing the legacy `"claudeSessionID"` key and asserts it decodes into `Pane.agentSessionID`.
+- [x] 5.1 Update or relocate `Tests/HoottyCoreTests/ClaudeTitleParserTests.swift` for the new module path and `AgentPresence` return type. All existing assertions MUST continue to pass.
+- [x] 5.2 Add `Tests/HoottyCoreTests/GeminiTitleParserTests.swift` covering each glyph (`◇✦⏲✋`), non-matching titles, `stripPrefix` with trailing 80-char padding, and edge cases (empty title, title with only the glyph).
+- [x] 5.3 Add `Tests/HoottyCoreTests/CodexTitleParserTests.swift` covering Braille detection, non-Braille titles (returning nil), and confirming Codex does NOT match `✳`/`*`.
+- [x] 5.4 Add `Tests/HoottyCoreTests/AgentTitleDetectionTests.swift` covering detector ordering (first-match-wins for Braille collision), `stripPrefix` fan-out, and nil-on-no-match.
+- [x] 5.5 In `Tests/HoottyCoreTests/PaneEventHandlerTests.swift`, add tests for: Gemini `✋` needsAttention focus gating (fires when unfocused, no-op when focused), Codex implicit-idle transition (thinking → no prefix → `.done` when unfocused), and auto session marker persistence across unmatched titles.
+- [x] 5.6 In `Tests/HoottyCoreTests/IntegrationTests.swift`, add a persist/restore test that loads a workspace fixture containing the legacy `"claudeSessionID"` key and asserts it decodes into `Pane.agentSessionID`.
 
 ## 6. Gemini wrapper script (Phase 2)
 

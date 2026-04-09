@@ -478,7 +478,7 @@ private struct PaneRailRow: View {
             "bell"
         } else if pane.isThinking {
             "arrow.2.circlepath"
-        } else if pane.claudeSessionID != nil {
+        } else if pane.agentSessionID != nil {
             "bubble.left"
         } else {
             "apple.terminal"
