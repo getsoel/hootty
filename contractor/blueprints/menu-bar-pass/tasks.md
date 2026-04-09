@@ -7,8 +7,8 @@
 
 ## 2. App menu (Hootty ▸ settings-type modals)
 
-- [ ] 2.1 Extend `CommandGroup(replacing: .appSettings)` in `HoottyApp.swift` to include an `Attention Sounds…` button after `Edit Configuration…`, separated by a `Divider()`
-- [ ] 2.2 Wire the `Attention Sounds…` button to `commandRegistry.execute(.attentionSounds)`; no keyboard shortcut
+- [x] 2.1 Extend `CommandGroup(replacing: .appSettings)` in `HoottyApp.swift` to include an `Attention Sounds…` button after `Edit Configuration…`, separated by a `Divider()`
+- [x] 2.2 Wire the `Attention Sounds…` button to `commandRegistry.execute(.attentionSounds)`; no keyboard shortcut
 
 ## 3. View menu merge
 

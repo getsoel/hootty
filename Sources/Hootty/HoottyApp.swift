@@ -397,6 +397,12 @@ struct HoottyApp: App {
                     commandRegistry.execute(.editConfig)
                 }
                 .keyboardShortcut(",", modifiers: .command)
+
+                Divider()
+
+                Button(AppCommand.attentionSounds.title) {
+                    commandRegistry.execute(.attentionSounds)
+                }
             }
             CommandMenu("View") {
                 Button(AppCommand.toggleCommandPalette.title) {
