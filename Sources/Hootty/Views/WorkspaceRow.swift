@@ -23,7 +23,7 @@ struct WorkspaceRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: isCollapsed ? "folder" : "folder.fill")
+            Image(systemName: isPinned ? "pin.fill" : (isCollapsed ? "folder" : "folder.fill"))
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .frame(width: TreeLayout.columnWidth)
@@ -38,11 +38,6 @@ struct WorkspaceRow: View {
                 .font(.system(size: TypeScale.bodySize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
                 .lineLimit(1)
-
-            Image(systemName: "pin.fill")
-                .font(.system(size: TypeScale.captionSize))
-                .foregroundStyle(Color(tokens.textMuted))
-                .opacity(isPinned ? 1 : 0)
 
             Spacer(minLength: 0)
         }

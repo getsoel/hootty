@@ -48,8 +48,13 @@ struct WorkspaceSidebar: View {
             sidebarHeader
 
             if let pinned = pinnedWorkspace {
-                workspaceEntry(pinned)
-                Rectangle().fill(Color(tokens.border)).frame(height: 1)
+                VStack(spacing: 0) {
+                    workspaceEntry(pinned)
+                    Rectangle().fill(Color(tokens.border)).frame(height: 1)
+                }
+                .background(Color(tokens.surfaceLow))
+                .shadow(color: Color.black.opacity(pinnedShadowOpacity), radius: 4, x: 0, y: 2)
+                .zIndex(1)
             }
 
             workspaceList
@@ -106,6 +111,15 @@ struct WorkspaceSidebar: View {
 
     private var statusCounts: AttentionCounts {
         workspaces.reduce(.zero) { $0 + $1.attentionCounts }
+    }
+
+    /// Opacity for the shadow cast by the pinned workspace header onto the
+    /// scroll content below. Fades in as the sidebar is scrolled so it only
+    /// appears when content is passing under the pinned row.
+    private var pinnedShadowOpacity: Double {
+        let ramp: CGFloat = 8
+        let clamped = min(max(scrollOffset, 0), ramp) / ramp
+        return Double(clamped) * 0.35
     }
 
     /// Vertical space reserved at the bottom of the scroll content so the
