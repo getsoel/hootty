@@ -1,0 +1,26 @@
+[
+  {
+    "category": "quality",
+    "description": "AppCommand.title cases use three ASCII dots ('...') rather than a real Unicode ellipsis ('…'). Affects: 'Change Theme...', 'Attention Sounds...', 'Edit Configuration...', 'New Profile...', 'Rename Current Profile...', 'Delete Current Profile...'. macOS HIG prefers the ellipsis character.",
+    "location": "Sources/HoottyCore/AppCommand.swift (title switch)",
+    "reason": "Pre-existing convention across all titles. Changing only the one title added in this pass would create inconsistency. A sweep across all titles is a separate, uncontroversial cleanup that belongs in its own change."
+  },
+  {
+    "category": "quality",
+    "description": "The `Button(AppCommand.foo.title) { commandRegistry.execute(.foo) }` pattern is repeated ~28 times across .commands blocks (appSettings group, sidebar CommandGroup, Workspace menu, Profile menu). A helper like `AppCommandButton(_ command: AppCommand)` could reduce the boilerplate.",
+    "location": "Sources/Hootty/HoottyApp.swift (entire .commands block and workspaceMenuContents)",
+    "reason": "SwiftUI's .keyboardShortcut() modifier must be applied at the Button site for menu-bar display (see .claude/rules/coding/commands.md). A helper would either lose shortcuts or require a shortcut-parameter overload per modifier combination. The existing repetition is the SwiftUI-idiomatic pattern and matches repo convention."
+  },
+  {
+    "category": "quality",
+    "description": "workspaceMenuContents is ~95 lines with 18 buttons. Could be broken into smaller groups (e.g., splitsSubmenu, navigationSubmenu) for readability.",
+    "location": "Sources/Hootty/HoottyApp.swift (workspaceMenuContents, ~line 90-185)",
+    "reason": "SwiftUI menu-bar display requires inline .keyboardShortcut() on each button, so further extraction either creates many tiny @ViewBuilder properties (net complexity increase) or loses shortcut display. The current single extraction already satisfies the swiftui.md rule for avoiding type-check timeouts; finer granularity is diminishing returns."
+  },
+  {
+    "category": "reuse",
+    "description": "CommandRegistry.paletteCommands returns an array of PaletteCommand (id/title/shortcut/action) that could theoretically drive menu rendering programmatically, removing the manual Button declarations.",
+    "location": "Sources/Hootty/CommandRegistry.swift:28-39",
+    "reason": "paletteCommands is designed for the command palette (flat searchable list). The menu bar needs hierarchical structure, dividers, disabled states, and inline .keyboardShortcut() modifiers that SwiftUI requires at the Button site. Using paletteCommands for menus would lose all of these."
+  }
+]
