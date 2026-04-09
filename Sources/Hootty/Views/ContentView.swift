@@ -250,6 +250,10 @@ struct ContentView: View {
             // Leave space for traffic lights
             Color.clear.frame(width: 78)
 
+            Text(appModel.activeProfile?.name ?? "")
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(tokens.textMuted))
+
             Spacer()
 
             if memoryMonitor.memoryMB > 0 {

@@ -59,6 +59,11 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case pinWorkspace
     case focusPinnedWorkspace
 
+    // Profiles
+    case newProfile
+    case renameCurrentProfile
+    case deleteCurrentProfile
+
     public var id: String {
         rawValue
     }
@@ -96,6 +101,9 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .clearSidebarFilters: "Clear Sidebar Filters"
         case .pinWorkspace: "Pin/Unpin Workspace"
         case .focusPinnedWorkspace: "Focus Pinned Workspace"
+        case .newProfile: "New Profile..."
+        case .renameCurrentProfile: "Rename Current Profile..."
+        case .deleteCurrentProfile: "Delete Current Profile..."
         }
     }
 

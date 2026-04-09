@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 @Observable
 public final class ThemeManager {
-    private let configFile: ConfigFile
+    private var configFile: ConfigFile
     public let themeCatalog: ThemeCatalog
 
     public var selectedThemeName: String {
@@ -33,6 +33,17 @@ public final class ThemeManager {
         // Parse theme content for initial display
         let content = themeCatalog.themeContent(for: migrated) ?? ThemeCatalog.fallbackThemeContent
         self.theme = TerminalTheme.parse(ghosttyThemeContent: content)
+            ?? TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
+    }
+
+    /// Swap to a different profile's config file and re-read the theme.
+    public func updateConfigFile(_ newConfigFile: ConfigFile) {
+        configFile = newConfigFile
+        let raw = newConfigFile.get("theme") ?? ThemeCatalog.fallbackThemeName
+        let migrated = Self.migrateThemeName(raw)
+        selectedThemeName = migrated
+        let content = themeCatalog.themeContent(for: migrated) ?? ThemeCatalog.fallbackThemeContent
+        theme = TerminalTheme.parse(ghosttyThemeContent: content)
             ?? TerminalTheme.parse(ghosttyThemeContent: ThemeCatalog.fallbackThemeContent)!
     }
 

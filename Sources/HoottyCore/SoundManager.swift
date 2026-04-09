@@ -4,10 +4,14 @@ import os
 @MainActor
 @Observable
 public final class SoundManager {
-    private let configFile: ConfigFile
+    private var configFile: ConfigFile
 
     public init(configFile: ConfigFile) {
         self.configFile = configFile
+    }
+
+    public func updateConfigFile(_ newConfigFile: ConfigFile) {
+        configFile = newConfigFile
     }
 
     // MARK: - Sound Config
