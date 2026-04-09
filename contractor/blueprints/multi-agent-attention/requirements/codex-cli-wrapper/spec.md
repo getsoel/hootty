@@ -50,30 +50,36 @@ When `HOOTTY_PANE_ID` is set, the wrapper SHALL NOT mutate the user's `~/.codex/
 - **THEN** the directory is created with mode `0700`
 
 ### Requirement: User codex files are symlinked into the Hootty directory
-The wrapper SHALL symlink every entry in the user's `~/.codex/` directory into the Hootty-managed directory, EXCEPT for `config.toml` and `hooks.json`, which are managed by Hootty. Symlinks MUST be recreated on each run to reflect user changes.
+The wrapper SHALL symlink every entry in the user's `~/.codex/` directory into the Hootty-managed directory, EXCEPT for `hooks.json`, which is managed by Hootty. Symlinks MUST be recreated on each run to reflect user changes. `config.toml` IS symlinked so user settings are picked up live without any merge step — the `codex_hooks` feature flag is enabled via a CLI override instead of a file mutation.
 
 #### Scenario: Arbitrary user file is reachable
 - **GIVEN** a file at `~/.codex/mcp-servers/my-server.json`
 - **WHEN** the wrapper runs
 - **THEN** `${HOOTTY_CODEX_HOME}/mcp-servers/my-server.json` exists and resolves (via symlink) to the user's file
 
-#### Scenario: Hootty-managed files are not symlinked
+#### Scenario: config.toml is symlinked, not copied
 - **GIVEN** a file at `~/.codex/config.toml`
 - **WHEN** the wrapper runs
-- **THEN** `${HOOTTY_CODEX_HOME}/config.toml` is a regular file (not a symlink) written by Hootty
+- **THEN** `${HOOTTY_CODEX_HOME}/config.toml` is a symlink pointing to the user's file
 
-### Requirement: Merged config.toml enables the codex_hooks feature
-The wrapper SHALL write `${HOOTTY_CODEX_HOME}/config.toml` as a merge of the user's `~/.codex/config.toml` (if present) plus `features.codex_hooks = true`. User settings MUST win over Hootty's defaults except for the `features.codex_hooks` key, which Hootty MUST force to `true`.
-
-#### Scenario: Feature flag is enabled
-- **GIVEN** any state of `~/.codex/config.toml`
+#### Scenario: hooks.json is managed (not symlinked)
+- **GIVEN** a file at `~/.codex/hooks.json`
 - **WHEN** the wrapper runs
-- **THEN** the resulting `${HOOTTY_CODEX_HOME}/config.toml` contains `features.codex_hooks = true`
+- **THEN** `${HOOTTY_CODEX_HOME}/hooks.json` is a regular file (not a symlink) written by Hootty
 
-#### Scenario: User settings are preserved
-- **GIVEN** a `~/.codex/config.toml` containing `model = "o4-mini"` and `features.other_flag = true`
+### Requirement: codex_hooks feature flag enabled via CLI override
+The wrapper SHALL enable the `codex_hooks` feature flag by passing `-c features.codex_hooks=true` on the command line when `exec`-ing the real `codex` binary. This avoids any need to mutate or merge `config.toml`. User settings are preserved via the symlinked `config.toml`.
+
+#### Scenario: CLI flag is passed
+- **WHEN** the wrapper execs the real codex binary
+- **THEN** the first positional argument after the binary path is `-c features.codex_hooks=true`
+- **AND** any subsequent arguments from the user's invocation are preserved in order
+
+#### Scenario: User config.toml is unchanged
+- **GIVEN** a `~/.codex/config.toml` containing `model = "o4-mini"`
 - **WHEN** the wrapper runs
-- **THEN** the resulting `${HOOTTY_CODEX_HOME}/config.toml` contains `model = "o4-mini"` and `features.other_flag = true` and `features.codex_hooks = true`
+- **THEN** the contents of `~/.codex/config.toml` are byte-identical before and after wrapper execution
+- **AND** the codex process still sees `model = "o4-mini"` via the symlinked config
 
 ### Requirement: Hooks JSON injects SessionStart and PostToolUse entries
 The wrapper SHALL write `${HOOTTY_CODEX_HOME}/hooks.json` as a merge of the user's `~/.codex/hooks.json` (if present) plus a `SessionStart` hook invoking `codex-session-hook` and a `PostToolUse` (matcher: shell/bash) hook invoking `codex-cwd-hook`. User-defined hooks MUST be preserved.

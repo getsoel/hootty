@@ -121,24 +121,24 @@ if let state = AgentTitleDetection.detect(title) {
 
 `PaneEventHandler` applies `needsAttention` via the existing `handlePaneNeedsAttention` path, which already checks focus before setting `attentionKind`. Rationale: Gemini's `✋` is visible in the title bar (the user watching the pane already sees it); firing attention regardless of focus would double-notify.
 
-### 7. Codex wrapper uses `CODEX_HOME` isolation, not in-place config mutation
+### 7. Codex wrapper uses `CODEX_HOME` isolation with symlinks and a CLI-flag feature override
 
 The wrapper:
 1. Computes `HOOTTY_CODEX_HOME = ${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty/codex-home/`.
 2. Creates it with mode `0700` if missing.
 3. Clears stale symlinks.
-4. Recreates symlinks for every entry in `~/.codex/` except `config.toml` and `hooks.json`.
-5. Parses the user's `~/.codex/config.toml` (if present), forces `features.codex_hooks = true`, writes the merged result to `${HOOTTY_CODEX_HOME}/config.toml`.
-6. Parses the user's `~/.codex/hooks.json` (if present), merges in Hootty's `SessionStart` + `PostToolUse` entries, writes the result to `${HOOTTY_CODEX_HOME}/hooks.json`.
-7. Sets `CODEX_HOME=${HOOTTY_CODEX_HOME}` and execs the real `codex` binary.
+4. Recreates symlinks for every entry in `~/.codex/` **except** `hooks.json`. Notably, `config.toml` IS symlinked — user settings are picked up live with no merge step.
+5. Parses the user's `~/.codex/hooks.json` (if present), merges in Hootty's `SessionStart` + `PostToolUse` entries using Python's stdlib `json` module, writes the result to `${HOOTTY_CODEX_HOME}/hooks.json`.
+6. Sets `CODEX_HOME=${HOOTTY_CODEX_HOME}` and execs the real `codex` binary with `-c features.codex_hooks=true` prepended to the args so the feature flag is enabled without touching `config.toml`.
 
-**Rationale:** Zero mutation of user files — clean uninstall, no clobber risk, no orphaned settings, no git-dirty `~/.codex/` after running Hootty. The TOML merge logic is the only nontrivial piece; we can use a minimal Python one-liner or a tiny Swift helper invoked by the wrapper.
+**Rationale:** Zero mutation of user files — clean uninstall, no clobber risk, no orphaned settings, no git-dirty `~/.codex/` after running Hootty. The original plan merged `config.toml` to inject `features.codex_hooks = true`, but the `-c` CLI override offers the same effect without the merge complexity. Writing TOML portably from the default macOS Python (3.9, no `tomllib`) would require either a vendored dependency or a hand-rolled serializer — both avoidable when a CLI flag does the job.
 
 **Alternatives considered:**
 - **Mutate `~/.codex/config.toml` in place**: invasive, requires idempotent merge + un-merge logic, leaves orphans on uninstall, causes user git diffs.
 - **Write a single `config.toml`/`hooks.json` into a fresh `CODEX_HOME` and lose user's other files (MCP servers, API keys, model choice)**: breaks everything the user configured.
+- **Parse and re-emit `config.toml` with `tomllib` + a hand-rolled writer**: `tomllib` is stdlib from Python 3.11 only; macOS 14 ships 3.9. Requires either a vendored `tomli_w` package or a fragile custom TOML emitter. Superseded by the `-c` flag approach.
 
-**TOML merge implementation:** we will shell out to a bundled Python script (Python is stable on macOS 14+ at `/usr/bin/python3` for basic stdlib use) or embed a minimal Swift helper called by the wrapper. Either way, the merge logic is: deep-merge user TOML + force `features.codex_hooks = true`. The exact choice is a tasks-phase detail.
+**Hooks merge implementation:** `/usr/bin/python3` with stdlib `json`. No version concerns (json is stdlib since forever). The merge preserves user-defined hooks and adds ours via `setdefault` + dedup on `command` string.
 
 ### 8. Gemini wrapper uses `GEMINI_CLI_SYSTEM_SETTINGS_PATH` with a fresh settings file per run
 

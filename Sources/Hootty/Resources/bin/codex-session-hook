@@ -1,0 +1,6 @@
+#!/bin/bash
+# Hootty SessionStart hook for OpenAI Codex CLI — emits OSC 9 session
+# marker directly to /dev/tty. Hook stdout is consumed by the Codex
+# hook subsystem, so stdout cannot reach the terminal.
+[ -n "$HOOTTY_PANE_ID" ] && printf '\e]9;hootty:session:%s\a' "$HOOTTY_PANE_ID" > /dev/tty 2>/dev/null
+exit 0

@@ -49,17 +49,17 @@
 
 ## 7. Codex wrapper script (Phase 3)
 
-- [ ] 7.1 Create `Sources/Hootty/Resources/bin/codex` (bash script, executable, `755`). Pass through to the real `codex` binary when `HOOTTY_PANE_ID` is unset. Locate the real binary via `find_real_codex` (iterate `PATH`, skip wrapper dir).
-- [ ] 7.2 Compute `HOOTTY_CODEX_HOME="${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty/codex-home"` and ensure it exists (`mkdir -p`, `chmod 700`).
-- [ ] 7.3 Rebuild the symlink overlay: clear existing symlinks in `HOOTTY_CODEX_HOME`, then for each entry in `~/.codex/` other than `config.toml` and `hooks.json`, create a symlink at `${HOOTTY_CODEX_HOME}/<entry>` pointing to the user's file.
-- [ ] 7.4 Spike TOML merge strategy: try `/usr/bin/python3 -c "import tomllib, json; ..."` to read the user's `config.toml`, fall back to a hand-rolled merge if `tomllib` is absent. Decide on the final strategy and document in a comment in `bin/codex`.
-- [ ] 7.5 Implement the `config.toml` merge: read user file (if any), force `features.codex_hooks = true`, write to `${HOOTTY_CODEX_HOME}/config.toml`. Preserve all other user keys.
-- [ ] 7.6 Implement the `hooks.json` merge: read user file (if any), merge Hootty's `SessionStart` entry (invoking `codex-session-hook`) and `PostToolUse` entry (matcher for bash/shell, invoking `codex-cwd-hook`). User-defined hooks MUST be preserved.
-- [ ] 7.7 Set `CODEX_HOME="${HOOTTY_CODEX_HOME}"` in the environment and `exec` the real `codex` binary.
-- [ ] 7.8 Create `Sources/Hootty/Resources/bin/codex-session-hook` that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`.
-- [ ] 7.9 Create `Sources/Hootty/Resources/bin/codex-cwd-hook` that reads the cwd from the hook's stdin JSON payload and writes `\e]7;file://<host><path>\a` to `/dev/tty`.
-- [ ] 7.10 Add the four new files to `Package.swift` resources for the `Hootty` target.
-- [ ] 7.11 Verify the wrapper resolves correctly: `make run`, run `which codex` in a pane, confirm it points to the bundle's `bin/codex`. Also verify `~/.codex/` is untouched after the wrapper runs.
+- [x] 7.1 Create `Sources/Hootty/Resources/bin/codex` (bash script, executable, `755`). Pass through to the real `codex` binary when `HOOTTY_PANE_ID` is unset. Locate the real binary via `find_real_codex` (iterate `PATH`, skip wrapper dir).
+- [x] 7.2 Compute `HOOTTY_CODEX_HOME="${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty/codex-home"` and ensure it exists (`mkdir -p`, `chmod 700`).
+- [x] 7.3 Rebuild the symlink overlay: clear existing symlinks in `HOOTTY_CODEX_HOME`, then for each entry in `~/.codex/` other than `hooks.json`, create a symlink at `${HOOTTY_CODEX_HOME}/<entry>` pointing to the user's file. *(Revised: `config.toml` is now symlinked too — see 7.4/7.5.)*
+- [x] 7.4 ~~Spike TOML merge strategy~~ *(Bypassed: macOS default Python 3.9 lacks `tomllib`, and writing TOML portably is fragile. Revised approach: symlink `config.toml` instead and enable `features.codex_hooks` via the `-c` CLI flag. Requirement spec updated accordingly.)*
+- [x] 7.5 ~~Implement the `config.toml` merge~~ *(Bypassed in favor of `-c features.codex_hooks=true` CLI override. See 7.4 note.)*
+- [x] 7.6 Implement the `hooks.json` merge: read user file (if any), merge Hootty's `SessionStart` entry (invoking `codex-session-hook`) and `PostToolUse` entry (matcher for bash/shell, invoking `codex-cwd-hook`). User-defined hooks MUST be preserved. *(Uses Python stdlib `json` module — no dependency concerns.)*
+- [x] 7.7 Set `CODEX_HOME="${HOOTTY_CODEX_HOME}"` in the environment and `exec` the real `codex` binary *(with `-c features.codex_hooks=true` prepended to the args)*.
+- [x] 7.8 Create `Sources/Hootty/Resources/bin/codex-session-hook` that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`.
+- [x] 7.9 Create `Sources/Hootty/Resources/bin/codex-cwd-hook` that reads the cwd from the hook's stdin JSON payload and writes `\e]7;file://<host><path>\a` to `/dev/tty`.
+- [x] 7.10 Add the four new files to `Package.swift` resources for the `Hootty` target. *(No changes needed — `Package.swift` uses `.copy("Resources/bin")` to ship the entire directory.)*
+- [ ] 7.11 Verify the wrapper resolves correctly: `make run`, run `which codex` in a pane, confirm it points to the bundle's `bin/codex`. Also verify `~/.codex/` is untouched after the wrapper runs. *(Manual smoke test, deferred to verification group.)*
 
 ## 8. Documentation updates
 
