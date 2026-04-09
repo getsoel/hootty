@@ -50,10 +50,10 @@
 
 ## 7. Build + lint verification
 
-- [ ] 7.1 `make build` succeeds
-- [ ] 7.2 `swift test` passes (all Swift Testing tests green)
-- [ ] 7.3 `make format-check` passes
-- [ ] 7.4 `make lint` passes
+- [x] 7.1 `make build` succeeds
+- [x] 7.2 `swift test` passes (all Swift Testing tests green — 278 tests in 35 suites)
+- [x] 7.3 `make format-check` passes (0/86 files require formatting)
+- [x] 7.4 `make lint` passes (0 violations in 258 files)
 
 ## 8. Manual verification
 
