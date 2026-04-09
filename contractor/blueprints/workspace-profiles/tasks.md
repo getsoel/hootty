@@ -91,8 +91,8 @@
 
 ## 12. Verification and Cleanup
 
-- [ ] 12.1 Run `make build` and resolve any compilation issues
-- [ ] 12.2 Run `swift test` and verify all Swift Testing suites pass (ignoring signal 10 from the XCTest runner per CLAUDE.local.md)
-- [ ] 12.3 Run `make format-check` and address any formatting issues via `make format`
-- [ ] 12.4 Run `make lint` and address any SwiftLint findings
-- [ ] 12.5 Verify only task-relevant files changed by reviewing `git status` / `git diff`
+- [x] 12.1 Run `make build` and resolve any compilation issues
+- [x] 12.2 Run `swift test` and verify all Swift Testing suites pass (ignoring signal 10 from the XCTest runner per CLAUDE.local.md)
+- [x] 12.3 Run `make format-check` and address any formatting issues via `make format`
+- [x] 12.4 Run `make lint` and address any SwiftLint findings
+- [x] 12.5 Verify only task-relevant files changed by reviewing `git status` / `git diff`
