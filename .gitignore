@@ -11,8 +11,9 @@ DerivedData/
 *.swiftdeps
 *.swiftdeps~
 
-# Vendored libraries (too large for git)
+# Vendored libraries (too large for git, symlinked in worktrees)
 Vendors/lib/*.a
+Vendors
 
 # Build artifacts
 *.dmg
