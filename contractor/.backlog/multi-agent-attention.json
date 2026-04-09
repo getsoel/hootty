@@ -1,0 +1,85 @@
+{
+  "change": "multi-agent-attention",
+  "skipped": [
+    {
+      "id": "leaky-agentSessionID-view",
+      "category": "quality",
+      "title": "TerminalPaneView sets agentSessionID = autoSessionID independently from PaneEventHandler",
+      "detail": "The TerminalPaneView titleDidChange closure (UI layer) writes pane.agentSessionID = Pane.autoSessionID whenever stripPrefix succeeds. PaneEventHandler.handleTitleChange also sets it. Both run on the main actor (no race), but it is a conceptual layering issue: the UI closure's primary job is updating pane.name, and agentSessionID assignment is model logic that PaneEventHandler already handles. Pattern pre-dates this change (Claude version did the same), the 50ms debounce ensures PaneEventHandler fires first, and the assignments are idempotent. Fixing would require routing the name-update through PaneEventHandler or splitting the title event into name vs. state concerns — a larger refactor.",
+      "effort": "medium",
+      "risk": "low"
+    },
+    {
+      "id": "stripPrefix-protocol-extension",
+      "category": "reuse",
+      "title": "Triplicated stripPrefix leading-drop pattern across three parsers",
+      "detail": "Claude, Codex, and Gemini parsers all implement the same guard-first, guard-match, dropFirst(), drop(while: space) skeleton. A default protocol extension on AgentTitleDetector providing a shared leading-strip helper would reduce repetition. Skipped: each parser is ~30 lines, the pattern is simple, and CodexTitleParser duplicates ClaudeTitleParser for discoverability by design. Worth revisiting when a fourth detector is added.",
+      "effort": "low",
+      "risk": "none"
+    },
+    {
+      "id": "codex-titleparser-braille-overlap",
+      "category": "reuse",
+      "title": "CodexTitleParser.detect and .stripPrefix are functionally identical to ClaudeTitleParser for Braille inputs",
+      "detail": "CodexTitleParser is retained as a standalone file for discoverability — it will diverge when Codex adds an idle glyph or needsAttention signal. In practice, ClaudeTitleParser fires first in the registry so CodexTitleParser.detect never actually returns a non-nil result for current inputs. Accepted by design decision 3 in design.md.",
+      "effort": "none",
+      "risk": "none"
+    },
+    {
+      "id": "wrapper-unconditional-writes",
+      "category": "efficiency",
+      "title": "Gemini and Codex wrappers write settings/hooks unconditionally on every invocation",
+      "detail": "The gemini wrapper writes the settings JSON file on every invocation even when content is stable. The codex wrapper runs Python3 to merge hooks.json on every invocation even when output is identical. Both are one-time per-invocation costs on startup (not a title-change hot path). For typical usage the overhead (~50ms Python startup) is acceptable. Caching would require hashing output or mtime comparison for modest gain.",
+      "effort": "low",
+      "risk": "low"
+    },
+    {
+      "id": "find-real-bin-duplication",
+      "category": "reuse",
+      "title": "find_real_<bin>() function duplicated across three wrapper scripts",
+      "detail": "bin/claude, bin/gemini, and bin/codex each implement a 7-line PATH-walk to find the real binary, differing only in the binary name literal. A shared sourceable helper would save ~14 lines but adds bash source-path discovery complexity across three scripts that legitimately diverge in their hook injection mechanism (--settings vs GEMINI_CLI_SYSTEM_SETTINGS_PATH vs CODEX_HOME + -c flag). Documented tradeoff in design.md as acceptable — the wrappers stay fully self-contained.",
+      "effort": "low",
+      "risk": "low"
+    },
+    {
+      "id": "first-scalar-dispatch",
+      "category": "efficiency",
+      "title": "AgentTitleDetection.detect iterates all detectors linearly re-reading title.unicodeScalars.first",
+      "detail": "On the title-change hot path (up to 20Hz per active agent pane post-debounce), AgentTitleDetection.detect calls each registered detector in turn, and every detector re-reads title.unicodeScalars.first independently. A single-dispatch table keyed by the first scalar would reduce this to O(1). Current cost is O(3) trivial work per call — sub-microsecond and dominated by other per-frame work. Worth revisiting if the detector list grows past 5 or if profiling flags title handling as hot.",
+      "effort": "medium",
+      "risk": "low"
+    },
+    {
+      "id": "parser-string-allocation",
+      "category": "efficiency",
+      "title": "stripPrefix implementations allocate intermediate Strings from scalar views",
+      "detail": "Each parser's stripPrefix builds String(title.unicodeScalars.dropFirst()) and then further processes it, causing multiple small allocations per call. On the ~20Hz debounced hot path during spinner animation this is negligible (sub-microsecond per frame). A Substring-based pipeline would eliminate the intermediates but adds type juggling. Skipped: premature optimization.",
+      "effort": "low",
+      "risk": "none"
+    },
+    {
+      "id": "codex-wrapper-comment-bloat",
+      "category": "quality",
+      "title": "Codex wrapper has a numbered strategy comment listing what subsequent code does",
+      "detail": "bin/codex opens with a 10-line heredoc comment explaining the 4-step strategy (create HOOTTY_CODEX_HOME, symlink user entries, write hooks.json, set CODEX_HOME). The numbered recipe is mostly WHAT the code below does; the load-bearing WHY (CODEX_HOME isolation to avoid mutating ~/.codex/, -c flag to sidestep TOML merge) is the interesting part. Could trim to one sentence of rationale. Skipped: the comment is load-bearing for discoverability — a future maintainer should understand the strategy without reading the Python heredoc.",
+      "effort": "trivial",
+      "risk": "none"
+    },
+    {
+      "id": "registry-order-test",
+      "category": "quality",
+      "title": "geminiRegisteredBeforeClaudeAndCodex test asserts registry array order (implementation detail)",
+      "detail": "AgentTitleDetectionTests.swift has a test that directly asserts the order of the AgentTitleDetection.detectors array. The observable behavior (Gemini glyphs → Gemini parser result, Braille → Claude parser result) is already covered by the per-parser tests. Kept as a load-bearing invariant: first-match-wins semantics depend on the order, and a contributor changing the order would break nothing observable until future changes diverge Claude and Codex behavior. The test acts as a tripwire documenting the ordering contract.",
+      "effort": "trivial",
+      "risk": "none"
+    },
+    {
+      "id": "process-exit-teardown-paths",
+      "category": "efficiency",
+      "title": "agentSessionID auto marker only cleared on processDidExit, not on other teardown paths",
+      "detail": "The auto session marker is cleared in TerminalPaneView.processDidExit. If a pane's surface is torn down via a different path (workspace removal, crash-to-restart, etc.), the persisted agentSessionID = 'auto' would leak to next launch. Mitigated by the Codable sanitization added in commit bff95cb: `init(from:)` discards the auto sentinel on restore. So a restart sanitizes any leaks on the next launch. No outstanding risk.",
+      "effort": "none",
+      "risk": "none"
+    }
+  ]
+}
