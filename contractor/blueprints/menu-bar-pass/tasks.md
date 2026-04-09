@@ -25,8 +25,8 @@
 
 ## 4. Theme menu removal
 
-- [ ] 4.1 Delete the `CommandMenu("Theme") { … }` block from `HoottyApp.swift`
-- [ ] 4.2 Confirm `commandRegistry.register(.changeTheme)` remains registered so the command palette still exposes it
+- [x] 4.1 Delete the `CommandMenu("Theme") { … }` block from `HoottyApp.swift`
+- [x] 4.2 Confirm `commandRegistry.register(.changeTheme)` remains registered so the command palette still exposes it
 
 ## 5. Workspace menu (rename from Shell, consolidate actions)
 

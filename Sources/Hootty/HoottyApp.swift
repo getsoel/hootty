@@ -532,11 +532,6 @@ struct HoottyApp: App {
                 }
                 .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
             }
-            CommandMenu("Theme") {
-                Button(AppCommand.changeTheme.title) {
-                    commandRegistry.execute(.changeTheme)
-                }
-            }
         }
     }
 }
