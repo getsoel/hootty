@@ -1,0 +1,44 @@
+[
+  {
+    "category": "quality",
+    "description": "onTeardownWorkspace and onReloadConfig closures on AppModel capture [model] strongly, creating a retain cycle (AppModel → closure → AppModel).",
+    "location": "Sources/Hootty/HoottyApp.swift (init wiring block)",
+    "reason": "AppModel lives for the full application lifetime, so the cycle never causes a leak in practice. Fix would be [weak model] with guard, but provides no runtime benefit."
+  },
+  {
+    "category": "efficiency",
+    "description": "AppModel.init reads profiles.json twice at startup on the happy path: migrateIfNeeded() does a stat+early-return, then loadMetadata() does a full read. migrateIfNeeded() could return ProfilesMetadata it already loaded to eliminate the second read.",
+    "location": "Sources/HoottyCore/AppModel.swift:54-55, Sources/HoottyCore/ProfileStore.swift (migrateIfNeeded)",
+    "reason": "Single extra disk read on startup only. Not on a hot path. Not user-perceptible."
+  },
+  {
+    "category": "quality",
+    "description": "ProfileStore is not @MainActor but its factory methods (workspaceStore(for:), configFile(for:)) are @MainActor. The class can be called from any context without a compile-time error on non-factory methods.",
+    "location": "Sources/HoottyCore/ProfileStore.swift",
+    "reason": "All current callers are @MainActor (AppModel.init, switchProfile, createProfile). No correctness issue today. Annotating the whole class @MainActor would be cleaner but is a wider refactor."
+  },
+  {
+    "category": "quality",
+    "description": "Step-numbering comments in switchProfile describe WHAT each block does (matching numbered spec steps) rather than WHY the ordering constraint matters.",
+    "location": "Sources/HoottyCore/AppModel.swift (switchProfile)",
+    "reason": "The ordered-step documentation is acceptable for a complex operation with a safety-critical ordering invariant. The comments aid cross-referencing with the spec."
+  },
+  {
+    "category": "quality",
+    "description": "profiles.count > 1 guard appears in three places: AppModel.deleteProfile, HoottyApp command handler, and the menu .disabled modifier. The command handler guard is intentional to avoid showing a no-op NSAlert.",
+    "location": "Sources/HoottyCore/AppModel.swift:347, Sources/Hootty/HoottyApp.swift:222, Sources/Hootty/HoottyApp.swift:446",
+    "reason": "Each guard serves a different purpose. The duplication is intentional and documented by context."
+  },
+  {
+    "category": "quality",
+    "description": "Pre-existing: NSWorkspace.shared.open(ConfigFile.defaultFileURL) in HoottyApp opens the legacy root config path, not the active profile's config file. After migration, this opens a non-existent or stale path.",
+    "location": "Sources/Hootty/HoottyApp.swift (Edit Config command handler, not part of this diff)",
+    "reason": "Pre-existing bug, outside this blueprint's scope. Should be fixed in a separate change: replace with NSWorkspace.shared.open(appModel.configFile.fileURL)."
+  },
+  {
+    "category": "reuse",
+    "description": "nextProfileName(base:) and nextWorkspaceName() both disambiguate names with numeric suffixes using slightly different algorithms. Could share a private static disambiguatedName(_:among:) helper.",
+    "location": "Sources/HoottyCore/AppModel.swift:128-140 (nextWorkspaceName), AppModel.swift:319-327 (nextProfileName)",
+    "reason": "The algorithms differ: nextWorkspaceName extracts trailing integers and scans from 1; nextProfileName uses Set membership and scans from 2. Merging would require unifying the convention. Low priority until a third named-entity type appears."
+  }
+]
