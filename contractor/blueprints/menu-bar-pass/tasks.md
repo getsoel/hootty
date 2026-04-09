@@ -30,18 +30,18 @@
 
 ## 5. Workspace menu (rename from Shell, consolidate actions)
 
-- [ ] 5.1 Rename `CommandMenu("Shell")` to `CommandMenu("Workspace")` in `HoottyApp.swift`
-- [ ] 5.2 Reorganize the contents to match the design (groups separated by dividers):
+- [x] 5.1 Rename `CommandMenu("Shell")` to `CommandMenu("Workspace")` in `HoottyApp.swift`
+- [x] 5.2 Reorganize the contents to match the design (groups separated by dividers):
       Group 1: New Workspace (`⌘T`), Close Workspace (no shortcut)
       Group 2: Split Right (`⌘D`), Split Down (`⇧⌘D`), Split Left (`⌥⌘D`), Split Up (`⌥⇧⌘D`), Equalize Splits (`⌃⇧=`)
       Group 3: Next Workspace (no shortcut), Previous Workspace (no shortcut)
       Group 4: Focus Pane Up/Down/Left/Right (`⌥⌘↑↓←→`)
       Group 5: Note Pane (`⌃⇧F`), Flag Pane (`⌃⇧G`)
       Group 6: Pin/Unpin Workspace (no shortcut), Refresh Terminal (no shortcut)
-- [ ] 5.3 Wire each new menu button to `commandRegistry.execute(.<appCommand>)` (no new `AppCommand` cases needed — all are already registered)
-- [ ] 5.4 Apply `.disabled(appModel.selectedWorkspace == nil)` to the `Close Workspace` button
-- [ ] 5.5 Apply `.disabled((appModel.selectedWorkspace.map { _ in appModel.workspaces.count < 2 }) ?? true)` (or equivalent) to `Next Workspace` and `Previous Workspace` — disabled when fewer than two workspaces exist in the active profile
-- [ ] 5.6 Apply `.disabled(appModel.selectedWorkspaceID == nil)` to `Pin/Unpin Workspace`
+- [x] 5.3 Wire each new menu button to `commandRegistry.execute(.<appCommand>)` (no new `AppCommand` cases needed — all are already registered)
+- [x] 5.4 Apply `.disabled(appModel.selectedWorkspace == nil)` to the `Close Workspace` button
+- [x] 5.5 Apply `.disabled(appModel.workspaces.count < 2)` to `Next Workspace` and `Previous Workspace` — disabled when fewer than two workspaces exist in the active profile
+- [x] 5.6 Apply `.disabled(appModel.selectedWorkspaceID == nil)` to `Pin/Unpin Workspace`
 
 ## 6. Test and doc updates
 

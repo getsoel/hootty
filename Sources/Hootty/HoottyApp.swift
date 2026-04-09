@@ -87,6 +87,103 @@ struct HoottyApp: App {
         }
     }
 
+    @ViewBuilder
+    private var workspaceMenuContents: some View {
+        Button(AppCommand.newWorkspace.title) {
+            commandRegistry.execute(.newWorkspace)
+        }
+        .keyboardShortcut("t", modifiers: .command)
+
+        Button(AppCommand.closeWorkspace.title) {
+            commandRegistry.execute(.closeWorkspace)
+        }
+        .disabled(appModel.selectedWorkspace == nil)
+
+        Divider()
+
+        Button(AppCommand.splitRight.title) {
+            commandRegistry.execute(.splitRight)
+        }
+        .keyboardShortcut("d", modifiers: .command)
+
+        Button(AppCommand.splitDown.title) {
+            commandRegistry.execute(.splitDown)
+        }
+        .keyboardShortcut("d", modifiers: [.command, .shift])
+
+        Button(AppCommand.splitLeft.title) {
+            commandRegistry.execute(.splitLeft)
+        }
+        .keyboardShortcut("d", modifiers: [.command, .option])
+
+        Button(AppCommand.splitUp.title) {
+            commandRegistry.execute(.splitUp)
+        }
+        .keyboardShortcut("d", modifiers: [.command, .option, .shift])
+
+        Button(AppCommand.equalizeSplits.title) {
+            commandRegistry.execute(.equalizeSplits)
+        }
+        .keyboardShortcut("=", modifiers: [.control, .shift])
+
+        Divider()
+
+        Button(AppCommand.nextWorkspace.title) {
+            commandRegistry.execute(.nextWorkspace)
+        }
+        .disabled(appModel.workspaces.count < 2)
+
+        Button(AppCommand.previousWorkspace.title) {
+            commandRegistry.execute(.previousWorkspace)
+        }
+        .disabled(appModel.workspaces.count < 2)
+
+        Divider()
+
+        Button(AppCommand.focusPaneUp.title) {
+            commandRegistry.execute(.focusPaneUp)
+        }
+        .keyboardShortcut(.upArrow, modifiers: [.command, .option])
+
+        Button(AppCommand.focusPaneDown.title) {
+            commandRegistry.execute(.focusPaneDown)
+        }
+        .keyboardShortcut(.downArrow, modifiers: [.command, .option])
+
+        Button(AppCommand.focusPaneLeft.title) {
+            commandRegistry.execute(.focusPaneLeft)
+        }
+        .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
+
+        Button(AppCommand.focusPaneRight.title) {
+            commandRegistry.execute(.focusPaneRight)
+        }
+        .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+
+        Divider()
+
+        Button(AppCommand.notePane.title) {
+            commandRegistry.execute(.notePane)
+        }
+        .keyboardShortcut("f", modifiers: [.control, .shift])
+
+        Button(AppCommand.flagPane.title) {
+            commandRegistry.execute(.flagPane)
+        }
+        .keyboardShortcut("g", modifiers: [.control, .shift])
+
+        Divider()
+
+        Button(AppCommand.pinWorkspace.title) {
+            commandRegistry.execute(.pinWorkspace)
+        }
+        .disabled(appModel.selectedWorkspaceID == nil)
+
+        Button(AppCommand.refreshTerminal.title) {
+            commandRegistry.execute(.refreshTerminal)
+        }
+    }
+
     // MARK: - Command Registration
 
     private func registerCommands() {
@@ -466,71 +563,8 @@ struct HoottyApp: App {
                 }
                 .disabled(appModel.profiles.count <= 1)
             }
-            CommandMenu("Shell") {
-                Button(AppCommand.newWorkspace.title) {
-                    commandRegistry.execute(.newWorkspace)
-                }
-                .keyboardShortcut("t", modifiers: .command)
-
-                Divider()
-
-                Button(AppCommand.splitRight.title) {
-                    commandRegistry.execute(.splitRight)
-                }
-                .keyboardShortcut("d", modifiers: .command)
-
-                Button(AppCommand.splitDown.title) {
-                    commandRegistry.execute(.splitDown)
-                }
-                .keyboardShortcut("d", modifiers: [.command, .shift])
-
-                Divider()
-
-                Button(AppCommand.splitLeft.title) {
-                    commandRegistry.execute(.splitLeft)
-                }
-                .keyboardShortcut("d", modifiers: [.command, .option])
-
-                Button(AppCommand.splitUp.title) {
-                    commandRegistry.execute(.splitUp)
-                }
-                .keyboardShortcut("d", modifiers: [.command, .option, .shift])
-
-                Divider()
-
-                Button(AppCommand.equalizeSplits.title) {
-                    commandRegistry.execute(.equalizeSplits)
-                }
-                .keyboardShortcut("=", modifiers: [.control, .shift])
-
-                Divider()
-
-                Button(AppCommand.flagPane.title) {
-                    commandRegistry.execute(.flagPane)
-                }
-                .keyboardShortcut("g", modifiers: [.control, .shift])
-
-                Divider()
-
-                Button(AppCommand.focusPaneUp.title) {
-                    commandRegistry.execute(.focusPaneUp)
-                }
-                .keyboardShortcut(.upArrow, modifiers: [.command, .option])
-
-                Button(AppCommand.focusPaneDown.title) {
-                    commandRegistry.execute(.focusPaneDown)
-                }
-                .keyboardShortcut(.downArrow, modifiers: [.command, .option])
-
-                Button(AppCommand.focusPaneLeft.title) {
-                    commandRegistry.execute(.focusPaneLeft)
-                }
-                .keyboardShortcut(.leftArrow, modifiers: [.command, .option])
-
-                Button(AppCommand.focusPaneRight.title) {
-                    commandRegistry.execute(.focusPaneRight)
-                }
-                .keyboardShortcut(.rightArrow, modifiers: [.command, .option])
+            CommandMenu("Workspace") {
+                workspaceMenuContents
             }
         }
     }
