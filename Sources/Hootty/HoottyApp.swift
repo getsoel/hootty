@@ -168,9 +168,6 @@ struct HoottyApp: App {
         commandRegistry.register(.refreshTerminal) {
             GhosttyApp.shared.refreshAllSurfaces()
         }
-        commandRegistry.register(.refreshBranches) {
-            // Branch list is now computed on-demand when the picker opens
-        }
         commandRegistry.register(.attentionSounds) { [appModel] in
             appModel.modalState = .attentionSounds
         }

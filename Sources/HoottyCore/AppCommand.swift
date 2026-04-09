@@ -41,9 +41,6 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     case changeTheme
     case refreshTerminal
 
-    /// Branches
-    case refreshBranches
-
     // App
     case attentionSounds
     case resetWorkspaces
@@ -92,7 +89,6 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .toggleCommandPalette: "Command Palette"
         case .changeTheme: "Change Theme..."
         case .refreshTerminal: "Refresh Terminal"
-        case .refreshBranches: "Refresh Branches"
         case .attentionSounds: "Attention Sounds..."
         case .resetWorkspaces: "Reset Workspaces"
         case .editConfig: "Edit Configuration..."
@@ -121,8 +117,6 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .focusSidebar: "⌘0"
         case .toggleCommandPalette: "⇧⌘P"
         case .editConfig: "⌘,"
-        case .nextWorkspace: "⌃⇥"
-        case .previousWorkspace: "⌃⇧⇥"
         case .focusPaneUp: "⌥⌘↑"
         case .focusPaneDown: "⌥⌘↓"
         case .focusPaneLeft: "⌥⌘←"

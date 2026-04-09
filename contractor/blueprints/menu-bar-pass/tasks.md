@@ -1,9 +1,9 @@
 ## 1. AppCommand cleanup
 
-- [ ] 1.1 Delete `refreshBranches` case from `AppCommand` in `Sources/HoottyCore/AppCommand.swift` (enum case + `title` switch branch)
-- [ ] 1.2 Remove `shortcutHint` entries for `nextWorkspace` (`"⌃⇥"`) and `previousWorkspace` (`"⌃⇧⇥"`) in `Sources/HoottyCore/AppCommand.swift`
-- [ ] 1.3 Remove the `commandRegistry.register(.refreshBranches) { … }` no-op handler from `HoottyApp.registerCommands()` in `Sources/Hootty/HoottyApp.swift`
-- [ ] 1.4 Grep the repo for any other references to `refreshBranches` (tests, docs, CLAUDE.md) and remove them
+- [x] 1.1 Delete `refreshBranches` case from `AppCommand` in `Sources/HoottyCore/AppCommand.swift` (enum case + `title` switch branch)
+- [x] 1.2 Remove `shortcutHint` entries for `nextWorkspace` (`"⌃⇥"`) and `previousWorkspace` (`"⌃⇧⇥"`) in `Sources/HoottyCore/AppCommand.swift`
+- [x] 1.3 Remove the `commandRegistry.register(.refreshBranches) { … }` no-op handler from `HoottyApp.registerCommands()` in `Sources/Hootty/HoottyApp.swift`
+- [x] 1.4 Grep the repo for any other references to `refreshBranches` (tests, docs, CLAUDE.md) and remove them
 
 ## 2. App menu (Hootty ▸ settings-type modals)
 
