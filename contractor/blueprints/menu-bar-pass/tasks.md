@@ -45,8 +45,8 @@
 
 ## 6. Test and doc updates
 
-- [ ] 6.1 Run `swift test` (ignore signal 10 exit per CLAUDE.local.md) and fix any `AppCommand`-related assertions that break due to the `refreshBranches` removal
-- [ ] 6.2 Update `CLAUDE.md` Architecture section if any referenced command identifier changed (spot-check that `refreshBranches` is not named anywhere in docs)
+- [x] 6.1 Run `swift test` (ignore signal 10 exit per CLAUDE.local.md) and fix any `AppCommand`-related assertions that break due to the `refreshBranches` removal — all 278 tests pass, no `AppCommand`-count assertions exist
+- [x] 6.2 Update `CLAUDE.md` Architecture section if any referenced command identifier changed (spot-check that `refreshBranches` is not named anywhere in docs) — CLAUDE.md has no references to changed identifiers; `docs/` directory is untracked in this repo
 
 ## 7. Build + lint verification
 
