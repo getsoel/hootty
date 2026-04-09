@@ -107,4 +107,78 @@ public final class ProfileStore {
             Self.logger.error("Failed to delete profile directory: \(error.localizedDescription)")
         }
     }
+
+    // MARK: - Migration
+
+    /// Migrates from the legacy flat layout (root `config` + `workspaces.json`)
+    /// into a `profiles/<uuid>/` directory. Idempotent — no-op if `profiles.json` exists.
+    public func migrateIfNeeded() {
+        let fm = FileManager.default
+
+        // Already migrated — no-op
+        if fm.fileExists(atPath: metadataURL.path) {
+            Self.logger.debug("profiles.json exists, skipping migration")
+            return
+        }
+
+        let profilesDir = rootDirectory.appendingPathComponent("profiles", isDirectory: true)
+
+        // Partial-migration recovery: profiles/ exists but no profiles.json
+        if fm.fileExists(atPath: profilesDir.path) {
+            Self.logger.error("Partial migration detected: profiles/ directory exists but no profiles.json. Refusing to overwrite.")
+            return
+        }
+
+        let legacyConfig = rootDirectory.appendingPathComponent("config")
+        let legacyWorkspaces = rootDirectory.appendingPathComponent("workspaces.json")
+        let hasLegacyConfig = fm.fileExists(atPath: legacyConfig.path)
+        let hasLegacyWorkspaces = fm.fileExists(atPath: legacyWorkspaces.path)
+
+        let profileID = UUID()
+        let profile = Profile(id: profileID, name: "Default")
+
+        if hasLegacyConfig || hasLegacyWorkspaces {
+            // Happy path: legacy files exist — move them into the new profile directory
+            Self.logger.info("Migrating legacy layout to profiles/\(profileID.uuidString)/")
+
+            let dir = profileDirectory(for: profileID)
+            do {
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            } catch {
+                Self.logger.error("Failed to create profile directory during migration: \(error.localizedDescription)")
+                return
+            }
+
+            // Move files before writing profiles.json (crash-safe ordering)
+            if hasLegacyConfig {
+                let dest = dir.appendingPathComponent("config")
+                do {
+                    try fm.moveItem(at: legacyConfig, to: dest)
+                } catch {
+                    Self.logger.error("Failed to move config during migration: \(error.localizedDescription)")
+                    return
+                }
+            }
+
+            if hasLegacyWorkspaces {
+                let dest = dir.appendingPathComponent("workspaces.json")
+                do {
+                    try fm.moveItem(at: legacyWorkspaces, to: dest)
+                } catch {
+                    Self.logger.error("Failed to move workspaces.json during migration: \(error.localizedDescription)")
+                    return
+                }
+            }
+
+            let metadata = ProfilesMetadata(activeProfileID: profileID, profiles: [profile])
+            saveMetadata(metadata)
+            Self.logger.info("Migration complete")
+        } else {
+            // No legacy files — fresh install, write bare profiles.json
+            Self.logger.info("No legacy files found, creating fresh profiles.json with Default profile")
+            let metadata = ProfilesMetadata(activeProfileID: profileID, profiles: [profile])
+            saveMetadata(metadata)
+            // Directory created lazily on first workspace save
+        }
+    }
 }

@@ -17,12 +17,12 @@
 
 ## 3. Migration from Legacy Layout
 
-- [ ] 3.1 Add `migrateIfNeeded()` to `ProfileStore` that runs before any other profile operation
-- [ ] 3.2 Implement the happy path: absent `profiles.json` + existing root `config` / `workspaces.json` → generate UUID, create `profiles/<uuid>/`, move both files in, write `profiles.json` atomically with the profile named "Default" marked active
-- [ ] 3.3 Implement the no-legacy path: absent `profiles.json` and no legacy files → write `profiles.json` with a single "Default" profile and lazy directory creation
-- [ ] 3.4 Implement the already-migrated idempotent no-op path
-- [ ] 3.5 Implement the partial-migration recovery path (a `profiles/` directory exists but no `profiles.json`): log and refuse to overwrite
-- [ ] 3.6 Add integration tests in `Tests/HoottyCoreTests/ProfileMigrationTests.swift` covering each path with temp directory fixtures
+- [x] 3.1 Add `migrateIfNeeded()` to `ProfileStore` that runs before any other profile operation
+- [x] 3.2 Implement the happy path: absent `profiles.json` + existing root `config` / `workspaces.json` → generate UUID, create `profiles/<uuid>/`, move both files in, write `profiles.json` atomically with the profile named "Default" marked active
+- [x] 3.3 Implement the no-legacy path: absent `profiles.json` and no legacy files → write `profiles.json` with a single "Default" profile and lazy directory creation
+- [x] 3.4 Implement the already-migrated idempotent no-op path
+- [x] 3.5 Implement the partial-migration recovery path (a `profiles/` directory exists but no `profiles.json`): log and refuse to overwrite
+- [x] 3.6 Add integration tests in `Tests/HoottyCoreTests/ProfileMigrationTests.swift` covering each path with temp directory fixtures
 
 ## 4. AppModel Profile State
 
