@@ -1,0 +1,120 @@
+#!/bin/bash
+# Hootty codex wrapper — injects SessionStart and PostToolUse hooks via
+# CODEX_HOME isolation so that the user's ~/.codex/ files are never
+# mutated. Outside Hootty, passes through to the real codex unchanged.
+#
+# Strategy:
+# 1. Create a Hootty-managed CODEX_HOME at XDG_CACHE_HOME/hootty/codex-home
+# 2. Symlink every entry from the user's ~/.codex/ into it EXCEPT hooks.json
+#    (including config.toml — so user edits to their real config.toml are
+#    reflected live without any merge step)
+# 3. Write hooks.json directly (merged with the user's existing hooks.json
+#    if present, via Python's stdlib json module)
+# 4. Pass `-c features.codex_hooks=true` on the command line to enable the
+#    feature flag without needing to mutate config.toml (the `-c` override
+#    takes precedence over file values)
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+
+find_real_codex() {
+    local IFS=:
+    for d in $PATH; do
+        [[ "$d" == "$SCRIPT_DIR" ]] && continue
+        [[ -x "$d/codex" ]] && printf '%s' "$d/codex" && return 0
+    done
+    return 1
+}
+
+REAL_CODEX="$(find_real_codex)" || { echo "Error: codex not found in PATH" >&2; exit 127; }
+
+# Pass through if not inside Hootty
+if [[ -z "$HOOTTY_PANE_ID" ]]; then
+    exec "$REAL_CODEX" "$@"
+fi
+
+USER_CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty"
+HOOTTY_CODEX_HOME="$CACHE_DIR/codex-home"
+
+mkdir -p "$HOOTTY_CODEX_HOME"
+chmod 700 "$HOOTTY_CODEX_HOME"
+
+# Clear existing symlinks so we don't leave stale entries behind if the
+# user removed files from their real ~/.codex/.
+find "$HOOTTY_CODEX_HOME" -maxdepth 1 -mindepth 1 -type l -delete 2>/dev/null || true
+
+# Symlink every entry from the user's ~/.codex/ into our managed dir
+# EXCEPT hooks.json, which we manage ourselves.
+if [[ -d "$USER_CODEX_HOME" ]]; then
+    shopt -s nullglob dotglob
+    for entry in "$USER_CODEX_HOME"/*; do
+        name="$(basename "$entry")"
+        [[ "$name" == "hooks.json" ]] && continue
+        ln -sf "$entry" "$HOOTTY_CODEX_HOME/$name"
+    done
+    shopt -u nullglob dotglob
+fi
+
+# Merge hooks.json: read user's (if present), ensure SessionStart and
+# PostToolUse entries for our hook scripts exist, write to our CODEX_HOME.
+# Uses only Python stdlib (json module), so no dependency concerns.
+OUR_HOOKS="$HOOTTY_CODEX_HOME/hooks.json"
+USER_HOOKS="$USER_CODEX_HOME/hooks.json"
+
+/usr/bin/python3 - "$USER_HOOKS" "$OUR_HOOKS" "$SCRIPT_DIR" <<'PYEOF'
+import sys
+import os
+import json
+
+user_hooks_path, out_path, script_dir = sys.argv[1:4]
+
+data = {}
+if os.path.exists(user_hooks_path):
+    try:
+        with open(user_hooks_path, "r") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+
+hooks = data.setdefault("hooks", {})
+
+def ensure_entry(event_name, matcher, command):
+    entries = hooks.setdefault(event_name, [])
+    for entry in entries:
+        for hk in entry.get("hooks", []):
+            if hk.get("command") == command:
+                return  # already present
+    new_entry = {"hooks": [{"type": "command", "command": command}]}
+    if matcher is not None:
+        new_entry["matcher"] = matcher
+    entries.append(new_entry)
+
+ensure_entry("SessionStart", "startup", f"{script_dir}/hootty-session-hook")
+ensure_entry("PostToolUse", "shell", f"{script_dir}/hootty-cwd-hook")
+
+with open(out_path, "w") as f:
+    json.dump(data, f, indent=2)
+PYEOF
+
+# Fallback: if the Python merge failed for any reason, write a minimal
+# hooks.json with just our entries so hook injection still works.
+if [[ ! -s "$OUR_HOOKS" ]]; then
+    cat > "$OUR_HOOKS" <<EOF
+{
+  "hooks": {
+    "SessionStart": [
+      {"matcher": "startup", "hooks": [{"type": "command", "command": "$SCRIPT_DIR/hootty-session-hook"}]}
+    ],
+    "PostToolUse": [
+      {"matcher": "shell", "hooks": [{"type": "command", "command": "$SCRIPT_DIR/hootty-cwd-hook"}]}
+    ]
+  }
+}
+EOF
+fi
+
+# Enable codex_hooks via CLI flag so we don't have to mutate config.toml.
+# The `-c` override takes precedence over file values, and this leaves
+# the symlinked config.toml untouched.
+export CODEX_HOME="$HOOTTY_CODEX_HOME"
+exec "$REAL_CODEX" -c features.codex_hooks=true "$@"

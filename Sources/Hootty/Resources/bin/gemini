@@ -1,0 +1,68 @@
+#!/bin/bash
+# Hootty gemini wrapper — injects SessionStart and CwdChanged hooks so
+# Hootty can track Gemini CLI sessions and working-directory changes.
+# Outside Hootty, passes through to the real gemini unchanged.
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+
+# Find the real gemini binary, skipping our own directory
+find_real_gemini() {
+    local IFS=:
+    for d in $PATH; do
+        [[ "$d" == "$SCRIPT_DIR" ]] && continue
+        [[ -x "$d/gemini" ]] && printf '%s' "$d/gemini" && return 0
+    done
+    return 1
+}
+
+REAL_GEMINI="$(find_real_gemini)" || { echo "Error: gemini not found in PATH" >&2; exit 127; }
+
+# Pass through if not inside Hootty
+if [[ -z "$HOOTTY_PANE_ID" ]]; then
+    exec "$REAL_GEMINI" "$@"
+fi
+
+# Compute a per-user Hootty cache directory for the generated settings file.
+# Using a stable path (not a per-run temp file) avoids accumulating stale
+# files and is safe because the settings content is identical across runs.
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty"
+mkdir -p "$CACHE_DIR"
+SETTINGS_FILE="$CACHE_DIR/gemini-settings.json"
+
+# Write the settings file. Gemini's hook subsystem consumes hook stdout as a
+# structured response channel, so the hook scripts write OSC sequences
+# directly to /dev/tty — that's handled inside the hook script itself.
+cat > "$SETTINGS_FILE" <<EOF
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$SCRIPT_DIR/hootty-session-hook"
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$SCRIPT_DIR/hootty-cwd-hook"
+          }
+        ]
+      }
+    ]
+  }
+}
+EOF
+
+# Point Gemini at our settings file as the system tier. Gemini merges
+# settings additively across project > user > system, so any existing user
+# hooks still run alongside ours.
+export GEMINI_CLI_SYSTEM_SETTINGS_PATH="$SETTINGS_FILE"
+
+exec "$REAL_GEMINI" "$@"

@@ -1,11 +1,17 @@
 import Foundation
 
-public enum ClaudeTitleParser {
-    public enum State: Equatable {
-        case thinking
-        case idle
-    }
-
+/// Detects Claude Code session indicators from terminal titles.
+///
+/// Recognizes:
+/// - Braille Patterns block (U+2800–U+28FF) → `.thinking`
+/// - Eight Spoked Asterisk `✳` (U+2733) → `.idle`
+/// - ASCII `*` → `.idle`
+///
+/// Note: OpenAI Codex CLI also emits Braille spinners as its thinking
+/// indicator, so this detector will match Codex thinking states transitively.
+/// See `CodexTitleParser` for the dedicated (functionally equivalent) Codex
+/// detector kept in the registry for discoverability.
+public enum ClaudeTitleParser: AgentTitleDetector {
     /// Whether the scalar is a Claude Code indicator: Braille spinner (U+2800–U+28FF),
     /// Eight Spoked Asterisk (U+2733), or ASCII `*`.
     private static func isClaudeIndicator(_ scalar: UnicodeScalar) -> Bool {
@@ -14,10 +20,7 @@ public enum ClaudeTitleParser {
             || scalar == "*"
     }
 
-    /// Parse a terminal title for Claude Code state indicators.
-    /// Returns `.thinking` for Braille spinner chars (U+2800–U+28FF),
-    /// `.idle` for `✳` (U+2733) or ASCII `*`, or `nil` if not a Claude title.
-    public static func parse(_ title: String) -> State? {
+    public static func detect(_ title: String) -> AgentPresence? {
         guard let first = title.unicodeScalars.first else { return nil }
         guard isClaudeIndicator(first) else { return nil }
         // Braille Patterns block: U+2800–U+28FF → thinking (spinner)

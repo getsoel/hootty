@@ -2,39 +2,39 @@ import Testing
 @testable import HoottyCore
 
 struct ClaudeTitleParserTests {
-    // MARK: - parse
+    // MARK: - detect
 
     @Test func brailleSpinnerCharsReturnThinking() {
         // Various Braille chars from U+2800 block used by Claude spinners
         let spinners: [String] = ["\u{280B}", "\u{2819}", "\u{2839}", "\u{2838}", "\u{283C}", "\u{2834}"]
         for char in spinners {
             let title = "\(char) Thinking…"
-            #expect(ClaudeTitleParser.parse(title) == .thinking, "Expected .thinking for \(char)")
+            #expect(ClaudeTitleParser.detect(title) == .thinking, "Expected .thinking for \(char)")
         }
     }
 
     @Test func brailleBoundaryCharsReturnThinking() {
         // First and last chars in Braille Patterns block
-        #expect(ClaudeTitleParser.parse("\u{2800} title") == .thinking)
-        #expect(ClaudeTitleParser.parse("\u{28FF} title") == .thinking)
+        #expect(ClaudeTitleParser.detect("\u{2800} title") == .thinking)
+        #expect(ClaudeTitleParser.detect("\u{28FF} title") == .thinking)
     }
 
     @Test func eightSpokedAsteriskReturnsIdle() {
-        #expect(ClaudeTitleParser.parse("\u{2733} Claude") == .idle)
+        #expect(ClaudeTitleParser.detect("\u{2733} Claude") == .idle)
     }
 
     @Test func asciiAsteriskReturnsIdle() {
-        #expect(ClaudeTitleParser.parse("* Claude") == .idle)
+        #expect(ClaudeTitleParser.detect("* Claude") == .idle)
     }
 
     @Test func regularTitleReturnsNil() {
-        #expect(ClaudeTitleParser.parse("zsh") == nil)
-        #expect(ClaudeTitleParser.parse("vim main.swift") == nil)
-        #expect(ClaudeTitleParser.parse("~/project") == nil)
+        #expect(ClaudeTitleParser.detect("zsh") == nil)
+        #expect(ClaudeTitleParser.detect("vim main.swift") == nil)
+        #expect(ClaudeTitleParser.detect("~/project") == nil)
     }
 
     @Test func emptyTitleReturnsNil() {
-        #expect(ClaudeTitleParser.parse("") == nil)
+        #expect(ClaudeTitleParser.detect("") == nil)
     }
 
     // MARK: - stripPrefix

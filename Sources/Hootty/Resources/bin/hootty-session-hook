@@ -1,0 +1,6 @@
+#!/bin/bash
+# Hootty SessionStart hook — emits OSC 9 session marker directly to /dev/tty.
+# Hook stdout is consumed by agent CLI hook subsystems (Gemini, Codex) as a
+# structured response channel, so OSC sequences must go to /dev/tty.
+[ -n "$HOOTTY_PANE_ID" ] && printf '\e]9;hootty:session:%s\a' "$HOOTTY_PANE_ID" > /dev/tty 2>/dev/null
+exit 0

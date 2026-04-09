@@ -352,9 +352,9 @@ struct HoottyApp: App {
             let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
             if didSet { appModel.soundManager.play(kind) }
 
-        case let .claudeSessionDetected(paneID, sessionID):
+        case let .agentSessionDetected(paneID, sessionID):
             if let (_, pane) = appModel.findPane(id: paneID) {
-                pane.claudeSessionID = sessionID
+                pane.agentSessionID = sessionID
                 appModel.debouncedSave()
             }
 

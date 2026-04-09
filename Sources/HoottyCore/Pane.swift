@@ -3,13 +3,13 @@ import Foundation
 public enum AttentionKind: String, CaseIterable, Codable, Sendable {
     /// Bell rang (visual-only, cleared by next user interaction).
     case bell
-    /// Claude finished thinking, needs input (cleared by next user interaction).
+    /// Agent finished thinking, needs input (cleared by next user interaction).
     case done
 
     public var displayName: String {
         switch self {
         case .bell: "Bell"
-        case .done: "Claude Done"
+        case .done: "Agent Done"
         }
     }
 }
@@ -66,14 +66,18 @@ public final class Pane: Identifiable {
 
     public var shell: String
     public var workingDirectory: String
-    public var claudeSessionID: String?
+    /// Sentinel value written to `agentSessionID` when an agent session is
+    /// inferred from title detection rather than an explicit hook-injected ID.
+    public static let autoSessionID = "auto"
+
+    public var agentSessionID: String?
     public var branch: String?
     public var repoRoot: String?
     public var worktreePath: String?
 
     public var displayName: String {
         if let customName { return customName }
-        if claudeSessionID != nil { return name }
+        if agentSessionID != nil { return name }
         return Self.abbreviatePath(workingDirectory)
     }
 
@@ -95,13 +99,13 @@ public final class Pane: Identifiable {
         return URL(fileURLWithPath: path).lastPathComponent
     }
 
-    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, claudeSessionID: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil, note: String? = nil) {
+    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, agentSessionID: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil, note: String? = nil) {
         self.id = id
         self.name = name
         self.customName = customName
         self.shell = shell
         self.workingDirectory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
-        self.claudeSessionID = claudeSessionID
+        self.agentSessionID = agentSessionID
         self.branch = branch
         self.repoRoot = repoRoot
         self.worktreePath = worktreePath
@@ -111,18 +115,27 @@ public final class Pane: Identifiable {
 
 extension Pane: @preconcurrency Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, customName, shell, workingDirectory, claudeSessionID, branch, repoRoot, worktreePath, note
+        case id, name, customName, shell, workingDirectory, agentSessionID, branch, repoRoot, worktreePath, note
+        /// Legacy key from pre-multi-agent builds. Decoded as a fallback for
+        /// `agentSessionID`; never encoded.
+        case claudeSessionID
     }
 
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let rawAgentSession = try container.decodeIfPresent(String.self, forKey: .agentSessionID)
+            ?? container.decodeIfPresent(String.self, forKey: .claudeSessionID)
+        // Discard the `autoSessionID` sentinel on restore — it's a runtime
+        // detection marker with no meaning without a live process. A fresh
+        // surface will re-detect via title watching if an agent is running.
+        let agentSession = rawAgentSession == Self.autoSessionID ? nil : rawAgentSession
         try self.init(
             id: container.decode(UUID.self, forKey: .id),
             name: container.decode(String.self, forKey: .name),
             customName: container.decodeIfPresent(String.self, forKey: .customName),
             shell: container.decode(String.self, forKey: .shell),
             workingDirectory: container.decode(String.self, forKey: .workingDirectory),
-            claudeSessionID: container.decodeIfPresent(String.self, forKey: .claudeSessionID),
+            agentSessionID: agentSession,
             branch: container.decodeIfPresent(String.self, forKey: .branch),
             repoRoot: container.decodeIfPresent(String.self, forKey: .repoRoot),
             worktreePath: container.decodeIfPresent(String.self, forKey: .worktreePath),
@@ -137,7 +150,7 @@ extension Pane: @preconcurrency Codable {
         try container.encodeIfPresent(customName, forKey: .customName)
         try container.encode(shell, forKey: .shell)
         try container.encode(workingDirectory, forKey: .workingDirectory)
-        try container.encodeIfPresent(claudeSessionID, forKey: .claudeSessionID)
+        try container.encodeIfPresent(agentSessionID, forKey: .agentSessionID)
         try container.encodeIfPresent(branch, forKey: .branch)
         try container.encodeIfPresent(repoRoot, forKey: .repoRoot)
         try container.encodeIfPresent(worktreePath, forKey: .worktreePath)

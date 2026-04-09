@@ -8,7 +8,7 @@ enum GhosttyEvent {
     case newTab
     case bellRang(UUID)
     case paneNeedsAttention(UUID, AttentionKind)
-    case claudeSessionDetected(paneID: UUID, sessionID: String)
+    case agentSessionDetected(paneID: UUID, sessionID: String)
     case newSplit(paneID: UUID, direction: SplitDirection, parentSurface: ghostty_surface_t?)
     case closeSurface(UUID)
     case closeTab

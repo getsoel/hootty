@@ -73,14 +73,43 @@ struct WorkspaceLifecycleIntegration {
         }
     }
 
-    @Test func claudeSessionIDRoundTrip() {
+    @Test func agentSessionIDRoundTrip() {
         let (model, url) = makeModel()
         let pane = model.workspaces[0].allPanes[0]
-        pane.claudeSessionID = "session-abc-123"
+        pane.agentSessionID = "session-abc-123"
         model.saveWorkspaces()
 
         let restored = reloadModel(from: url)
-        #expect(restored.workspaces[0].allPanes[0].claudeSessionID == "session-abc-123")
+        #expect(restored.workspaces[0].allPanes[0].agentSessionID == "session-abc-123")
+    }
+
+    @Test func legacyClaudeSessionIDDecodesIntoAgentSessionID() throws {
+        // Fixture: a Pane JSON blob from a pre-multi-agent build using the
+        // legacy `claudeSessionID` key. Must decode into `agentSessionID`.
+        let id = UUID()
+        let json = """
+        {
+            "id": "\(id.uuidString)",
+            "name": "Test Pane",
+            "shell": "/bin/zsh",
+            "workingDirectory": "/tmp/project",
+            "claudeSessionID": "legacy-session-abc"
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let pane = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(pane.id == id)
+        #expect(pane.agentSessionID == "legacy-session-abc")
+    }
+
+    @Test func encodedPaneUsesAgentSessionIDKey() throws {
+        // Regression: encoding should write `agentSessionID`, never the
+        // legacy `claudeSessionID` key.
+        let pane = Pane(name: "Test", agentSessionID: "session-xyz")
+        let data = try JSONEncoder().encode(pane)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(json.contains("agentSessionID"))
+        #expect(!json.contains("claudeSessionID"))
     }
 }
 
@@ -654,27 +683,31 @@ struct TitleBasedClaudeDetection {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
-        #expect(pane.claudeSessionID == nil)
+        #expect(pane.agentSessionID == nil)
 
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
-        #expect(pane.claudeSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
         #expect(pane.isThinking == true)
     }
 
-    @Test func autoDetectedSessionClearsOnNonClaudeTitle() {
+    @Test func autoDetectedSessionPreservedOnNonAgentTitle() {
+        // Previously the session marker was cleared when the title stopped
+        // matching. With multi-agent support, the marker is preserved until
+        // `processDidExit` — Codex has no idle glyph, so clearing on
+        // unmatched titles would prematurely drop its session marker.
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
 
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
-        #expect(pane.claudeSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
 
         model.handleTitleChange(pane.id, title: "~/project")
-        #expect(pane.claudeSessionID == nil)
-        #expect(pane.isThinking == false)
+        #expect(pane.agentSessionID == Pane.autoSessionID) // Preserved.
+        #expect(pane.isThinking == false) // But thinking is ended (implicit idle).
     }
 
-    @Test func claudeExitWhileThinkingSetsDoneOnUnfocusedPane() throws {
+    @Test func agentExitWhileThinkingSetsDoneOnUnfocusedPane() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -684,19 +717,19 @@ struct TitleBasedClaudeDetection {
         _ = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p1 is now unfocused
 
-        // Claude starts thinking (auto-detected)
+        // Agent starts thinking (auto-detected)
         model.handleTitleChange(p1.id, title: "\u{280B} Thinking . project")
-        #expect(p1.claudeSessionID == "auto")
+        #expect(p1.agentSessionID == Pane.autoSessionID)
         #expect(p1.isThinking == true)
 
-        // Claude exits — title reverts to shell prompt (skips idle state)
+        // Title reverts to shell prompt — implicit idle transition.
         model.handleTitleChange(p1.id, title: "zsh")
-        #expect(p1.claudeSessionID == nil)
+        #expect(p1.agentSessionID == Pane.autoSessionID) // Preserved, cleared on processDidExit.
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == .done)
     }
 
-    @Test func claudeExitWhileThinkingOnFocusedPaneDoesNotSetDone() {
+    @Test func agentExitWhileThinkingOnFocusedPaneDoesNotSetDone() {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -704,13 +737,13 @@ struct TitleBasedClaudeDetection {
         let pane = ws.allPanes[0]
         ws.focusPane(id: pane.id)
 
-        // Claude starts thinking (auto-detected)
+        // Agent starts thinking (auto-detected)
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
         #expect(pane.isThinking == true)
 
-        // Claude exits on focused pane — no done attention
+        // Title reverts on focused pane — no done attention, session preserved.
         model.handleTitleChange(pane.id, title: "zsh")
-        #expect(pane.claudeSessionID == nil)
+        #expect(pane.agentSessionID == Pane.autoSessionID) // Preserved.
         #expect(pane.isThinking == false)
         #expect(pane.attentionKind == nil)
     }
@@ -721,7 +754,7 @@ struct TitleBasedClaudeDetection {
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
-        p1.claudeSessionID = "test-session"
+        p1.agentSessionID = "test-session"
         ws.focusPane(id: p1.id)
         _ = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p1 is now unfocused
@@ -740,7 +773,7 @@ struct TitleBasedClaudeDetection {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
-        pane.claudeSessionID = "test-session"
+        pane.agentSessionID = "test-session"
 
         // Multiple spinner frames should all result in thinking=true
         let spinnerChars = ["\u{280B}", "\u{2819}", "\u{2839}", "\u{2838}", "\u{283C}"]
@@ -757,7 +790,7 @@ struct TitleBasedClaudeDetection {
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
-        p1.claudeSessionID = "test-session"
+        p1.agentSessionID = "test-session"
         ws.focusPane(id: p1.id)
         _ = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p1 is now unfocused
@@ -788,7 +821,7 @@ struct TitleBasedClaudeDetection {
         model.selectedWorkspaceID = ws.id
 
         let pane = ws.allPanes[0]
-        pane.claudeSessionID = "test-session"
+        pane.agentSessionID = "test-session"
 
         // Start thinking
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking . project")
@@ -808,7 +841,7 @@ struct TitleBasedClaudeDetection {
         model.selectedWorkspaceID = ws.id
 
         let pane = ws.allPanes[0]
-        pane.claudeSessionID = "test-session"
+        pane.agentSessionID = "test-session"
         ws.focusPane(id: pane.id)
         // Single pane — it is the focused pane
 
@@ -859,7 +892,7 @@ struct ManualFlagAttention {
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
         let pane = ws.allPanes[0]
-        pane.claudeSessionID = "test"
+        pane.agentSessionID = "test"
 
         pane.setNote("remember this")
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")

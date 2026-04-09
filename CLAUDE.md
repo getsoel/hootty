@@ -33,7 +33,12 @@ Sources/
     ThemeManager.swift         -- Persisted theme selection
     ThemeCatalog.swift         -- Theme listing/discovery with cached preview data
     AppCommand.swift           -- Command enum: IDs, titles, shortcut hints (see docs/COMMANDS.md)
-    ClaudeTitleParser.swift    -- Detects Claude Code sessions from terminal title patterns
+    Agents/                    -- Pluggable agent CLI detection (Claude, Gemini, Codex)
+      AgentPresence.swift        -- Enum: thinking | idle | needsAttention
+      AgentTitleDetector.swift   -- Protocol + AgentTitleDetection registry
+      ClaudeTitleParser.swift    -- Claude Code: Braille spinner + ✳/* idle glyphs
+      GeminiTitleParser.swift    -- Gemini CLI: ◇✦⏲✋ glyphs incl. needsAttention
+      CodexTitleParser.swift     -- OpenAI Codex CLI: Braille spinner (no idle glyph)
     ConfigFile.swift           -- Observable key-value config file store (persisted to app support)
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
     PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd)
