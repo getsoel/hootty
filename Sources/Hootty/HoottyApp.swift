@@ -404,7 +404,7 @@ struct HoottyApp: App {
                     commandRegistry.execute(.attentionSounds)
                 }
             }
-            CommandMenu("View") {
+            CommandGroup(after: .sidebar) {
                 Button(AppCommand.toggleCommandPalette.title) {
                     commandRegistry.execute(.toggleCommandPalette)
                 }
@@ -421,6 +421,20 @@ struct HoottyApp: App {
                     commandRegistry.execute(.focusSidebar)
                 }
                 .keyboardShortcut("0", modifiers: .command)
+
+                Divider()
+
+                Button(AppCommand.collapseAllWorkspaces.title) {
+                    commandRegistry.execute(.collapseAllWorkspaces)
+                }
+
+                Button(AppCommand.expandAllWorkspaces.title) {
+                    commandRegistry.execute(.expandAllWorkspaces)
+                }
+
+                Button(AppCommand.clearSidebarFilters.title) {
+                    commandRegistry.execute(.clearSidebarFilters)
+                }
 
                 Divider()
 

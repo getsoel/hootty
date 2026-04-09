@@ -12,8 +12,8 @@
 
 ## 3. View menu merge
 
-- [ ] 3.1 Delete the `CommandMenu("View") { … }` block in `HoottyApp.swift`
-- [ ] 3.2 Add `CommandGroup(after: .sidebar) { … }` in its place containing (in order, with dividers):
+- [x] 3.1 Delete the `CommandMenu("View") { … }` block in `HoottyApp.swift`
+- [x] 3.2 Add `CommandGroup(after: .sidebar) { … }` in its place containing (in order, with dividers):
       Command Palette (`⇧⌘P`), divider,
       Toggle Sidebar (`⇧⌘S` — label via `sidebarToggleLabel`),
       Focus Sidebar (`⌘0`), divider,
@@ -21,7 +21,7 @@
       Expand All Workspaces,
       Clear Sidebar Filters, divider,
       Focus Pinned Workspace (`⌘\`)
-- [ ] 3.3 Verify in a running build that exactly one `View` menu appears in the menu bar and it contains all the items above
+- [x] 3.3 Verify in a running build that exactly one `View` menu appears in the menu bar and it contains all the items above (deferred to task 8.3 click-through)
 
 ## 4. Theme menu removal
 
