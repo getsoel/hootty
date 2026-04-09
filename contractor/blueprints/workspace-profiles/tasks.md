@@ -54,27 +54,27 @@
 
 ## 7. AppKit Prompt Helper
 
-- [ ] 7.1 Create `Sources/Hootty/NSAlertPrompt.swift` with a `promptForName(title:prompt:initialValue:) -> String?` helper that shows an `NSAlert` with an accessory `NSTextField` and returns the trimmed input or `nil` on cancel
-- [ ] 7.2 Add a `confirmDestructive(title:message:confirmButtonTitle:) -> Bool` helper for delete confirmation (warning style, default button Cancel)
+- [x] 7.1 Create `Sources/Hootty/NSAlertPrompt.swift` with a `promptForName(title:prompt:initialValue:) -> String?` helper that shows an `NSAlert` with an accessory `NSTextField` and returns the trimmed input or `nil` on cancel
+- [x] 7.2 Add a `confirmDestructive(title:message:confirmButtonTitle:) -> Bool` helper for delete confirmation (warning style, default button Cancel)
 
 ## 8. Commands Layer
 
-- [ ] 8.1 Add `newProfile`, `renameCurrentProfile`, `deleteCurrentProfile` cases to `AppCommand` enum in `Sources/HoottyCore/AppCommand.swift` with titles and optional shortcut hints
-- [ ] 8.2 Register handlers in `HoottyApp.registerCommands()` that call the `NSAlertPrompt` helpers and then `AppModel.createProfile` / `renameProfile` / `deleteProfile`
-- [ ] 8.3 Extend `CommandRegistry.setSupplementaryCommands` usage in the profile switch path so the palette has one "Switch to Profile: &lt;name&gt;" entry per non-active profile, refreshed on create/rename/delete/switch
+- [x] 8.1 Add `newProfile`, `renameCurrentProfile`, `deleteCurrentProfile` cases to `AppCommand` enum in `Sources/HoottyCore/AppCommand.swift` with titles and optional shortcut hints
+- [x] 8.2 Register handlers in `HoottyApp.registerCommands()` that call the `NSAlertPrompt` helpers and then `AppModel.createProfile` / `renameProfile` / `deleteProfile`
+- [x] 8.3 Extend `CommandRegistry.setSupplementaryCommands` usage in the profile switch path so the palette has one "Switch to Profile: &lt;name&gt;" entry per non-active profile, refreshed on create/rename/delete/switch
 
 ## 9. Profile Menu
 
-- [ ] 9.1 Add a `CommandMenu("Profile")` block to `HoottyApp.body` `.commands`, positioned after the View menu
-- [ ] 9.2 Inside the menu, add a `Picker("Active", selection: $appModel.activeProfileID)` with `.pickerStyle(.inline)` and a `ForEach(appModel.profiles)` tagging each with its UUID; the picker's binding drives `switchProfile(to:)` via a computed-binding wrapper that calls the switch method
-- [ ] 9.3 Add `Divider()` and `Button`s for `New Profile…`, `Rename Current Profile…`, `Delete Current Profile…` that dispatch through `commandRegistry.execute`
-- [ ] 9.4 Disable the Delete button when `appModel.profiles.count == 1`
+- [x] 9.1 Add a `CommandMenu("Profile")` block to `HoottyApp.body` `.commands`, positioned after the View menu
+- [x] 9.2 Inside the menu, add a `Picker("Active", selection: $appModel.activeProfileID)` with `.pickerStyle(.inline)` and a `ForEach(appModel.profiles)` tagging each with its UUID; the picker's binding drives `switchProfile(to:)` via a computed-binding wrapper that calls the switch method
+- [x] 9.3 Add `Divider()` and `Button`s for `New Profile…`, `Rename Current Profile…`, `Delete Current Profile…` that dispatch through `commandRegistry.execute`
+- [x] 9.4 Disable the Delete button when `appModel.profiles.count == 1`
 - [ ] 9.5 Manual verification: open the menu, verify the active profile has a checkmark, create/rename/delete work, delete is disabled for the last profile, and the menu updates after each operation
 
 ## 10. Titlebar Profile Name
 
-- [ ] 10.1 In `Sources/Hootty/Views/ContentView.swift` `titleBar` computed view, insert a `Text(appModel.activeProfile?.name ?? "")` immediately after the 78pt traffic-light `Color.clear` spacer, before the `Spacer()`
-- [ ] 10.2 Use `TypeScale.bodySize` and a token-derived color (`tokens.text` or `tokens.textMuted` — pick whichever reads cleanest against the titlebar background); do not hardcode font size or color
+- [x] 10.1 In `Sources/Hootty/Views/ContentView.swift` `titleBar` computed view, insert a `Text(appModel.activeProfile?.name ?? "")` immediately after the 78pt traffic-light `Color.clear` spacer, before the `Spacer()`
+- [x] 10.2 Use `TypeScale.bodySize` and a token-derived color (`tokens.text` or `tokens.textMuted` — pick whichever reads cleanest against the titlebar background); do not hardcode font size or color
 - [ ] 10.3 Manual verification: launch, verify the active profile name appears to the right of the traffic lights and updates on switch and rename, memory monitor remains visible, titlebar height unchanged
 
 ## 11. End-to-End Integration

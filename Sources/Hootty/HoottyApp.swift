@@ -40,6 +40,16 @@ struct HoottyApp: App {
             NSSound(named: NSSound.Name(name))?.play()
         }
 
+        // Wire profile switching closures (HoottyCore can't import GhosttyApp)
+        model.onTeardownWorkspace = { workspace in
+            GhosttyApp.shared.cleanupWorkspace(workspace)
+        }
+        model.onReloadConfig = { [model] content in
+            if let resolved = GhosttyApp.shared.reloadConfig(ghosttyContent: content) {
+                model.themeManager.setResolvedTheme(resolved)
+            }
+        }
+
         _commandRegistry = State(initialValue: CommandRegistry())
 
         let watcher = GitHEADWatcher()
@@ -55,6 +65,16 @@ struct HoottyApp: App {
     @State private var appModel: AppModel
     @State private var commandRegistry: CommandRegistry
     @State private var headWatcher = GitHEADWatcher()
+
+    private var profileSwitchBinding: Binding<UUID> {
+        Binding(
+            get: { appModel.activeProfileID },
+            set: { [appModel, commandRegistry] newID in
+                appModel.switchProfile(to: newID)
+                Self.refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
+            }
+        )
+    }
 
     private var sidebarToggleLabel: String {
         switch appModel.sidebarMode {
@@ -179,6 +199,41 @@ struct HoottyApp: App {
             guard let id = appModel.pinnedWorkspaceID else { return }
             appModel.selectedWorkspaceID = id
         }
+
+        // Profile commands
+        commandRegistry.register(.newProfile) { [appModel, commandRegistry] in
+            guard let name = NSAlertPrompt.promptForName(
+                title: "New Profile",
+                prompt: "Enter a name for the new profile:"
+            ) else { return }
+            _ = appModel.createProfile(named: name)
+            Self.refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
+        }
+        commandRegistry.register(.renameCurrentProfile) { [appModel, commandRegistry] in
+            guard let profile = appModel.activeProfile else { return }
+            guard let newName = NSAlertPrompt.promptForName(
+                title: "Rename Profile",
+                prompt: "Enter a new name:",
+                initialValue: profile.name
+            ) else { return }
+            appModel.renameProfile(id: profile.id, to: newName)
+            Self.refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
+        }
+        commandRegistry.register(.deleteCurrentProfile) { [appModel, commandRegistry] in
+            guard appModel.profiles.count > 1,
+                  let profile = appModel.activeProfile else { return }
+            guard NSAlertPrompt.confirmDestructive(
+                title: "Delete Profile",
+                message: "Are you sure you want to delete the profile \"\(profile.name)\"? All workspaces in this profile will be permanently lost.",
+                confirmButtonTitle: "Delete"
+            ) else { return }
+            appModel.deleteProfile(id: profile.id)
+            Self.refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
+        }
+
+        // Initial supplementary commands for profile switching
+        Self.refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
+
         // Wire the registry into GhosttyApp for action callback routing
         GhosttyApp.shared.commandRegistry = commandRegistry
     }
@@ -255,6 +310,26 @@ struct HoottyApp: App {
                 headWatcher.startWatching(repoRoot: repoRoot, gitCommonDir: gitDir)
             }
         }
+    }
+
+    private static func refreshProfileSupplementaryCommands(appModel: AppModel, commandRegistry: CommandRegistry) {
+        let activeID = appModel.activeProfileID
+        let switchCommands: [PaletteCommand] = appModel.profiles
+            .filter { $0.id != activeID }
+            .map { profile in
+                PaletteCommand(
+                    id: "switch-profile-\(profile.id.uuidString)",
+                    title: "Switch to Profile: \(profile.name)",
+                    shortcut: nil,
+                    action: { [weak appModel, weak commandRegistry] in
+                        appModel?.switchProfile(to: profile.id)
+                        if let appModel, let commandRegistry {
+                            refreshProfileSupplementaryCommands(appModel: appModel, commandRegistry: commandRegistry)
+                        }
+                    }
+                )
+            }
+        commandRegistry.setSupplementaryCommands(switchCommands)
     }
 
     private static func cleanupHeadWatcher(_ watcher: GitHEADWatcher, repoRoot: String, appModel: AppModel) {
@@ -346,6 +421,29 @@ struct HoottyApp: App {
                     commandRegistry.execute(.focusPinnedWorkspace)
                 }
                 .keyboardShortcut("\\", modifiers: .command)
+            }
+            CommandMenu("Profile") {
+                Picker("Active", selection: profileSwitchBinding) {
+                    ForEach(appModel.profiles) { profile in
+                        Text(profile.name).tag(profile.id)
+                    }
+                }
+                .pickerStyle(.inline)
+
+                Divider()
+
+                Button(AppCommand.newProfile.title) {
+                    commandRegistry.execute(.newProfile)
+                }
+
+                Button(AppCommand.renameCurrentProfile.title) {
+                    commandRegistry.execute(.renameCurrentProfile)
+                }
+
+                Button(AppCommand.deleteCurrentProfile.title) {
+                    commandRegistry.execute(.deleteCurrentProfile)
+                }
+                .disabled(appModel.profiles.count <= 1)
             }
             CommandMenu("Shell") {
                 Button(AppCommand.newWorkspace.title) {
