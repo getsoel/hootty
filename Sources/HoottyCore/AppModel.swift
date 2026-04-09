@@ -3,10 +3,13 @@ import Foundation
 @MainActor
 @Observable
 public final class AppModel {
-    public let configFile: ConfigFile
+    public private(set) var configFile: ConfigFile
     public let themeManager: ThemeManager
     public let soundManager: SoundManager
-    public let workspaceStore: WorkspaceStore
+    public private(set) var workspaceStore: WorkspaceStore
+    public let profileStore: ProfileStore
+    public var profiles: [Profile] = []
+    public var activeProfileID = UUID()
     public var workspaces: [Workspace] = []
     public var selectedWorkspaceID: UUID?
     public var sidebarMode: SidebarMode = .full
@@ -14,6 +17,10 @@ public final class AppModel {
     public var collapsedWorkspaceIDs: Set<UUID> = []
     public var activeSidebarFilters: Set<SidebarFilter> = []
     public var pinnedWorkspaceID: UUID?
+
+    public var activeProfile: Profile? {
+        profiles.first { $0.id == activeProfileID }
+    }
 
     public enum ModalState: Equatable {
         case none
@@ -34,15 +41,33 @@ public final class AppModel {
         workspaces.first { $0.id == selectedWorkspaceID }
     }
 
-    public init(workspaceStore: WorkspaceStore = WorkspaceStore(), configFile: ConfigFile? = nil, themesDirectory: URL? = nil) {
-        let resolvedConfigFile = configFile ?? ConfigFile()
+    public init(
+        profileStore: ProfileStore? = nil,
+        workspaceStore: WorkspaceStore? = nil,
+        configFile: ConfigFile? = nil,
+        themesDirectory: URL? = nil
+    ) {
+        let resolvedProfileStore = profileStore ?? ProfileStore()
+        self.profileStore = resolvedProfileStore
+
+        // Run migration and load profile metadata
+        resolvedProfileStore.migrateIfNeeded()
+        let metadata = resolvedProfileStore.loadMetadata()
+            ?? ProfilesMetadata(activeProfileID: UUID(), profiles: [Profile(name: "Default")])
+        self.profiles = metadata.profiles
+        self.activeProfileID = metadata.activeProfileID
+
+        // Resolve per-profile stores (test overrides take precedence)
+        let resolvedWorkspaceStore = workspaceStore ?? resolvedProfileStore.workspaceStore(for: metadata.activeProfileID)
+        let resolvedConfigFile = configFile ?? resolvedProfileStore.configFile(for: metadata.activeProfileID)
+
         self.configFile = resolvedConfigFile
         resolvedConfigFile.ensureExists()
         let catalog = ThemeCatalog(themesDirectory: themesDirectory)
         self.themeManager = ThemeManager(configFile: resolvedConfigFile, themeCatalog: catalog)
         self.soundManager = SoundManager(configFile: resolvedConfigFile)
-        self.workspaceStore = workspaceStore
-        if let snapshot = workspaceStore.load() {
+        self.workspaceStore = resolvedWorkspaceStore
+        if let snapshot = resolvedWorkspaceStore.load() {
             self.workspaces = snapshot.workspaces
             self.selectedWorkspaceID = snapshot.selectedWorkspaceID
             if let width = snapshot.sidebarWidth {

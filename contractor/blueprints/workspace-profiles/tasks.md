@@ -26,11 +26,11 @@
 
 ## 4. AppModel Profile State
 
-- [ ] 4.1 Add `profiles: [Profile]` and `activeProfileID: UUID` observable properties to `AppModel`
-- [ ] 4.2 Add `activeProfile: Profile?` computed property
-- [ ] 4.3 Add `profileStore: ProfileStore` stored property and update `AppModel.init` to construct it, run migration, load metadata, and use per-profile `WorkspaceStore` / `ConfigFile` factories
-- [ ] 4.4 Update the existing `init` parameter list so tests can inject a custom `ProfileStore` with a temp root directory
-- [ ] 4.5 Update `Tests/HoottyCoreTests/IntegrationTests.swift` existing suites that instantiate `AppModel` to use the new injection point without changing their coverage
+- [x] 4.1 Add `profiles: [Profile]` and `activeProfileID: UUID` observable properties to `AppModel`
+- [x] 4.2 Add `activeProfile: Profile?` computed property
+- [x] 4.3 Add `profileStore: ProfileStore` stored property and update `AppModel.init` to construct it, run migration, load metadata, and use per-profile `WorkspaceStore` / `ConfigFile` factories
+- [x] 4.4 Update the existing `init` parameter list so tests can inject a custom `ProfileStore` with a temp root directory
+- [x] 4.5 Update `Tests/HoottyCoreTests/IntegrationTests.swift` existing suites that instantiate `AppModel` to use the new injection point without changing their coverage
 
 ## 5. AppModel Profile CRUD
 
