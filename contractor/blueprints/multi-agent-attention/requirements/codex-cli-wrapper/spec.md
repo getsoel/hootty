@@ -82,13 +82,13 @@ The wrapper SHALL enable the `codex_hooks` feature flag by passing `-c features.
 - **AND** the codex process still sees `model = "o4-mini"` via the symlinked config
 
 ### Requirement: Hooks JSON injects SessionStart and PostToolUse entries
-The wrapper SHALL write `${HOOTTY_CODEX_HOME}/hooks.json` as a merge of the user's `~/.codex/hooks.json` (if present) plus a `SessionStart` hook invoking `codex-session-hook` and a `PostToolUse` (matcher: shell/bash) hook invoking `codex-cwd-hook`. User-defined hooks MUST be preserved.
+The wrapper SHALL write `${HOOTTY_CODEX_HOME}/hooks.json` as a merge of the user's `~/.codex/hooks.json` (if present) plus a `SessionStart` hook invoking the shared `hootty-session-hook` and a `PostToolUse` (matcher: shell/bash) hook invoking the shared `hootty-cwd-hook`. User-defined hooks MUST be preserved.
 
 #### Scenario: Hooks file contains Hootty entries
 - **GIVEN** no pre-existing `~/.codex/hooks.json`
 - **WHEN** the wrapper runs
-- **THEN** `${HOOTTY_CODEX_HOME}/hooks.json` exists and contains a `SessionStart` entry invoking `codex-session-hook`
-- **AND** a `PostToolUse` entry invoking `codex-cwd-hook`
+- **THEN** `${HOOTTY_CODEX_HOME}/hooks.json` exists and contains a `SessionStart` entry invoking `hootty-session-hook`
+- **AND** a `PostToolUse` entry invoking `hootty-cwd-hook`
 
 #### Scenario: User hooks are preserved
 - **GIVEN** a `~/.codex/hooks.json` containing a user-defined `Stop` hook
@@ -96,18 +96,18 @@ The wrapper SHALL write `${HOOTTY_CODEX_HOME}/hooks.json` as a merge of the user
 - **THEN** the resulting `${HOOTTY_CODEX_HOME}/hooks.json` contains both the user's `Stop` hook and Hootty's `SessionStart` / `PostToolUse` entries
 
 ### Requirement: Session hook emits OSC 9 marker to the terminal
-The `codex-session-hook` executable SHALL emit an OSC 9 escape sequence of the form `\e]9;hootty:session:<pane-id>\a` directly to `/dev/tty`. Writing to stdout is NOT sufficient.
+The `hootty-session-hook` executable (shared between Gemini and Codex wrappers) SHALL emit an OSC 9 escape sequence of the form `\e]9;hootty:session:<pane-id>\a` directly to `/dev/tty`. Writing to stdout is NOT sufficient.
 
 #### Scenario: Marker written to controlling terminal
-- **WHEN** `codex-session-hook` runs with `HOOTTY_PANE_ID` set
+- **WHEN** `hootty-session-hook` runs with `HOOTTY_PANE_ID` set
 - **THEN** the sequence `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` is written to `/dev/tty`
 - **AND** nothing is written to stdout
 
 ### Requirement: Cwd hook emits OSC 7 on tool execution
-The `codex-cwd-hook` executable SHALL emit an OSC 7 escape sequence reflecting the cwd reported by Codex after each `PostToolUse` (shell tool) event, written directly to `/dev/tty`. This enables worktree detection in Hootty's sidebar while Codex is running.
+The `hootty-cwd-hook` executable (shared between Gemini and Codex wrappers) SHALL emit an OSC 7 escape sequence reflecting the cwd reported by the agent CLI after each `PostToolUse` (shell tool) event, written directly to `/dev/tty`. This enables worktree detection in Hootty's sidebar while the agent is running.
 
 #### Scenario: Cwd update written to controlling terminal
-- **WHEN** `codex-cwd-hook` runs with a cwd available in its input
+- **WHEN** `hootty-cwd-hook` runs with a cwd available in its input
 - **THEN** the corresponding OSC 7 sequence is written to `/dev/tty`
 
 ### Requirement: Documented limitation — approval-prompt attention not delivered

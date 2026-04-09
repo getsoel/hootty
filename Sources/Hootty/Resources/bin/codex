@@ -89,8 +89,8 @@ def ensure_entry(event_name, matcher, command):
         new_entry["matcher"] = matcher
     entries.append(new_entry)
 
-ensure_entry("SessionStart", "startup", f"{script_dir}/codex-session-hook")
-ensure_entry("PostToolUse", "shell", f"{script_dir}/codex-cwd-hook")
+ensure_entry("SessionStart", "startup", f"{script_dir}/hootty-session-hook")
+ensure_entry("PostToolUse", "shell", f"{script_dir}/hootty-cwd-hook")
 
 with open(out_path, "w") as f:
     json.dump(data, f, indent=2)
@@ -103,10 +103,10 @@ if [[ ! -s "$OUR_HOOKS" ]]; then
 {
   "hooks": {
     "SessionStart": [
-      {"matcher": "startup", "hooks": [{"type": "command", "command": "$SCRIPT_DIR/codex-session-hook"}]}
+      {"matcher": "startup", "hooks": [{"type": "command", "command": "$SCRIPT_DIR/hootty-session-hook"}]}
     ],
     "PostToolUse": [
-      {"matcher": "shell", "hooks": [{"type": "command", "command": "$SCRIPT_DIR/codex-cwd-hook"}]}
+      {"matcher": "shell", "hooks": [{"type": "command", "command": "$SCRIPT_DIR/hootty-cwd-hook"}]}
     ]
   }
 }

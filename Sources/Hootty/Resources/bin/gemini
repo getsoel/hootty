@@ -41,7 +41,7 @@ cat > "$SETTINGS_FILE" <<EOF
         "hooks": [
           {
             "type": "command",
-            "command": "$SCRIPT_DIR/gemini-session-hook"
+            "command": "$SCRIPT_DIR/hootty-session-hook"
           }
         ]
       }
@@ -51,7 +51,7 @@ cat > "$SETTINGS_FILE" <<EOF
         "hooks": [
           {
             "type": "command",
-            "command": "$SCRIPT_DIR/gemini-cwd-hook"
+            "command": "$SCRIPT_DIR/hootty-cwd-hook"
           }
         ]
       }

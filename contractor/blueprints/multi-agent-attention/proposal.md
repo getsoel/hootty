@@ -37,8 +37,9 @@ Hootty's attention-state system (thinking indicator, `.done` attention kind, sid
 - `Sources/Hootty/Views/SidebarPaneRow.swift`, `PaneGroupTabBar.swift`, `CondensedSidebar.swift`: rename `isClaudeSession:` → `isAgentSession:` at call sites.
 - `Sources/Hootty/Views/StatusDotView.swift`: rename the parameter.
 - `Sources/HoottyCore/Pane.swift` `AttentionKind.done.displayName`: `"Claude Done"` → `"Agent Done"`.
-- `Sources/Hootty/Resources/bin/gemini`, `gemini-session-hook`, `gemini-cwd-hook`: new wrapper + hooks.
-- `Sources/Hootty/Resources/bin/codex`, `codex-session-hook`, `codex-cwd-hook`: new wrapper + hooks.
+- `Sources/Hootty/Resources/bin/gemini`: new wrapper. Uses the shared `hootty-session-hook` and `hootty-cwd-hook` scripts (also consumed by the Codex wrapper).
+- `Sources/Hootty/Resources/bin/codex`: new wrapper sharing the same `hootty-session-hook` / `hootty-cwd-hook` helpers.
+- `Sources/Hootty/Resources/bin/hootty-session-hook`, `hootty-cwd-hook`: new shared hook scripts emitting OSC 9 / OSC 7 to `/dev/tty`.
 
 **Persistence**: Existing workspace files storing `claudeSessionID` decode successfully via the Codable fallback. No user-visible migration step.
 

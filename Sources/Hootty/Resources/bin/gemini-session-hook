@@ -1,6 +1,0 @@
-#!/bin/bash
-# Hootty SessionStart hook for Gemini CLI — emits OSC 9 session marker
-# directly to /dev/tty. Gemini consumes hook stdout as a structured
-# response channel, so stdout cannot reach the terminal.
-[ -n "$HOOTTY_PANE_ID" ] && printf '\e]9;hootty:session:%s\a' "$HOOTTY_PANE_ID" > /dev/tty 2>/dev/null
-exit 0

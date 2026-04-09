@@ -63,9 +63,11 @@ struct TerminalPaneView: NSViewRepresentable {
             let work = DispatchWorkItem { [weak pane] in
                 guard let pane, pane.customName == nil else { return }
                 if let clean = AgentTitleDetection.stripPrefix(title) {
-                    pane.name = clean
+                    // Guard against redundant @Observable writes: spinner
+                    // frames re-emit the same stripped name at ~20Hz.
+                    if pane.name != clean { pane.name = clean }
                     if pane.agentSessionID == nil {
-                        pane.agentSessionID = "auto"
+                        pane.agentSessionID = Pane.autoSessionID
                     }
                 }
                 // Note: unlike the previous Claude-only behavior, we do NOT

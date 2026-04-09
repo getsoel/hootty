@@ -41,22 +41,22 @@ When `HOOTTY_PANE_ID` is set, the wrapper SHALL write a JSON settings file to a 
 #### Scenario: Settings file is written before exec
 - **WHEN** the wrapper runs inside a Hootty pane
 - **THEN** a settings JSON file exists at the path referenced by `GEMINI_CLI_SYSTEM_SETTINGS_PATH`
-- **AND** the file contains a `SessionStart` hook invoking `gemini-session-hook`
-- **AND** the file contains a `CwdChanged` hook invoking `gemini-cwd-hook`
+- **AND** the file contains a `SessionStart` hook invoking `hootty-session-hook`
+- **AND** the file contains a `CwdChanged` hook invoking `hootty-cwd-hook`
 
 ### Requirement: Session hook emits OSC 9 marker to the terminal
-The `gemini-session-hook` executable SHALL emit an OSC 9 escape sequence of the form `\e]9;hootty:session:<pane-id>\a` directly to `/dev/tty`. Writing to stdout is NOT sufficient because Gemini CLI consumes hook stdout as a structured response channel.
+The `hootty-session-hook` executable (shared between Gemini and Codex wrappers) SHALL emit an OSC 9 escape sequence of the form `\e]9;hootty:session:<pane-id>\a` directly to `/dev/tty`. Writing to stdout is NOT sufficient because Gemini CLI consumes hook stdout as a structured response channel.
 
 #### Scenario: Marker written to controlling terminal
-- **WHEN** `gemini-session-hook` runs with `HOOTTY_PANE_ID` set
+- **WHEN** `hootty-session-hook` runs with `HOOTTY_PANE_ID` set
 - **THEN** the sequence `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` is written to `/dev/tty`
 - **AND** nothing is written to stdout
 
 ### Requirement: Cwd hook emits OSC 7 on working-directory change
-The `gemini-cwd-hook` executable SHALL emit an OSC 7 escape sequence of the form `\e]7;file://<host><path>\a` directly to `/dev/tty` reflecting the current working directory reported by Gemini CLI. This enables worktree detection in Hootty's sidebar while Gemini is running.
+The `hootty-cwd-hook` executable (shared between Gemini and Codex wrappers) SHALL emit an OSC 7 escape sequence of the form `\e]7;file://<host><path>\a` directly to `/dev/tty` reflecting the current working directory reported by the agent CLI. This enables worktree detection in Hootty's sidebar while the agent is running.
 
 #### Scenario: Cwd update written to controlling terminal
-- **WHEN** `gemini-cwd-hook` runs with the new cwd available
+- **WHEN** `hootty-cwd-hook` runs with the new cwd available
 - **THEN** the corresponding OSC 7 sequence is written to `/dev/tty`
 
 ### Requirement: Existing user hooks are preserved

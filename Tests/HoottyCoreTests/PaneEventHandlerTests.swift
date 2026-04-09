@@ -131,7 +131,7 @@ struct PaneEventHandlerTests {
     @Test func claudeTitleSetsAutoSession() {
         let (handler, _, pane) = makeHandler()
         handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
-        #expect(pane.agentSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
         #expect(pane.isThinking)
     }
 
@@ -147,11 +147,11 @@ struct PaneEventHandlerTests {
     @Test func unmatchedTitlePreservesAgentSessionMarker() {
         let (handler, _, pane) = makeHandler()
         handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
-        #expect(pane.agentSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
         // Transition to a non-agent-looking title (Codex idle pattern).
         handler.handleTitleChange(pane.id, title: "my-project")
         // Session marker is preserved — clearing is deferred to processDidExit.
-        #expect(pane.agentSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
         // Thinking is ended (implicit idle).
         #expect(!pane.isThinking)
     }
@@ -161,12 +161,12 @@ struct PaneEventHandlerTests {
         // p1 is unfocused. Simulate Codex thinking → idle.
         handler.handleTitleChange(p1.id, title: "\u{280B} hootty")
         #expect(p1.isThinking)
-        #expect(p1.agentSessionID == "auto")
+        #expect(p1.agentSessionID == Pane.autoSessionID)
         // Codex idle: title collapses to plain project name.
         handler.handleTitleChange(p1.id, title: "hootty")
         #expect(!p1.isThinking)
         #expect(p1.attentionKind == .done)
-        #expect(p1.agentSessionID == "auto")
+        #expect(p1.agentSessionID == Pane.autoSessionID)
     }
 
     @Test func nonAgentPaneIgnoresUnmatchedTitles() {
@@ -183,7 +183,7 @@ struct PaneEventHandlerTests {
         let (handler, _, p1, _) = try makeHandlerWithSplit()
         // p1 is unfocused. Send Gemini "Action Required" (✋).
         handler.handleTitleChange(p1.id, title: "\u{270B}  Action Required (my-folder)")
-        #expect(p1.agentSessionID == "auto")
+        #expect(p1.agentSessionID == Pane.autoSessionID)
         #expect(!p1.isThinking)
         #expect(p1.attentionKind == .done)
     }
@@ -192,7 +192,7 @@ struct PaneEventHandlerTests {
         let (handler, _, _, p2) = try makeHandlerWithSplit()
         // p2 is focused. Send Gemini "Action Required" (✋).
         handler.handleTitleChange(p2.id, title: "\u{270B}  Action Required (my-folder)")
-        #expect(p2.agentSessionID == "auto")
+        #expect(p2.agentSessionID == Pane.autoSessionID)
         #expect(!p2.isThinking)
         #expect(p2.attentionKind == nil)
     }
@@ -202,7 +202,7 @@ struct PaneEventHandlerTests {
     @Test func geminiFourPointedStarSetsThinking() {
         let (handler, _, pane) = makeHandler()
         handler.handleTitleChange(pane.id, title: "\u{2726}  Working…")
-        #expect(pane.agentSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
         #expect(pane.isThinking)
     }
 

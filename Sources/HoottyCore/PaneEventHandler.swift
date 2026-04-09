@@ -79,24 +79,28 @@ public final class PaneEventHandler {
                 // is no reliable way to distinguish "agent went idle" from
                 // "agent quit" via title alone, so clearing is deferred to
                 // `processDidExit`.
-                if pane.agentSessionID == "auto", pane.isThinking {
+                if pane.agentSessionID == Pane.autoSessionID, pane.isThinking {
                     endThinking(workspace, pane)
                 }
                 return
             }
 
             if pane.agentSessionID == nil {
-                pane.agentSessionID = "auto"
+                pane.agentSessionID = Pane.autoSessionID
             }
 
             switch presence {
             case .thinking:
-                pane.isThinking = true
-                pane.attentionKind = nil
+                // Guard against redundant @Observable writes on the hot path.
+                // Title changes fire at spinner-frame cadence (10–20Hz); an
+                // unconditional assignment re-propagates observation to every
+                // view bound to these fields every frame.
+                if !pane.isThinking { pane.isThinking = true }
+                if pane.attentionKind != nil { pane.attentionKind = nil }
             case .idle:
                 endThinking(workspace, pane)
             case .needsAttention:
-                pane.isThinking = false
+                if pane.isThinking { pane.isThinking = false }
                 _ = handlePaneNeedsAttention(paneID, kind: .done)
             }
         }

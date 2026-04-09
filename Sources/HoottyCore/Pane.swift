@@ -66,6 +66,10 @@ public final class Pane: Identifiable {
 
     public var shell: String
     public var workingDirectory: String
+    /// Sentinel value written to `agentSessionID` when an agent session is
+    /// inferred from title detection rather than an explicit hook-injected ID.
+    public static let autoSessionID = "auto"
+
     public var agentSessionID: String?
     public var branch: String?
     public var repoRoot: String?
@@ -119,8 +123,12 @@ extension Pane: @preconcurrency Codable {
 
     public convenience init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let agentSession = try container.decodeIfPresent(String.self, forKey: .agentSessionID)
+        let rawAgentSession = try container.decodeIfPresent(String.self, forKey: .agentSessionID)
             ?? container.decodeIfPresent(String.self, forKey: .claudeSessionID)
+        // Discard the `autoSessionID` sentinel on restore — it's a runtime
+        // detection marker with no meaning without a live process. A fresh
+        // surface will re-detect via title watching if an agent is running.
+        let agentSession = rawAgentSession == Self.autoSessionID ? nil : rawAgentSession
         try self.init(
             id: container.decode(UUID.self, forKey: .id),
             name: container.decode(String.self, forKey: .name),

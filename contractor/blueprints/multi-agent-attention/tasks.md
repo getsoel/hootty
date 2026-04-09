@@ -42,8 +42,8 @@
 - [x] 6.1 Create `Sources/Hootty/Resources/bin/gemini` (bash script, executable bit set, chmod `755`). Script MUST pass through to the real `gemini` binary when `HOOTTY_PANE_ID` is unset. Use the existing `find_real_claude`-style pattern, renamed to `find_real_gemini`.
 - [x] 6.2 Implement settings-file generation: write `${XDG_CACHE_HOME:-$HOME/Library/Caches}/hootty/gemini-settings.json` with JSON containing `SessionStart` and `CwdChanged` hooks referencing the sibling hook scripts by absolute path.
 - [x] 6.3 Set `GEMINI_CLI_SYSTEM_SETTINGS_PATH=<settings-file>` in the environment before `exec`-ing the real `gemini` binary.
-- [x] 6.4 Create `Sources/Hootty/Resources/bin/gemini-session-hook` that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`. Nothing to stdout.
-- [x] 6.5 Create `Sources/Hootty/Resources/bin/gemini-cwd-hook` that reads the cwd from the hook's stdin JSON payload (key path per Gemini docs) and writes `\e]7;file://<host><path>\a` to `/dev/tty`.
+- [x] 6.4 Create `Sources/Hootty/Resources/bin/hootty-session-hook` (shared between Gemini and Codex wrappers) that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`. Nothing to stdout. *(Consolidated during review — originally `gemini-session-hook`.)*
+- [x] 6.5 Create `Sources/Hootty/Resources/bin/hootty-cwd-hook` (shared between Gemini and Codex wrappers) that reads the cwd from the hook's stdin JSON payload and writes `\e]7;file://<host><path>\a` to `/dev/tty`. *(Consolidated during review — originally `gemini-cwd-hook`.)*
 - [x] 6.6 Add the three new files to `Package.swift` resources for the `Hootty` target. *(No changes needed — `Package.swift` uses `.copy("Resources/bin")` to ship the entire directory.)*
 - [ ] 6.7 Verify the wrapper resolves correctly: `make run`, open a pane, run `which gemini`, confirm it points to the bundle's `bin/gemini`. *(Manual smoke test, deferred to verification group.)*
 
@@ -54,10 +54,10 @@
 - [x] 7.3 Rebuild the symlink overlay: clear existing symlinks in `HOOTTY_CODEX_HOME`, then for each entry in `~/.codex/` other than `hooks.json`, create a symlink at `${HOOTTY_CODEX_HOME}/<entry>` pointing to the user's file. *(Revised: `config.toml` is now symlinked too — see 7.4/7.5.)*
 - [x] 7.4 ~~Spike TOML merge strategy~~ *(Bypassed: macOS default Python 3.9 lacks `tomllib`, and writing TOML portably is fragile. Revised approach: symlink `config.toml` instead and enable `features.codex_hooks` via the `-c` CLI flag. Requirement spec updated accordingly.)*
 - [x] 7.5 ~~Implement the `config.toml` merge~~ *(Bypassed in favor of `-c features.codex_hooks=true` CLI override. See 7.4 note.)*
-- [x] 7.6 Implement the `hooks.json` merge: read user file (if any), merge Hootty's `SessionStart` entry (invoking `codex-session-hook`) and `PostToolUse` entry (matcher for bash/shell, invoking `codex-cwd-hook`). User-defined hooks MUST be preserved. *(Uses Python stdlib `json` module — no dependency concerns.)*
+- [x] 7.6 Implement the `hooks.json` merge: read user file (if any), merge Hootty's `SessionStart` entry (invoking `hootty-session-hook`) and `PostToolUse` entry (matcher for bash/shell, invoking `hootty-cwd-hook`). User-defined hooks MUST be preserved. *(Uses Python stdlib `json` module — no dependency concerns.)*
 - [x] 7.7 Set `CODEX_HOME="${HOOTTY_CODEX_HOME}"` in the environment and `exec` the real `codex` binary *(with `-c features.codex_hooks=true` prepended to the args)*.
-- [x] 7.8 Create `Sources/Hootty/Resources/bin/codex-session-hook` that writes `\e]9;hootty:session:<HOOTTY_PANE_ID>\a` to `/dev/tty`.
-- [x] 7.9 Create `Sources/Hootty/Resources/bin/codex-cwd-hook` that reads the cwd from the hook's stdin JSON payload and writes `\e]7;file://<host><path>\a` to `/dev/tty`.
+- [x] 7.8 ~~Create `Sources/Hootty/Resources/bin/codex-session-hook`~~ *(Consolidated during review — uses the shared `hootty-session-hook` created in 6.4.)*
+- [x] 7.9 ~~Create `Sources/Hootty/Resources/bin/codex-cwd-hook`~~ *(Consolidated during review — uses the shared `hootty-cwd-hook` created in 6.5.)*
 - [x] 7.10 Add the four new files to `Package.swift` resources for the `Hootty` target. *(No changes needed — `Package.swift` uses `.copy("Resources/bin")` to ship the entire directory.)*
 - [ ] 7.11 Verify the wrapper resolves correctly: `make run`, run `which codex` in a pane, confirm it points to the bundle's `bin/codex`. Also verify `~/.codex/` is untouched after the wrapper runs. *(Manual smoke test, deferred to verification group.)*
 

@@ -33,7 +33,6 @@ public enum GeminiTitleParser: AgentTitleDetector {
         let afterChar = String(title.unicodeScalars.dropFirst())
         let leadingTrimmed = afterChar.drop(while: { $0 == " " })
         // Gemini pads titles to 80 chars with trailing spaces — trim them.
-        let trailingTrimmed = String(leadingTrimmed).reversed().drop(while: { $0 == " " }).reversed()
-        return String(trailingTrimmed)
+        return String(leadingTrimmed).trimmingCharacters(in: .init(charactersIn: " "))
     }
 }

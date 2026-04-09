@@ -686,7 +686,7 @@ struct TitleBasedClaudeDetection {
         #expect(pane.agentSessionID == nil)
 
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
-        #expect(pane.agentSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
         #expect(pane.isThinking == true)
     }
 
@@ -700,10 +700,10 @@ struct TitleBasedClaudeDetection {
         let pane = ws.allPanes[0]
 
         model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
-        #expect(pane.agentSessionID == "auto")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
 
         model.handleTitleChange(pane.id, title: "~/project")
-        #expect(pane.agentSessionID == "auto") // Preserved.
+        #expect(pane.agentSessionID == Pane.autoSessionID) // Preserved.
         #expect(pane.isThinking == false) // But thinking is ended (implicit idle).
     }
 
@@ -719,12 +719,12 @@ struct TitleBasedClaudeDetection {
 
         // Agent starts thinking (auto-detected)
         model.handleTitleChange(p1.id, title: "\u{280B} Thinking . project")
-        #expect(p1.agentSessionID == "auto")
+        #expect(p1.agentSessionID == Pane.autoSessionID)
         #expect(p1.isThinking == true)
 
         // Title reverts to shell prompt — implicit idle transition.
         model.handleTitleChange(p1.id, title: "zsh")
-        #expect(p1.agentSessionID == "auto") // Preserved, cleared on processDidExit.
+        #expect(p1.agentSessionID == Pane.autoSessionID) // Preserved, cleared on processDidExit.
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == .done)
     }
@@ -743,7 +743,7 @@ struct TitleBasedClaudeDetection {
 
         // Title reverts on focused pane — no done attention, session preserved.
         model.handleTitleChange(pane.id, title: "zsh")
-        #expect(pane.agentSessionID == "auto") // Preserved.
+        #expect(pane.agentSessionID == Pane.autoSessionID) // Preserved.
         #expect(pane.isThinking == false)
         #expect(pane.attentionKind == nil)
     }
