@@ -54,36 +54,25 @@ struct BranchSectionHeader: View {
         return section.isHead ? "cube.fill" : "cube"
     }
 
-    @ViewBuilder
     private var sectionAttentionBadges: some View {
         let counts = sectionCounts
-        HStack(spacing: Spacing.xs) {
-            if counts.thinking > 0 {
-                sectionBadge(icon: "arrow.2.circlepath", count: counts.thinking, color: tokens.statusThinking)
-            }
-            if counts.done > 0 {
-                sectionBadge(icon: "checkmark.circle", count: counts.done, color: tokens.statusDone)
-            }
-            if counts.bell > 0 {
-                sectionBadge(icon: "bell", count: counts.bell, color: tokens.statusBell)
-            }
-        }
-    }
-
-    private func sectionBadge(icon: String, count: Int, color: NSColor) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-            if count > 1 {
-                Text("\(count)")
-            }
-        }
-        .font(.system(size: TypeScale.smallSize, weight: .medium))
-        .foregroundStyle(Color(color))
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 2)
-        .background(
-            Capsule()
-                .fill(Color(color).opacity(0.15))
+        return BarFilterGroup(
+            items: [
+                BarFilterItem(filter: .thinking, color: tokens.statusThinking, count: counts.thinking) {
+                    Image(systemName: "arrow.2.circlepath")
+                },
+                BarFilterItem(filter: .done, color: tokens.statusDone, count: counts.done) {
+                    Image(systemName: "checkmark.circle")
+                },
+                BarFilterItem(filter: .bell, color: tokens.statusBell, count: counts.bell) {
+                    Image(systemName: "bell")
+                }
+            ],
+            tokens: tokens,
+            activeFilters: [],
+            hidesZeroCounts: true,
+            size: .compact,
+            onToggle: nil
         )
     }
 

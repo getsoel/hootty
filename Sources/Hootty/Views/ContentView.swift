@@ -250,18 +250,21 @@ struct ContentView: View {
             // Leave space for traffic lights
             Color.clear.frame(width: 78)
 
-            Text(appModel.activeProfile?.name ?? "")
-                .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(tokens.textMuted))
+            profileMenu
 
             Spacer()
 
             if memoryMonitor.memoryMB > 0 {
-                Text("\(memoryMonitor.memoryMB) MB")
-                    .font(.system(size: TypeScale.smallSize).monospacedDigit())
-                    .foregroundStyle(Color(tokens.textMuted).opacity(0.5))
-                    .contentShape(Rectangle())
-                    .onTapGesture { appModel.modalState = .memoryLog }
+                Button {
+                    appModel.modalState = .memoryLog
+                } label: {
+                    TitlebarChip(tokens: tokens) {
+                        Text("\(memoryMonitor.memoryMB) MB")
+                            .font(.system(size: TypeScale.bodySize).monospacedDigit())
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Activity Monitor")
             }
         }
         .padding(.trailing, Spacing.md)
@@ -278,6 +281,57 @@ struct ContentView: View {
                 memoryMonitor.recordSample(appModel: appModel)
             }
         }
+    }
+
+    private var profileMenu: some View {
+        Menu {
+            Picker("Active Profile", selection: profileSelectionBinding) {
+                ForEach(appModel.profiles) { profile in
+                    Text(profile.name).tag(profile.id)
+                }
+            }
+            .pickerStyle(.inline)
+
+            Divider()
+
+            Button(AppCommand.newProfile.title) {
+                commandRegistry.execute(.newProfile)
+            }
+            Button(AppCommand.renameCurrentProfile.title) {
+                commandRegistry.execute(.renameCurrentProfile)
+            }
+            Button(AppCommand.deleteCurrentProfile.title) {
+                commandRegistry.execute(.deleteCurrentProfile)
+            }
+            .disabled(appModel.profiles.count <= 1)
+        } label: {
+            TitlebarChip(tokens: tokens) {
+                Text(appModel.activeProfile?.name ?? "")
+                    .font(.system(size: TypeScale.bodySize))
+            }
+        }
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Profile")
+    }
+
+    private var profileSelectionBinding: Binding<UUID> {
+        Binding(
+            get: { appModel.activeProfileID },
+            set: { newID in
+                guard newID != appModel.activeProfileID else { return }
+                // Route through the palette's switch-profile commands so that
+                // supplementary command refresh (used by the command palette) stays in sync.
+                if let cmd = commandRegistry.paletteCommands.first(where: {
+                    $0.id == "switch-profile-\(newID.uuidString)"
+                }) {
+                    cmd.action()
+                } else {
+                    appModel.switchProfile(to: newID)
+                }
+            }
+        )
     }
 
     // MARK: - Main Content
@@ -470,5 +524,37 @@ struct ContentView: View {
             leading.identifier = trafficLightConstraintID
             NSLayoutConstraint.activate([top, leading])
         }
+    }
+}
+
+/// Styled chip used for interactive elements in the titlebar (profile menu, activity monitor).
+/// Applies consistent padding, rounded background, hover state, and pointer cursor.
+private struct TitlebarChip<Content: View>: View {
+    let tokens: DesignTokens
+    @ViewBuilder var content: () -> Content
+
+    @State private var isHovered = false
+
+    var body: some View {
+        content()
+            .foregroundStyle(Color(tokens.textMuted))
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.xs)
+            .background(
+                RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
+                    .fill(Color(isHovered ? tokens.elementSelected : tokens.elementHover))
+            )
+            .contentShape(RoundedRectangle(cornerRadius: Layout.cornerRadiusSm))
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    isHovered = true
+                    DispatchQueue.main.async { NSCursor.pointingHand.set() }
+                case .ended:
+                    isHovered = false
+                @unknown default:
+                    break
+                }
+            }
     }
 }

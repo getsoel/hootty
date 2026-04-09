@@ -58,6 +58,11 @@ struct WorkspaceSidebar: View {
         }
         .frame(width: sidebarWidth)
         .background(Color(tokens.surfaceLow))
+        .overlay(alignment: .bottom) {
+            attentionBadges
+                .padding(.horizontal, Spacing.md)
+                .padding(.bottom, Spacing.xl + Spacing.sm)
+        }
         .focusable()
         .focused($isFocused)
         .focusEffectDisabled()
@@ -103,10 +108,20 @@ struct WorkspaceSidebar: View {
         workspaces.reduce(.zero) { $0 + $1.attentionCounts }
     }
 
+    /// Vertical space reserved at the bottom of the scroll content so the
+    /// floating filter pill doesn't obscure the last workspace row when
+    /// scrolled to the end. Sized to fit the regular-size pill plus its
+    /// bottom overlay margin plus a gap for breathing room.
+    private var floatingBarScrollReserve: CGFloat {
+        Layout.barHeight + Spacing.xl + Spacing.md
+    }
+
     private var sidebarHeader: some View {
         HStack(spacing: 0) {
-            attentionBadges
-                .padding(.leading, Spacing.sm)
+            Text("Workspaces")
+                .font(.system(size: TypeScale.bodySize, weight: .medium))
+                .foregroundStyle(Color(tokens.text))
+                .padding(.leading, Spacing.md)
 
             Spacer(minLength: 0)
 
@@ -152,58 +167,36 @@ struct WorkspaceSidebar: View {
 
     private var attentionBadges: some View {
         let counts = statusCounts
-        return HStack(spacing: Spacing.xs) {
-            filterPill(filter: .thinking, count: counts.thinking, color: tokens.statusThinking) {
-                if counts.thinking > 0 {
-                    TimelineView(.animation) { context in
-                        let cycle = context.date.timeIntervalSinceReferenceDate
-                            .truncatingRemainder(dividingBy: 1.5) / 1.5 * 360
+        return BarFilterGroup(
+            items: [
+                BarFilterItem(filter: .thinking, color: tokens.statusThinking, count: counts.thinking) {
+                    if counts.thinking > 0 {
+                        TimelineView(.animation) { context in
+                            let cycle = context.date.timeIntervalSinceReferenceDate
+                                .truncatingRemainder(dividingBy: 1.5) / 1.5 * 360
+                            Image(systemName: "arrow.2.circlepath")
+                                .rotationEffect(.degrees(cycle))
+                        }
+                    } else {
                         Image(systemName: "arrow.2.circlepath")
-                            .rotationEffect(.degrees(cycle))
                     }
-                } else {
-                    Image(systemName: "arrow.2.circlepath")
+                },
+                BarFilterItem(filter: .flagged, color: tokens.statusWarning, count: counts.flagged) {
+                    Image(systemName: "flag.fill")
+                },
+                BarFilterItem(filter: .done, color: tokens.statusDone, count: counts.done) {
+                    Image(systemName: "checkmark.circle")
+                },
+                BarFilterItem(filter: .bell, color: tokens.statusBell, count: counts.bell) {
+                    Image(systemName: "bell")
                 }
-            }
-            filterPill(filter: .flagged, count: counts.flagged, color: tokens.statusWarning) {
-                Image(systemName: "flag.fill")
-            }
-            filterPill(filter: .done, count: counts.done, color: tokens.statusDone) {
-                Image(systemName: "checkmark.circle")
-            }
-            filterPill(filter: .bell, count: counts.bell, color: tokens.statusBell) {
-                Image(systemName: "bell")
-            }
-        }
-    }
-
-    private func filterPill(filter: SidebarFilter, count: Int, color: NSColor, @ViewBuilder icon: () -> some View) -> some View {
-        let isFilterActive = activeSidebarFilters.contains(filter)
-        let active = isFilterActive || count > 0
-        let pillColor = Color(active ? color : tokens.textMuted)
-        return HStack(spacing: 3) {
-            icon()
-            Text("\(count)")
-        }
-        .font(.system(size: TypeScale.smallSize, weight: .medium))
-        .foregroundStyle(pillColor)
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 2)
-        .background(
-            Capsule()
-                .fill(pillColor.opacity(isFilterActive ? 0.3 : 0.15))
+            ],
+            tokens: tokens,
+            activeFilters: activeSidebarFilters,
+            hidesZeroCounts: false,
+            size: .regular,
+            onToggle: onToggleSidebarFilter
         )
-        .overlay(
-            Capsule()
-                .strokeBorder(pillColor.opacity(0.6), lineWidth: isFilterActive ? 1 : 0)
-        )
-        .contentShape(Capsule())
-        .onTapGesture { onToggleSidebarFilter?(filter) }
-        .onContinuousHover { phase in
-            if case .active = phase {
-                DispatchQueue.main.async { NSCursor.pointingHand.set() }
-            }
-        }
     }
 
     private var scrollTargetIDs: [UUID] {
@@ -309,6 +302,9 @@ struct WorkspaceSidebar: View {
                     ForEach(scrollableWorkspaces) { workspace in
                         workspaceEntry(workspace)
                     }
+                    // Reserve space so the floating filter pill doesn't
+                    // permanently obscure the last workspace row.
+                    Color.clear.frame(height: floatingBarScrollReserve)
                 }
                 .background {
                     GeometryReader { geo in
