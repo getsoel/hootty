@@ -425,14 +425,6 @@ private struct WorkspaceRailRow: View {
         Image(systemName: iconName)
             .font(.system(size: TypeScale.smallSize))
             .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
-            .overlay(alignment: .topTrailing) {
-                if isCollapsed, let kind = workspace.attentionKind {
-                    Circle()
-                        .fill(Color(tokens.attentionColor(for: kind)))
-                        .frame(width: 6, height: 6)
-                        .offset(x: 2, y: -2)
-                }
-            }
             .frame(maxWidth: .infinity, minHeight: 28)
             .background(
                 Rectangle().fill(isCursorTarget ? Color(tokens.elementHover) : Color.clear)

@@ -188,7 +188,7 @@ private struct BarFilterGroupTrack: ViewModifier {
                 .padding(padding)
                 .background(
                     RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(Color(tokens.surfaceHighlight).opacity(0.6))
+                        .fill(Color(tokens.surfaceHighlight).opacity(0.85))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius)
