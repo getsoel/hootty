@@ -81,32 +81,21 @@ struct CondensedSidebar: View {
     // MARK: - Header
 
     private var expandHeader: some View {
-        HStack(spacing: 0) {
-            BarIconButton(
-                systemImage: "sidebar.left",
-                tokens: tokens,
-                accessibilityLabel: "Expand sidebar",
-                help: "Expand sidebar",
-                action: onExpandSidebar
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(height: Layout.barHeight)
-        .frame(maxWidth: .infinity)
-        .background(Color(tokens.tabBarBackground))
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Color(tokens.border)).frame(height: 1)
-        }
+        railChromeRow(systemImage: "sidebar.left", label: "Expand sidebar", action: onExpandSidebar)
     }
 
     private var addWorkspaceHeader: some View {
+        railChromeRow(systemImage: "plus", label: "New workspace", action: onAddWorkspace)
+    }
+
+    private func railChromeRow(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         HStack(spacing: 0) {
             BarIconButton(
-                systemImage: "plus",
+                systemImage: systemImage,
                 tokens: tokens,
-                accessibilityLabel: "New workspace",
-                help: "New workspace",
-                action: onAddWorkspace
+                accessibilityLabel: label,
+                help: label,
+                action: action
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -428,8 +417,6 @@ private struct WorkspaceRailRow: View {
     let tokens: DesignTokens
     let onToggleCollapse: () -> Void
 
-    @State private var isHovered = false
-
     private var iconName: String {
         isPinned ? "pin.fill" : (isCollapsed ? "folder" : "folder.fill")
     }
@@ -458,13 +445,8 @@ private struct WorkspaceRailRow: View {
                 }
             }
             .onContinuousHover { phase in
-                switch phase {
-                case .active:
-                    isHovered = true
+                if case .active = phase {
                     DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                case .ended:
-                    isHovered = false
-                @unknown default: break
                 }
             }
     }
@@ -478,8 +460,6 @@ private struct PaneRailRow: View {
     var isCursorTarget: Bool = false
     let tokens: DesignTokens
     let action: () -> Void
-
-    @State private var isHovered = false
 
     var body: some View {
         Group {
@@ -505,13 +485,8 @@ private struct PaneRailRow: View {
         .contentShape(Rectangle())
         .onTapGesture { action() }
         .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                isHovered = true
+            if case .active = phase {
                 DispatchQueue.main.async { NSCursor.pointingHand.set() }
-            case .ended:
-                isHovered = false
-            @unknown default: break
             }
         }
     }
@@ -548,8 +523,8 @@ private struct PaneRailRow: View {
             Rectangle().fill(Color(tokens.elementHover))
         } else if isFocused {
             Rectangle().fill(Color(tokens.elementSelected))
-        } else if pane.attentionKind != nil {
-            Rectangle().fill(Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.20))
+        } else if let kind = pane.attentionKind {
+            Rectangle().fill(Color(tokens.attentionColor(for: kind)).opacity(0.20))
         } else if pane.isThinking {
             Rectangle().fill(Color(tokens.statusThinking).opacity(0.20))
         } else if pane.isFlagged {
