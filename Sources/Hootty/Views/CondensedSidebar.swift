@@ -30,6 +30,7 @@ struct CondensedSidebar: View {
     var body: some View {
         VStack(spacing: 0) {
             expandHeader
+            addWorkspaceHeader
             if let pinned = pinnedWorkspace {
                 workspaceSection(pinned)
                 Rectangle().fill(Color(tokens.border)).frame(height: 1)
@@ -80,13 +81,21 @@ struct CondensedSidebar: View {
     // MARK: - Header
 
     private var expandHeader: some View {
+        railChromeRow(systemImage: "sidebar.left", label: "Expand sidebar", action: onExpandSidebar)
+    }
+
+    private var addWorkspaceHeader: some View {
+        railChromeRow(systemImage: "plus", label: "New workspace", action: onAddWorkspace)
+    }
+
+    private func railChromeRow(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         HStack(spacing: 0) {
             BarIconButton(
-                systemImage: "sidebar.left",
+                systemImage: systemImage,
                 tokens: tokens,
-                accessibilityLabel: "Expand sidebar",
-                help: "Expand sidebar",
-                action: onExpandSidebar
+                accessibilityLabel: label,
+                help: label,
+                action: action
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -124,7 +133,7 @@ struct CondensedSidebar: View {
                     }
                 }
             }
-            .scrollIndicators(.never)
+            .scrollIndicators(.automatic)
         }
     }
 
@@ -147,6 +156,13 @@ struct CondensedSidebar: View {
                 Color(tokens.elementHover)
             }
         }
+        .overlay(alignment: .leading) {
+            if isActive {
+                Rectangle()
+                    .fill(Color(tokens.textAccent))
+                    .frame(width: 2)
+            }
+        }
     }
 
     private func workspaceRow(workspace: Workspace, isActive: Bool, isCollapsed: Bool) -> some View {
@@ -154,9 +170,10 @@ struct CondensedSidebar: View {
             workspace: workspace,
             isActive: isActive,
             isCollapsed: isCollapsed,
+            isPinned: workspace.id == pinnedWorkspaceID,
             isCursorTarget: sidebarHasFocus && sidebarCursorTarget == .workspace(workspace.id),
             tokens: tokens,
-            onSelect: { selectedWorkspaceID = workspace.id }
+            onToggleCollapse: { onToggleCollapse(workspace.id) }
         )
         .contextMenu {
             Button("Rename Workspace") {
@@ -373,7 +390,7 @@ private struct CondensedRowView: View {
             .background(
                 Rectangle().fill(isHovered || isCursorTarget ? Color(tokens.elementHover) : Color.clear)
             )
-            .railTooltip(tooltip, tokens: tokens, isHovered: isHovered)
+            .help(tooltip)
             .contentShape(Rectangle())
             .onTapGesture { action() }
             .onContinuousHover { phase in
@@ -395,31 +412,41 @@ private struct WorkspaceRailRow: View {
     let workspace: Workspace
     let isActive: Bool
     let isCollapsed: Bool
+    let isPinned: Bool
     var isCursorTarget: Bool = false
     let tokens: DesignTokens
-    let onSelect: () -> Void
+    let onToggleCollapse: () -> Void
 
-    @State private var isHovered = false
+    private var iconName: String {
+        isPinned ? "pin.fill" : (isCollapsed ? "folder" : "folder.fill")
+    }
 
     var body: some View {
-        Image(systemName: isCollapsed ? "folder" : "folder.fill")
+        Image(systemName: iconName)
             .font(.system(size: TypeScale.smallSize))
             .foregroundStyle(Color(isActive ? tokens.text : tokens.textMuted))
+            .overlay(alignment: .topTrailing) {
+                if isCollapsed, let kind = workspace.attentionKind {
+                    Circle()
+                        .fill(Color(tokens.attentionColor(for: kind)))
+                        .frame(width: 6, height: 6)
+                        .offset(x: 2, y: -2)
+                }
+            }
             .frame(maxWidth: .infinity, minHeight: 28)
             .background(
                 Rectangle().fill(isCursorTarget ? Color(tokens.elementHover) : Color.clear)
             )
-            .railTooltip(workspace.name, tokens: tokens, isHovered: isHovered)
+            .help(workspace.name)
             .contentShape(Rectangle())
-            .onTapGesture { onSelect() }
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    onToggleCollapse()
+                }
+            }
             .onContinuousHover { phase in
-                switch phase {
-                case .active:
-                    isHovered = true
+                if case .active = phase {
                     DispatchQueue.main.async { NSCursor.pointingHand.set() }
-                case .ended:
-                    isHovered = false
-                @unknown default: break
                 }
             }
     }
@@ -433,8 +460,6 @@ private struct PaneRailRow: View {
     var isCursorTarget: Bool = false
     let tokens: DesignTokens
     let action: () -> Void
-
-    @State private var isHovered = false
 
     var body: some View {
         Group {
@@ -456,17 +481,12 @@ private struct PaneRailRow: View {
             }
         }
         .background(paneBackground)
-        .railTooltip(pane.displayName, tokens: tokens, isHovered: isHovered)
+        .help(pane.displayName)
         .contentShape(Rectangle())
         .onTapGesture { action() }
         .onContinuousHover { phase in
-            switch phase {
-            case .active:
-                isHovered = true
+            if case .active = phase {
                 DispatchQueue.main.async { NSCursor.pointingHand.set() }
-            case .ended:
-                isHovered = false
-            @unknown default: break
             }
         }
     }
@@ -503,49 +523,12 @@ private struct PaneRailRow: View {
             Rectangle().fill(Color(tokens.elementHover))
         } else if isFocused {
             Rectangle().fill(Color(tokens.elementSelected))
-        } else if pane.attentionKind != nil {
-            Rectangle().fill(Color(tokens.attentionColor(for: pane.attentionKind!)).opacity(0.20))
+        } else if let kind = pane.attentionKind {
+            Rectangle().fill(Color(tokens.attentionColor(for: kind)).opacity(0.20))
         } else if pane.isThinking {
             Rectangle().fill(Color(tokens.statusThinking).opacity(0.20))
         } else if pane.isFlagged {
             Rectangle().fill(Color(tokens.statusWarning).opacity(0.15))
         }
-    }
-}
-
-// MARK: - Rail Tooltip
-
-private struct RailTooltipModifier: ViewModifier {
-    let text: String
-    let tokens: DesignTokens
-    let isHovered: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .overlay(alignment: .trailing) {
-                if isHovered {
-                    Text(text)
-                        .font(.system(size: TypeScale.captionSize))
-                        .foregroundStyle(Color(tokens.text))
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xs)
-                        .background(
-                            RoundedRectangle(cornerRadius: Layout.cornerRadiusSm)
-                                .fill(Color(tokens.surfaceHighlight))
-                                .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-                        )
-                        .fixedSize()
-                        .offset(x: Spacing.sm)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                }
-            }
-    }
-}
-
-private extension View {
-    func railTooltip(_ text: String, tokens: DesignTokens, isHovered: Bool) -> some View {
-        modifier(RailTooltipModifier(text: text, tokens: tokens, isHovered: isHovered))
     }
 }
