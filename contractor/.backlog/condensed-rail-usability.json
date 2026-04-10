@@ -1,0 +1,20 @@
+[
+  {
+    "category": "reuse",
+    "description": ".easeInOut(duration: 0.15) is a magic number repeated 11 times across 4 files (CondensedSidebar.swift, WorkspaceSidebar.swift, WorkspaceRow.swift, ContentView.swift) with no shared constant.",
+    "location": "Sources/Hootty/Views/CondensedSidebar.swift (3 sites), WorkspaceSidebar.swift (7 sites), WorkspaceRow.swift, ContentView.swift",
+    "reason": "Pre-existing codebase-wide pattern; adding a shared constant (e.g., Layout.sidebarCollapseAnimation) would require touching HoottyCore, which is out of scope for a view-layer change. Defer to a dedicated design-system cleanup pass."
+  },
+  {
+    "category": "quality",
+    "description": "WorkspaceRailRow receives isPinned: workspace.id == pinnedWorkspaceID — the pin knowledge leaks from parent to child. An alternative would be to compute iconName in the parent and pass a plain String.",
+    "location": "Sources/Hootty/Views/CondensedSidebar.swift:184,434",
+    "reason": "Judgment call; passing isPinned: Bool is the same pattern used in WorkspaceRow.swift:26 and mirrors the full sidebar's approach. The abstraction is consistent with the rest of the file. Not worth changing."
+  },
+  {
+    "category": "quality",
+    "description": "sortedWorkspaces computed property is only used once (in moveCursor) and re-derives pinnedWorkspace + scrollableWorkspaces, adding a third layer of derivation.",
+    "location": "Sources/Hootty/Views/CondensedSidebar.swift:131-134",
+    "reason": "Pre-existing pattern; not introduced or worsened by this blueprint. Negligible complexity at current workspace counts."
+  }
+]
