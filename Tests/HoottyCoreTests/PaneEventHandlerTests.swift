@@ -218,4 +218,68 @@ struct PaneEventHandlerTests {
         let didSet = handler.handleBell(UUID())
         #expect(!didSet)
     }
+
+    // MARK: - Hootty Protocol: Presence
+
+    @Test func hoottyThinkingSetsAgentSessionAndThinking() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleHoottyPresence(pane.id, presence: .thinking)
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+        #expect(pane.isThinking)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func hoottyThinkingClearsExistingAttention() {
+        let (handler, _, pane) = makeHandler()
+        pane.attentionKind = .bell
+        handler.handleHoottyPresence(pane.id, presence: .thinking)
+        #expect(pane.isThinking)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func hoottyIdleEndsThinking() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleHoottyPresence(pane.id, presence: .thinking)
+        handler.handleHoottyPresence(pane.id, presence: .idle)
+        #expect(!pane.isThinking)
+    }
+
+    @Test func hoottyIdleSetsDoneOnUnfocusedPane() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        handler.handleHoottyPresence(p1.id, presence: .idle)
+        #expect(!p1.isThinking)
+        #expect(p1.attentionKind == .done)
+    }
+
+    @Test func hoottyAttentionSetsDoneOnUnfocusedPane() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p1.id, presence: .needsAttention)
+        #expect(!p1.isThinking)
+        #expect(p1.attentionKind == .done)
+    }
+
+    @Test func hoottyAttentionIgnoredOnFocusedPane() throws {
+        let (handler, _, _, p2) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p2.id, presence: .needsAttention)
+        #expect(p2.attentionKind == nil)
+    }
+
+    // MARK: - Hootty Protocol: Error
+
+    @Test func hoottyErrorSetsErrorAttention() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleHoottyError(pane.id)
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+        #expect(!pane.isThinking)
+        #expect(pane.attentionKind == .error)
+    }
+
+    @Test func hoottyErrorClearsThinking() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleHoottyPresence(pane.id, presence: .thinking)
+        handler.handleHoottyError(pane.id)
+        #expect(!pane.isThinking)
+        #expect(pane.attentionKind == .error)
+    }
 }

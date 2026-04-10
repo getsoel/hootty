@@ -358,6 +358,24 @@ struct HoottyApp: App {
                 appModel.debouncedSave()
             }
 
+        case let .hoottyPresence(paneID, presence):
+            appModel.handleHoottyPresence(paneID, presence: presence)
+            if presence == .needsAttention {
+                appModel.soundManager.play(.done)
+            }
+
+        case let .hoottyError(paneID):
+            appModel.handleHoottyError(paneID)
+            appModel.soundManager.play(.error)
+
+        case let .hoottyAgentName(paneID, name):
+            if let (_, pane) = appModel.findPane(id: paneID) {
+                pane.agentName = name
+                if pane.agentSessionID == nil {
+                    pane.agentSessionID = Pane.autoSessionID
+                }
+            }
+
         case let .newSplit(paneID, direction, parentSurface):
             if let (workspace, _) = appModel.findPane(id: paneID) {
                 workspace.focusPane(id: paneID)

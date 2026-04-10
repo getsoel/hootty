@@ -9,6 +9,12 @@ enum GhosttyEvent {
     case bellRang(UUID)
     case paneNeedsAttention(UUID, AttentionKind)
     case agentSessionDetected(paneID: UUID, sessionID: String)
+    /// Explicit presence state from the hootty: OSC 9 protocol.
+    case hoottyPresence(paneID: UUID, presence: AgentPresence)
+    /// Explicit error state from the hootty: OSC 9 protocol.
+    case hoottyError(paneID: UUID)
+    /// Agent name set via the hootty:agent: OSC 9 protocol.
+    case hoottyAgentName(paneID: UUID, name: String)
     case newSplit(paneID: UUID, direction: SplitDirection, parentSurface: ghostty_surface_t?)
     case closeSurface(UUID)
     case closeTab

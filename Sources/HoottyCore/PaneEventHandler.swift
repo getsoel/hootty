@@ -106,6 +106,39 @@ public final class PaneEventHandler {
         }
     }
 
+    /// Process an explicit hootty protocol presence message from a TUI tool.
+    /// Unlike title-based detection, this is an opt-in contract via OSC 9.
+    public func handleHoottyPresence(_ paneID: UUID, presence: AgentPresence) {
+        withPane(id: paneID) { workspace, pane in
+            // Mark as an agent session if not already known.
+            if pane.agentSessionID == nil {
+                pane.agentSessionID = Pane.autoSessionID
+            }
+
+            switch presence {
+            case .thinking:
+                if !pane.isThinking { pane.isThinking = true }
+                if pane.attentionKind != nil { pane.attentionKind = nil }
+            case .idle:
+                endThinking(workspace, pane)
+            case .needsAttention:
+                if pane.isThinking { pane.isThinking = false }
+                _ = handlePaneNeedsAttention(paneID, kind: .done)
+            }
+        }
+    }
+
+    /// Process an explicit hootty protocol error message from a TUI tool.
+    public func handleHoottyError(_ paneID: UUID) {
+        withPane(id: paneID) { _, pane in
+            if pane.agentSessionID == nil {
+                pane.agentSessionID = Pane.autoSessionID
+            }
+            if pane.isThinking { pane.isThinking = false }
+            pane.attentionKind = .error
+        }
+    }
+
     public func handlePwdChanged(_ paneID: UUID, pwd: String) {
         withPane(id: paneID) { workspace, pane in
             let newBranch = GitWorktreeManager.currentBranch(for: pwd)

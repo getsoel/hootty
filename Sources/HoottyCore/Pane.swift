@@ -5,11 +5,14 @@ public enum AttentionKind: String, CaseIterable, Codable, Sendable {
     case bell
     /// Agent finished thinking, needs input (cleared by next user interaction).
     case done
+    /// Agent encountered an error (cleared by next user interaction).
+    case error
 
     public var displayName: String {
         switch self {
         case .bell: "Bell"
         case .done: "Agent Done"
+        case .error: "Error"
         }
     }
 }
@@ -53,6 +56,7 @@ public final class Pane: Identifiable {
             case .flagged: if isFlagged { return true }
             case .done: if attentionKind == .done { return true }
             case .bell: if attentionKind == .bell { return true }
+            case .error: if attentionKind == .error { return true }
             }
         }
         return false
@@ -71,6 +75,8 @@ public final class Pane: Identifiable {
     public static let autoSessionID = "auto"
 
     public var agentSessionID: String?
+    /// Human-readable agent name set by the hootty:agent: protocol message.
+    public var agentName: String?
     public var branch: String?
     public var repoRoot: String?
     public var worktreePath: String?
@@ -99,13 +105,14 @@ public final class Pane: Identifiable {
         return URL(fileURLWithPath: path).lastPathComponent
     }
 
-    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, agentSessionID: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil, note: String? = nil) {
+    public init(id: UUID = UUID(), name: String, customName: String? = nil, shell: String = "/bin/zsh", workingDirectory: String? = nil, agentSessionID: String? = nil, agentName: String? = nil, branch: String? = nil, repoRoot: String? = nil, worktreePath: String? = nil, note: String? = nil) {
         self.id = id
         self.name = name
         self.customName = customName
         self.shell = shell
         self.workingDirectory = workingDirectory ?? FileManager.default.homeDirectoryForCurrentUser.path
         self.agentSessionID = agentSessionID
+        self.agentName = agentName
         self.branch = branch
         self.repoRoot = repoRoot
         self.worktreePath = worktreePath
@@ -115,7 +122,7 @@ public final class Pane: Identifiable {
 
 extension Pane: @preconcurrency Codable {
     private enum CodingKeys: String, CodingKey {
-        case id, name, customName, shell, workingDirectory, agentSessionID, branch, repoRoot, worktreePath, note
+        case id, name, customName, shell, workingDirectory, agentSessionID, agentName, branch, repoRoot, worktreePath, note
         /// Legacy key from pre-multi-agent builds. Decoded as a fallback for
         /// `agentSessionID`; never encoded.
         case claudeSessionID
@@ -136,6 +143,7 @@ extension Pane: @preconcurrency Codable {
             shell: container.decode(String.self, forKey: .shell),
             workingDirectory: container.decode(String.self, forKey: .workingDirectory),
             agentSessionID: agentSession,
+            agentName: container.decodeIfPresent(String.self, forKey: .agentName),
             branch: container.decodeIfPresent(String.self, forKey: .branch),
             repoRoot: container.decodeIfPresent(String.self, forKey: .repoRoot),
             worktreePath: container.decodeIfPresent(String.self, forKey: .worktreePath),
@@ -151,6 +159,7 @@ extension Pane: @preconcurrency Codable {
         try container.encode(shell, forKey: .shell)
         try container.encode(workingDirectory, forKey: .workingDirectory)
         try container.encodeIfPresent(agentSessionID, forKey: .agentSessionID)
+        try container.encodeIfPresent(agentName, forKey: .agentName)
         try container.encodeIfPresent(branch, forKey: .branch)
         try container.encodeIfPresent(repoRoot, forKey: .repoRoot)
         try container.encodeIfPresent(worktreePath, forKey: .worktreePath)

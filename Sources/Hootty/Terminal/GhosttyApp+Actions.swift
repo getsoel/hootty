@@ -97,7 +97,10 @@ extension GhosttyApp {
         return true
     }
 
+    private static let hoottyPrefix = "hootty:"
     private static let hoottySessionPrefix = "hootty:session:"
+    private static let hoottyPresencePrefix = "hootty:presence:"
+    private static let hoottyAgentPrefix = "hootty:agent:"
 
     private static func handleDesktopNotification(target: ghostty_target_s, v: ghostty_action_desktop_notification_s) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
@@ -106,7 +109,13 @@ extension GhosttyApp {
         // Copy C string synchronously before async dispatch (ghostty may free the buffer)
         let body: String? = v.body.map { String(cString: $0) }
 
-        if let body, body.hasPrefix(hoottySessionPrefix) {
+        guard let body, body.hasPrefix(hoottyPrefix) else {
+            // Non-hootty OSC 9 → generic bell attention.
+            GhosttyApp.shared.onEvent?(.paneNeedsAttention(paneID, .bell))
+            return true
+        }
+
+        if body.hasPrefix(hoottySessionPrefix) {
             let sessionID = String(body.dropFirst(hoottySessionPrefix.count))
             guard UUID(uuidString: sessionID) != nil else {
                 Log.ghostty.warning("Invalid agent session ID received: \(sessionID)")
@@ -115,8 +124,31 @@ extension GhosttyApp {
             DispatchQueue.main.async {
                 GhosttyApp.shared.onEvent?(.agentSessionDetected(paneID: paneID, sessionID: sessionID))
             }
+        } else if body.hasPrefix(hoottyPresencePrefix) {
+            let value = String(body.dropFirst(hoottyPresencePrefix.count))
+            let event: GhosttyEvent? = switch value {
+            case "thinking": .hoottyPresence(paneID: paneID, presence: .thinking)
+            case "idle": .hoottyPresence(paneID: paneID, presence: .idle)
+            case "attention": .hoottyPresence(paneID: paneID, presence: .needsAttention)
+            case "error": .hoottyError(paneID: paneID)
+            default:
+                nil
+            }
+            if let event {
+                DispatchQueue.main.async {
+                    GhosttyApp.shared.onEvent?(event)
+                }
+            } else {
+                Log.ghostty.warning("Unknown hootty presence value: \(value)")
+            }
+        } else if body.hasPrefix(hoottyAgentPrefix) {
+            let name = String(body.dropFirst(hoottyAgentPrefix.count))
+            guard !name.isEmpty else { return true }
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onEvent?(.hoottyAgentName(paneID: paneID, name: name))
+            }
         } else {
-            GhosttyApp.shared.onEvent?(.paneNeedsAttention(paneID, .bell))
+            Log.ghostty.info("Unknown hootty protocol message: \(body)")
         }
         return true
     }

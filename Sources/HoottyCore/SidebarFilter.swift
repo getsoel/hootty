@@ -7,4 +7,5 @@ public enum SidebarFilter: String, CaseIterable, Sendable {
     case flagged
     case done
     case bell
+    case error
 }

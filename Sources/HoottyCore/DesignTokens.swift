@@ -104,6 +104,7 @@ public struct DesignTokens {
         switch kind {
         case .bell: statusBell
         case .done: statusDone
+        case .error: statusError
         }
     }
 

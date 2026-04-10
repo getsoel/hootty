@@ -194,6 +194,14 @@ public final class AppModel {
         paneEventHandler.handlePwdChanged(paneID, pwd: pwd)
     }
 
+    public func handleHoottyPresence(_ paneID: UUID, presence: AgentPresence) {
+        paneEventHandler.handleHoottyPresence(paneID, presence: presence)
+    }
+
+    public func handleHoottyError(_ paneID: UUID) {
+        paneEventHandler.handleHoottyError(paneID)
+    }
+
     public func findPane(id: UUID) -> (Workspace, Pane)? {
         for workspace in workspaces {
             if let pane = workspace.findPane(id: id) {

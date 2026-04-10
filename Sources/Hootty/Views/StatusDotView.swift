@@ -9,7 +9,10 @@ struct StatusDotView: View {
 
     var body: some View {
         Group {
-            if attentionKind == .done {
+            if attentionKind == .error {
+                Image(systemName: "exclamationmark.triangle")
+                    .foregroundStyle(Color(tokens.statusError))
+            } else if attentionKind == .done {
                 Image(systemName: "checkmark.circle")
                     .foregroundStyle(Color(tokens.statusDone))
             } else if attentionKind == .bell {

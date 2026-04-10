@@ -203,6 +203,9 @@ struct WorkspaceSidebar: View {
                 },
                 BarFilterItem(filter: .bell, color: tokens.statusBell, count: counts.bell) {
                     Image(systemName: "bell")
+                },
+                BarFilterItem(filter: .error, color: tokens.statusError, count: counts.error) {
+                    Image(systemName: "exclamationmark.triangle")
                 }
             ],
             tokens: tokens,
