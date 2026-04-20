@@ -26,6 +26,7 @@ Sources/Hootty/Resources/Themes/
 CLAUDE.local.md
 *.local.json
 .soel/
+.claude/scheduled_tasks.lock
 repomix-output.xml
 
 # Documentation (generated/internal)
