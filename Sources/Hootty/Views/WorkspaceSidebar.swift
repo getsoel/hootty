@@ -26,7 +26,7 @@ struct WorkspaceSidebar: View {
     @State private var editingPaneName: String = ""
     @State private var dropTargetWorkspaceID: UUID?
     @State private var dropEdge: VerticalEdge?
-    @State private var workspaceRowHeight: CGFloat = 32
+    @State private var entryHeights: [UUID: CGFloat] = [:]
     @Binding var showLayoutThumbnails: Bool
     @State private var showRenameWorkspaceAlert = false
     @State private var showRenamePaneAlert = false
@@ -289,16 +289,7 @@ struct WorkspaceSidebar: View {
                         onToggleCollapse?(workspace.id)
                     }
                 },
-                onTogglePinWorkspace: { onTogglePinWorkspace?(workspace.id) },
-                onMove: { sourceID, _ in
-                    guard workspaces.contains(where: { $0.id == sourceID }),
-                          let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
-                    let insertIndex = targetIndex + 1
-                    onMoveWorkspace(sourceID, insertIndex)
-                },
-                dropTargetWorkspaceID: $dropTargetWorkspaceID,
-                dropEdge: $dropEdge,
-                workspaceRowHeight: $workspaceRowHeight
+                onTogglePinWorkspace: { onTogglePinWorkspace?(workspace.id) }
             )
             .id(workspace.id)
             if !collapsed {
@@ -310,6 +301,32 @@ struct WorkspaceSidebar: View {
                 Color(tokens.elementHover)
             }
         }
+        .background(GeometryReader { geo in
+            Color.clear.onChange(of: geo.size.height, initial: true) { _, h in
+                entryHeights[workspace.id] = h
+            }
+        })
+        .overlay(alignment: dropEdge == .top ? .top : .bottom) {
+            if dropTargetWorkspaceID == workspace.id, let edge = dropEdge {
+                Rectangle()
+                    .fill(Color(tokens.textAccent))
+                    .frame(height: 2)
+                    .frame(maxWidth: .infinity)
+                    .offset(y: edge == .top ? -1 : 1)
+            }
+        }
+        .onDrop(of: [.utf8PlainText], delegate: WorkspaceEntryDropDelegate(
+            workspaceID: workspace.id,
+            entryHeight: entryHeights[workspace.id] ?? 32,
+            dropTargetWorkspaceID: $dropTargetWorkspaceID,
+            dropEdge: $dropEdge,
+            onMove: { sourceID, edge in
+                guard workspaces.contains(where: { $0.id == sourceID }),
+                      let targetIndex = workspaces.firstIndex(where: { $0.id == workspace.id }) else { return }
+                let insertIndex = edge == .top ? targetIndex : targetIndex + 1
+                onMoveWorkspace(sourceID, insertIndex)
+            }
+        ))
     }
 
     private var workspaceScrollView: some View {
@@ -519,5 +536,55 @@ struct WorkspaceSidebar: View {
             break
         }
         sidebarHasFocus = false
+    }
+}
+
+// MARK: - Workspace Drag-and-Drop
+
+private struct WorkspaceEntryDropDelegate: DropDelegate {
+    let workspaceID: UUID
+    let entryHeight: CGFloat
+    @Binding var dropTargetWorkspaceID: UUID?
+    @Binding var dropEdge: VerticalEdge?
+    let onMove: (UUID, VerticalEdge) -> Void
+
+    func validateDrop(info: DropInfo) -> Bool {
+        info.hasItemsConforming(to: [.utf8PlainText])
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        let newEdge: VerticalEdge = info.location.y < entryHeight / 2 ? .top : .bottom
+        if dropEdge != newEdge || dropTargetWorkspaceID != workspaceID {
+            dropEdge = newEdge
+            dropTargetWorkspaceID = workspaceID
+        }
+        return DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard let provider = info.itemProviders(for: [.utf8PlainText]).first else { return false }
+        let capturedOnMove = onMove
+        let capturedEdge = dropEdge ?? .bottom
+
+        provider.loadObject(ofClass: NSString.self) { [self] nsString, _ in
+            guard let uuidString = nsString as? String,
+                  let sourceID = UUID(uuidString: uuidString) else { return }
+            DispatchQueue.main.async { [self] in
+                dropTargetWorkspaceID = nil
+                dropEdge = nil
+                capturedOnMove(sourceID, capturedEdge)
+            }
+        }
+
+        dropTargetWorkspaceID = nil
+        dropEdge = nil
+        return true
+    }
+
+    func dropExited(info _: DropInfo) {
+        if dropTargetWorkspaceID == workspaceID {
+            dropTargetWorkspaceID = nil
+            dropEdge = nil
+        }
     }
 }

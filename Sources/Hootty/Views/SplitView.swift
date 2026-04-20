@@ -29,6 +29,7 @@ struct SplitNodeView: View {
                 onToggleFlag: onToggleFlag,
                 onSave: onSave
             )
+            .id(pane.id)
 
         case let .split(direction, first, second):
             splitContent(direction: direction, first: first, second: second)
