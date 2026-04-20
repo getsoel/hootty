@@ -1,0 +1,13 @@
+[
+  {
+    "kind": "process",
+    "summary": "Task 2.3 presents a false choice because the Hootty executable has no test target",
+    "detail": "Task 2.3 was phrased as 'Add unit tests in Tests/HoottyCoreTests/ only if the version logic moves to HoottyCore; otherwise inline Swift Testing cases against the UpdateChecker type's static helpers.' The 'otherwise' branch is not actually reachable: Swift Testing requires a test target, and Package.swift only declares HoottyCoreTests (depending on HoottyCore). There is no test target for the Hootty executable, so 'inline' Swift Testing cases on an UpdateChecker static helper would never run. In practice the version helpers must move to HoottyCore to be tested, which is what I did. Future task authoring should drop the false alternative and just state where the pure helpers should live."
+  },
+  {
+    "kind": "code",
+    "summary": "UpdateChecker.swift now has unused private constants until later groups wire them up",
+    "location": "Sources/Hootty/UpdateChecker.swift:13-19",
+    "detail": "The static constants (repoSlug, releasesURL, throttleWindow, UserDefaults keys) added by task group 1 are currently unreferenced. No warning fires because they are private static lets on a class, but they will stay dead until group 4 (network + throttle) lands. Not fixing as it is in scope for a subsequent task group."
+  }
+]

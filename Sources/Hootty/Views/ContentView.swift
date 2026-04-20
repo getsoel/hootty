@@ -10,6 +10,8 @@ struct ContentView: View {
     @State private var prePickerTheme: (name: String, theme: TerminalTheme)?
     @State private var sidebarCursorTarget: SidebarCursorTarget?
     @State private var memoryMonitor = MemoryMonitor()
+    @State private var updateChecker = UpdateChecker()
+    @AppStorage(UpdateChecker.optedInKey) private var updateCheckOptedIn: Bool = true
 
     private var selectedWorkspace: Workspace? {
         appModel.selectedWorkspace
@@ -266,6 +268,22 @@ struct ContentView: View {
                 .buttonStyle(.plain)
                 .help("Activity Monitor")
             }
+
+            if updateCheckOptedIn, let latest = updateChecker.latestVersion, updateChecker.isOutdated {
+                Button {
+                    updateChecker.copyBrewCommand()
+                } label: {
+                    TitlebarChip(tokens: tokens) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: "arrow.down.circle.fill")
+                            Text(updateChecker.justCopied ? "Copied" : latest)
+                                .font(.system(size: TypeScale.bodySize))
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Copy `brew upgrade --cask hootty` to clipboard")
+            }
         }
         .padding(.trailing, Spacing.md)
         .frame(height: Layout.barHeight)
@@ -280,6 +298,9 @@ struct ContentView: View {
                 try? await Task.sleep(for: .seconds(1))
                 memoryMonitor.recordSample(appModel: appModel)
             }
+        }
+        .task {
+            await updateChecker.check()
         }
     }
 

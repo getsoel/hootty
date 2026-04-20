@@ -518,6 +518,10 @@ struct HoottyApp: App {
                 Button(AppCommand.attentionSounds.title) {
                     commandRegistry.execute(.attentionSounds)
                 }
+
+                Divider()
+
+                UpdateCheckPreferenceToggle()
             }
             CommandGroup(after: .sidebar) {
                 Button(AppCommand.toggleCommandPalette.title) {
@@ -585,5 +589,13 @@ struct HoottyApp: App {
                 .disabled(appModel.profiles.count <= 1)
             }
         }
+    }
+}
+
+private struct UpdateCheckPreferenceToggle: View {
+    @AppStorage(UpdateChecker.optedInKey) private var optedIn: Bool = true
+
+    var body: some View {
+        Toggle("Check for updates on launch", isOn: $optedIn)
     }
 }

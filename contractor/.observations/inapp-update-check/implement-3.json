@@ -1,0 +1,7 @@
+[
+  {
+    "kind": "process",
+    "summary": "Task 4 implicitly required implementing isOutdated, but the tasks list never names it",
+    "detail": "Group 1's scaffold left isOutdated hardcoded to `false`. Without replacing that stub with an actual component-wise compare (via VersionCompare.isNewer) the rehydration work in 4.3 and the `update observable properties` work in 4.4 would have no observable effect - `latestVersion` would round-trip through UserDefaults but isOutdated would stay false forever, so the indicator could never light up. I wrote the computed logic as part of group 4, but strictly the tasks list never mentions it. Future task authoring: either add an explicit sub-task for making the isOutdated computed property functional, or land the real implementation (not a `false` stub) in group 1 alongside exposing the property."
+  }
+]

@@ -1,0 +1,13 @@
+[
+  {
+    "kind": "process",
+    "summary": "Fresh worktrees lack Vendors/libghostty.a (gitignored), so `make build` fails at link time until vendored artifacts are copied or symlinked in",
+    "detail": "I had to `ln -s /Users/andrew/Repositories/@soel/hootty/Vendors contractor/.worktrees/inapp-update-check/Vendors` to get the linker to find `libghostty`. `make setup` inside a worktree probably ought to handle this — either copy/symlink Vendors from the main repo, or document the step in the blueprint onboarding. The git pre-commit hook runs `make build`, so the first commit in any new worktree will trip this."
+  },
+  {
+    "kind": "rule",
+    "summary": "`@Observable @MainActor` classes need `nonisolated static` on static constants per context/swift-patterns.md, but swiftformat will also strip `_` grouping from 5-digit literals (14_400 -> 14400)",
+    "location": "Sources/Hootty/UpdateChecker.swift:15",
+    "detail": "The repo's .swiftformat includes the numberFormatting rule with defaults that disallow underscore grouping for 5-digit literals. If a future task ever needs to write a large literal with grouping, this will lint-fail silently on CI and the fix is to either add a config override or rewrite the literal. Worth a one-liner in context/swift-patterns.md noting the default enforced grouping threshold."
+  }
+]
