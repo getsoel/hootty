@@ -72,15 +72,21 @@ public final class PaneEventHandler {
     public func handleTitleChange(_ paneID: UUID, title: String) {
         withPane(id: paneID) { workspace, pane in
             guard let presence = AgentTitleDetection.detect(title) else {
-                // Title no longer matches any agent pattern. If the pane has
-                // an auto-detected agent session and was thinking, treat this
-                // as an implicit idle transition (e.g. Codex, which has no
-                // dedicated idle glyph). Preserve the session marker — there
-                // is no reliable way to distinguish "agent went idle" from
-                // "agent quit" via title alone, so clearing is deferred to
-                // `processDidExit`.
-                if pane.agentSessionID == Pane.autoSessionID, pane.isThinking {
+                // Title no longer matches any agent pattern.
+                guard pane.agentSessionID == Pane.autoSessionID else { return }
+                if pane.isThinking {
+                    // Implicit idle transition (e.g. Codex, which has no
+                    // dedicated idle glyph). Preserve the session marker —
+                    // we can't yet tell "went idle" from "quit" via title.
                     endThinking(workspace, pane)
+                } else {
+                    // Not thinking and no longer matches — treat as the
+                    // agent having exited. Clear the session marker so the
+                    // sidebar and title bar revert to plain terminal style.
+                    // Codex's sidebar dot may drop during long idle stretches;
+                    // it re-arms on the next thinking cycle.
+                    pane.agentSessionID = nil
+                    pane.agentName = nil
                 }
                 return
             }

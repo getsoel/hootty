@@ -690,11 +690,10 @@ struct TitleBasedClaudeDetection {
         #expect(pane.isThinking == true)
     }
 
-    @Test func autoDetectedSessionPreservedOnNonAgentTitle() {
-        // Previously the session marker was cleared when the title stopped
-        // matching. With multi-agent support, the marker is preserved until
-        // `processDidExit` — Codex has no idle glyph, so clearing on
-        // unmatched titles would prematurely drop its session marker.
+    @Test func autoDetectedSessionPreservedOnFirstNonAgentTitleFromThinking() {
+        // The first unmatched title while thinking is treated as implicit
+        // idle (Codex has no idle glyph). The session marker is preserved
+        // so sidebar still shows agent styling until the agent actually exits.
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         let pane = ws.allPanes[0]
@@ -703,8 +702,24 @@ struct TitleBasedClaudeDetection {
         #expect(pane.agentSessionID == Pane.autoSessionID)
 
         model.handleTitleChange(pane.id, title: "~/project")
-        #expect(pane.agentSessionID == Pane.autoSessionID) // Preserved.
-        #expect(pane.isThinking == false) // But thinking is ended (implicit idle).
+        #expect(pane.agentSessionID == Pane.autoSessionID) // Preserved on idle.
+        #expect(pane.isThinking == false) // Thinking ended (implicit idle).
+    }
+
+    @Test func autoDetectedSessionClearedOnUnmatchedTitleAfterIdle() {
+        // After an implicit-idle transition (thinking → unmatched), a
+        // subsequent unmatched title indicates the agent has exited and the
+        // shell has taken over. The marker is cleared so sidebar reverts.
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        let pane = ws.allPanes[0]
+
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
+        model.handleTitleChange(pane.id, title: "~/project") // Implicit idle.
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+
+        model.handleTitleChange(pane.id, title: "zsh") // Agent exited.
+        #expect(pane.agentSessionID == nil)
     }
 
     @Test func agentExitWhileThinkingSetsDoneOnUnfocusedPane() throws {
@@ -724,7 +739,7 @@ struct TitleBasedClaudeDetection {
 
         // Title reverts to shell prompt — implicit idle transition.
         model.handleTitleChange(p1.id, title: "zsh")
-        #expect(p1.agentSessionID == Pane.autoSessionID) // Preserved, cleared on processDidExit.
+        #expect(p1.agentSessionID == Pane.autoSessionID) // Preserved on first unmatch.
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == .done)
     }

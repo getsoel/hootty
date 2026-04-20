@@ -144,16 +144,42 @@ struct PaneEventHandlerTests {
 
     // MARK: - Implicit Idle (Codex has no idle glyph)
 
-    @Test func unmatchedTitlePreservesAgentSessionMarker() {
+    @Test func unmatchedTitleFromThinkingPreservesAgentSessionMarker() {
         let (handler, _, pane) = makeHandler()
         handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
         #expect(pane.agentSessionID == Pane.autoSessionID)
         // Transition to a non-agent-looking title (Codex idle pattern).
         handler.handleTitleChange(pane.id, title: "my-project")
-        // Session marker is preserved — clearing is deferred to processDidExit.
+        // Session marker is preserved — first unmatched title after thinking
+        // is treated as implicit idle, not exit.
         #expect(pane.agentSessionID == Pane.autoSessionID)
         // Thinking is ended (implicit idle).
         #expect(!pane.isThinking)
+    }
+
+    @Test func unmatchedTitleAfterIdleClearsAgentSessionMarker() {
+        let (handler, _, pane) = makeHandler()
+        // Agent thinking → idle (implicit, e.g. Codex).
+        handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
+        handler.handleTitleChange(pane.id, title: "my-project")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+        #expect(!pane.isThinking)
+        // Agent process exits, shell emits a new non-agent title.
+        handler.handleTitleChange(pane.id, title: "zsh")
+        // Session marker is cleared so sidebar reverts to terminal style.
+        #expect(pane.agentSessionID == nil)
+    }
+
+    @Test func claudeExitClearsAgentSessionMarker() {
+        let (handler, _, pane) = makeHandler()
+        // Claude thinking → idle (✳ glyph matches as idle).
+        handler.handleTitleChange(pane.id, title: "\u{280B} Thinking…")
+        handler.handleTitleChange(pane.id, title: "✳ project-name")
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+        #expect(!pane.isThinking)
+        // Claude exits; shell takes over and emits a non-agent title.
+        handler.handleTitleChange(pane.id, title: "/Users/me/project")
+        #expect(pane.agentSessionID == nil)
     }
 
     @Test func codexImplicitIdleFiresDoneWhenUnfocused() throws {
