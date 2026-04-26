@@ -276,6 +276,11 @@ final class TerminalSurfaceView: NSView {
             )
         }
 
+        if window == nil, let surface {
+            ghostty_surface_set_occlusion(surface, false)
+            return
+        }
+
         guard let surface, let window else { return }
 
         // Update content scale
@@ -290,7 +295,11 @@ final class TerminalSurfaceView: NSView {
 
         // Force redraw when reattached to a window (e.g., SwiftUI .id() change
         // reparenting the NSView). Without this the Metal surface stays blank.
-        ghostty_surface_refresh(surface)
+        let windowVisible = window.occlusionState.contains(.visible)
+        ghostty_surface_set_occlusion(surface, windowVisible)
+        if windowVisible {
+            ghostty_surface_refresh(surface)
+        }
     }
 
     @objc private func windowOcclusionDidChange(_: Notification) {

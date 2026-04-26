@@ -129,6 +129,14 @@ struct ContentView: View {
                 )
             }
         }
+        .onChange(of: appModel.selectedWorkspaceID) { oldID, newID in
+            if let oldID, let oldWorkspace = appModel.workspaces.first(where: { $0.id == oldID }) {
+                GhosttyApp.shared.setOcclusion(visible: false, for: oldWorkspace)
+            }
+            if let newID, let newWorkspace = appModel.workspaces.first(where: { $0.id == newID }) {
+                GhosttyApp.shared.setOcclusion(visible: true, for: newWorkspace)
+            }
+        }
     }
 
     @ViewBuilder

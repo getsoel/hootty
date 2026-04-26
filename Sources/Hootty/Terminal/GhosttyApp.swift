@@ -73,9 +73,17 @@ final class GhosttyApp {
         surfaceViews[paneID]
     }
 
-    func refreshAllSurfaces() {
-        for (_, view) in surfaceViews {
+    func refreshAllSurfaces(paneIDs: Set<UUID>? = nil) {
+        for (paneID, view) in surfaceViews {
+            if let paneIDs, !paneIDs.contains(paneID) { continue }
             view.refreshSurface()
+        }
+    }
+
+    func setOcclusion(visible: Bool, for workspace: Workspace) {
+        for pane in workspace.allPanes {
+            guard let surface = surfaceViews[pane.id]?.surface else { continue }
+            ghostty_surface_set_occlusion(surface, visible)
         }
     }
 

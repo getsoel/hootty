@@ -262,8 +262,10 @@ struct HoottyApp: App {
         commandRegistry.register(.changeTheme) { [appModel] in
             appModel.modalState = .themePicker
         }
-        commandRegistry.register(.refreshTerminal) {
-            GhosttyApp.shared.refreshAllSurfaces()
+        commandRegistry.register(.refreshTerminal) { [appModel] in
+            guard let workspace = appModel.selectedWorkspace else { return }
+            let paneIDs = Set(workspace.allPanes.map(\.id))
+            GhosttyApp.shared.refreshAllSurfaces(paneIDs: paneIDs)
         }
         commandRegistry.register(.attentionSounds) { [appModel] in
             appModel.modalState = .attentionSounds
