@@ -1,7 +1,0 @@
-[
-  {
-    "kind": "process",
-    "summary": "`git add -A` in the contractor implement step swept up pre-existing untracked files in the worktree",
-    "detail": "The worktree had `.claude/commands/` and `Sources/Hootty/Resources/Themes` as untracked files before this group started (visible in initial `git status`). The phase instructions mandate `git add -A`, which committed those alongside the actual TerminalSurfaceView.swift change for group 1. They appear to be worktree-setup artifacts rather than user work, but the bundling makes the commit's diff misleading relative to the group's stated scope. Consider scoping the stage step (e.g. `git add -u` plus explicit additions for new files the group created) or pre-cleaning untracked files when a worktree is provisioned."
-  }
-]

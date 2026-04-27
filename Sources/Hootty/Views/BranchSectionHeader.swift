@@ -42,8 +42,7 @@ struct BranchSectionHeader: View {
                let worktreePath = section.panes.compactMap(\.worktreePath).first {
                 Button("Copy merge prompt") {
                     let prompt = "Merge branch '\(branch)' into the main branch. The worktree is at \(worktreePath). Remove the worktree when done."
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(prompt, forType: .string)
+                    NSPasteboard.general.copyString(prompt)
                 }
             }
         }

@@ -27,9 +27,7 @@ final class UpdateChecker {
     @ObservationIgnored private var copyResetTask: Task<Void, Never>?
 
     func copyBrewCommand() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(Self.brewUpgradeCommand, forType: .string)
+        NSPasteboard.general.copyString(Self.brewUpgradeCommand)
 
         justCopied = true
         copyResetTask?.cancel()

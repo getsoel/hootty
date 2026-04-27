@@ -307,9 +307,7 @@ extension GhosttyApp {
         guard let data = item.data else { return }
         let str = String(cString: data)
         DispatchQueue.main.async {
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            pasteboard.setString(str, forType: .string)
+            NSPasteboard.general.copyString(str)
         }
     }
 

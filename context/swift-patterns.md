@@ -33,6 +33,14 @@ Use when: writing or editing any Swift code (@Observable, Codable, SPM, MainActo
 
 - When a view receives an `@Observable` object as a parameter and needs a `$binding` to one of its properties, declare it as `@Bindable var` instead of `let`. Without `@Bindable`, `$object.property` won't compile.
 
+## UserDefaults / preferences
+
+- For simple boolean or string preferences toggled from a SwiftUI view, use `@AppStorage` directly in the view. Avoid layering a stored property + `UserDefaults.didChangeNotification` observer on a model class just to mirror an `@AppStorage`-backed toggle — it adds an app-lifetime observer for no benefit.
+
+## Formatting
+
+- The repo's `.swiftformat` `numberFormatting` rule with default thresholds strips underscore grouping from 5-digit decimal literals (e.g. `14_400` → `14400`). Grouping only survives at 6+ digits. If you need a grouped 5-digit literal, rewrite it (e.g. a named constant) or adjust `.swiftformat` config.
+
 ## Encapsulation
 
 - Never expose public mutable dictionaries on singletons (e.g., `var pendingItems: [UUID: T]`). Use register/consume method pairs (`registerItem(_:)` / `consumeItem(for:)`) to encapsulate the lifecycle and prevent implicit coupling between unrelated call sites.
