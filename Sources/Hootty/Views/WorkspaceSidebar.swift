@@ -313,6 +313,7 @@ struct WorkspaceSidebar: View {
                     .frame(height: 2)
                     .frame(maxWidth: .infinity)
                     .offset(y: edge == .top ? -1 : 1)
+                    .transition(.identity)
             }
         }
         .onDrop(of: [.utf8PlainText], delegate: WorkspaceEntryDropDelegate(
@@ -348,6 +349,10 @@ struct WorkspaceSidebar: View {
                                 contentHeight = frame.height
                             }
                     }
+                }
+                .onChange(of: workspaces.map(\.id)) {
+                    dropTargetWorkspaceID = nil
+                    dropEdge = nil
                 }
                 .onChange(of: scrollTargetRatio) { _, ratio in
                     guard let ratio else { return }

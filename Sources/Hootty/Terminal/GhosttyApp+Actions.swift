@@ -273,25 +273,28 @@ extension GhosttyApp {
     // MARK: - Clipboard
 
     static func readClipboard(
-        _: UnsafeMutableRawPointer?,
+        _ userdata: UnsafeMutableRawPointer?,
         location _: ghostty_clipboard_e,
         state: UnsafeMutableRawPointer?
     ) {
-        let surface = GhosttyApp.shared.focusedSurface
-        // Consume paste override synchronously (before async dispatch) to avoid races.
+        // userdata is the surface's SurfaceCallbackContext, not the runtime userdata.
+        // Using focusedSurface here would silently drop pastes during transient focus changes.
+        guard let userdata else { return }
+        let ctx = SurfaceCallbackContext.fromOpaque(userdata)
+        guard let surface = ctx.view?.surface else { return }
+
         let override = GhosttyApp.shared.pendingPasteOverride
         GhosttyApp.shared.pendingPasteOverride = nil
-        DispatchQueue.main.async {
-            guard let surface else { return }
-            let str = override ?? NSPasteboard.general.string(forType: .string) ?? ""
-            str.withCString { ptr in
-                ghostty_surface_complete_clipboard_request(surface, ptr, state, true)
-            }
+        let str = override ?? NSPasteboard.general.string(forType: .string) ?? ""
+        str.withCString { ptr in
+            ghostty_surface_complete_clipboard_request(surface, ptr, state, true)
         }
     }
 
-    static func confirmClipboardRead(_ state: UnsafeMutableRawPointer?) {
-        guard let surface = GhosttyApp.shared.focusedSurface else { return }
+    static func confirmClipboardRead(_ userdata: UnsafeMutableRawPointer?, _ state: UnsafeMutableRawPointer?) {
+        guard let userdata else { return }
+        let ctx = SurfaceCallbackContext.fromOpaque(userdata)
+        guard let surface = ctx.view?.surface else { return }
         ghostty_surface_complete_clipboard_request(surface, nil, state, true)
     }
 

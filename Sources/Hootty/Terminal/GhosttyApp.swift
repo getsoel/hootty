@@ -283,9 +283,8 @@ final class GhosttyApp {
             read_clipboard_cb: { userdata, location, state in
                 GhosttyApp.readClipboard(userdata, location: location, state: state)
             },
-            confirm_read_clipboard_cb: { _, _, state, _ in
-                // Auto-confirm clipboard reads
-                GhosttyApp.confirmClipboardRead(state)
+            confirm_read_clipboard_cb: { userdata, _, state, _ in
+                GhosttyApp.confirmClipboardRead(userdata, state)
             },
             write_clipboard_cb: { userdata, location, content, len, confirm in
                 GhosttyApp.writeClipboard(userdata, location: location, content: content, len: len, confirm: confirm)
