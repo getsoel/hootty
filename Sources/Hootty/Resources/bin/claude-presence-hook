@@ -1,0 +1,20 @@
+#!/bin/bash
+# Hootty presence hook — emits an OSC 9 hootty:presence signal ($1) so Hootty
+# reflects Claude's state directly from Claude Code's hook events instead of
+# inferring it from terminal-title glyphs. This fixes the case the title can't
+# express: while Claude is blocked on a permission prompt the title shows the
+# idle glyph (✳), so title parsing alone reports "idle" when Claude actually
+# needs you. It also keeps presence working when the title is disabled
+# (CLAUDE_CODE_DISABLE_TERMINAL_TITLE) or renamed.
+#
+# Wired in the `claude` wrapper:
+#   UserPromptSubmit -> thinking
+#   Stop             -> idle
+#   Notification (matcher permission_prompt) -> attention
+#
+# Writes to /dev/tty (the pane PTY), NOT stdout: some hook events
+# (UserPromptSubmit, SessionStart) fold a hook's stdout into the model's
+# context, which would leak the escape sequence into the conversation.
+# /dev/tty reaches ghostty's parser directly and bypasses that capture.
+[ -n "$1" ] && printf '\e]9;hootty:presence:%s\a' "$1" > /dev/tty 2>/dev/null
+exit 0

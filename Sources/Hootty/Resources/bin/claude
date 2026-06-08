@@ -29,12 +29,17 @@ esac
 
 # Inject hooks:
 # - SessionStart: report session ID back to Hootty for resume support.
+# - UserPromptSubmit/Stop/Notification: drive Hootty's presence (thinking/
+#   idle/attention) via OSC 9 hootty:presence. This augments title watching
+#   (ClaudeTitleParser): the title shows the idle glyph while Claude is
+#   blocked on a permission prompt, so the Notification(permission_prompt)
+#   hook is the only reliable "needs attention" signal, and these hooks keep
+#   presence working when the title is disabled or renamed.
 # - CwdChanged: emit OSC 7 so ghostty updates the pane's working directory
 #   (enables worktree detection in the sidebar while Claude is running).
 # - PostToolUse (Bash): fallback cwd reporting — CwdChanged only fires for
 #   the main session, so worktree subagents need PostToolUse to emit OSC 7
 #   when their Bash commands run in the worktree directory.
-# Thinking/attention detection is handled by title watching (ClaudeTitleParser).
-HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}],"CwdChanged":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}],"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}]}}'
+HOOKS_JSON='{"hooks":{"SessionStart":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-session-hook"}]}],"UserPromptSubmit":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-presence-hook thinking"}]}],"Stop":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-presence-hook idle"}]}],"Notification":[{"matcher":"permission_prompt","hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-presence-hook attention"}]}],"CwdChanged":[{"hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}],"PostToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"'"$SCRIPT_DIR"'/claude-cwd-hook"}]}]}}'
 
 exec "$REAL_CLAUDE" --settings "$HOOKS_JSON" "$@"
