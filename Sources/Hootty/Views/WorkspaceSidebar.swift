@@ -12,6 +12,7 @@ struct WorkspaceSidebar: View {
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
     var onToggleNote: ((UUID) -> Void)?
+    var onResumePane: ((UUID) -> Void)?
     var onToggleCollapse: ((UUID) -> Void)?
     var onSave: (() -> Void)?
     @Binding var sidebarHasFocus: Bool
@@ -442,6 +443,9 @@ struct WorkspaceSidebar: View {
                         },
                         onToggleNote: {
                             onToggleNote?(pane.id)
+                        },
+                        onResume: {
+                            onResumePane?(pane.id)
                         }
                     )
                     .id(pane.id)

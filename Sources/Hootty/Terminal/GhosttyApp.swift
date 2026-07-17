@@ -9,6 +9,9 @@ enum GhosttyEvent {
     case bellRang(UUID)
     case paneNeedsAttention(UUID, AttentionKind)
     case agentSessionDetected(paneID: UUID, sessionID: String)
+    /// A resumable agent session captured via the hootty:resume: OSC 9 protocol.
+    /// Carries the agent's real session UUID and optional CLAUDE_CONFIG_DIR.
+    case agentResumableDetected(paneID: UUID, sessionID: String, configDir: String?)
     /// Explicit presence state from the hootty: OSC 9 protocol.
     case hoottyPresence(paneID: UUID, presence: AgentPresence)
     /// Explicit error state from the hootty: OSC 9 protocol.
@@ -126,6 +129,17 @@ final class GhosttyApp {
 
     func consumePendingCommand(for paneID: UUID) -> String? {
         pendingCommands.removeValue(forKey: paneID)
+    }
+
+    /// Type `text` into a pane's terminal now, or queue it to run when the
+    /// pane's surface is next created (e.g. a restored pane not yet shown).
+    /// `queueText` itself buffers if the surface exists but isn't created yet.
+    func injectText(_ text: String, into paneID: UUID) {
+        if let view = cachedSurfaceView(for: paneID) {
+            view.queueText(text)
+        } else {
+            registerPendingCommand(paneID, command: text)
+        }
     }
 
     private var focusObservers: [NSObjectProtocol] = []

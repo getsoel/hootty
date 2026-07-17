@@ -10,6 +10,7 @@ struct CondensedSidebar: View {
     var onRemoveWorkspace: (UUID) -> Void
     var onSelectPane: (UUID, UUID) -> Void
     var onRemovePane: (UUID, UUID) -> Void
+    var onResumePane: ((UUID) -> Void)?
     var onToggleCollapse: (UUID) -> Void
     var onSave: () -> Void
     let isEffectivelyCollapsed: (UUID) -> Bool
@@ -220,6 +221,11 @@ struct CondensedSidebar: View {
                             editingPaneName = pane.displayName
                             renamePaneTargetID = pane.id
                             showRenamePaneAlert = true
+                        }
+                        if pane.resumable != nil, pane.agentSessionID == nil {
+                            Button("Resume Claude Session") {
+                                onResumePane?(pane.id)
+                            }
                         }
                         if workspace.allPanes.count > 1 {
                             Button("Close Pane") {
@@ -483,6 +489,12 @@ private struct PaneRailRow: View {
         }
     }
 
+    /// A recoverable Claude session exists and nothing is live in the pane —
+    /// surface it (green ↻ icon + context-menu resume). Matches SidebarPaneRow.
+    private var canResume: Bool {
+        pane.resumable != nil && pane.agentSessionID == nil
+    }
+
     private var icon: String {
         if pane.attentionKind == .done {
             "checkmark.circle"
@@ -492,6 +504,8 @@ private struct PaneRailRow: View {
             "arrow.2.circlepath"
         } else if pane.agentSessionID != nil {
             "bubble.left"
+        } else if canResume {
+            "arrow.clockwise"
         } else {
             "apple.terminal"
         }
@@ -504,6 +518,8 @@ private struct PaneRailRow: View {
             tokens.statusBell
         } else if pane.isThinking {
             tokens.statusThinking
+        } else if canResume {
+            tokens.statusSuccess
         } else {
             isFocused ? tokens.text : tokens.textMuted
         }

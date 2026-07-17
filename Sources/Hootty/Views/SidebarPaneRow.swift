@@ -14,8 +14,15 @@ struct SidebarPaneRow: View {
     var onRename: (UUID, String) -> Void
     var onClose: (UUID) -> Void
     var onToggleNote: () -> Void
+    var onResume: () -> Void
 
     @State private var isHovered = false
+
+    /// A recoverable Claude session exists and nothing is live in the pane —
+    /// offer to resume it. Hidden once an agent is running (agentSessionID set).
+    private var canResume: Bool {
+        pane.resumable != nil && pane.agentSessionID == nil
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -34,6 +41,19 @@ struct SidebarPaneRow: View {
                 .foregroundStyle(Color(tokens.statusWarning))
                 .frame(width: TypeScale.iconSize, height: TypeScale.iconSize)
                 .opacity(pane.isFlagged ? 1 : 0)
+
+            if canResume {
+                BarIconButton(
+                    systemImage: "arrow.clockwise",
+                    tokens: tokens,
+                    accessibilityLabel: "Resume Claude session",
+                    help: "Resume Claude session",
+                    iconSize: TypeScale.smallSize,
+                    sizing: .fixed(TypeScale.iconSize),
+                    iconColor: tokens.statusSuccess,
+                    action: { onResume() }
+                )
+            }
 
             if pane.hasNote {
                 BarIconButton(
@@ -101,6 +121,11 @@ struct SidebarPaneRow: View {
         .contextMenu {
             Button("Rename Pane") {
                 onRename(pane.id, pane.displayName)
+            }
+            if canResume {
+                Button("Resume Claude Session") {
+                    onResume()
+                }
             }
             if canClose {
                 Button("Close Pane") {

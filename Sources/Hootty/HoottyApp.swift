@@ -250,6 +250,11 @@ struct HoottyApp: App {
         commandRegistry.register(.flagPane) { [appModel] in
             appModel.selectedWorkspace?.focusedPane?.toggleFlag()
         }
+        commandRegistry.register(.resumeAgentSession) { [appModel] in
+            guard let pane = appModel.selectedWorkspace?.focusedPane,
+                  let resumable = pane.resumable else { return }
+            GhosttyApp.shared.injectText(resumable.resumeCommand() + "\r", into: pane.id)
+        }
         commandRegistry.register(.toggleSidebar) { [appModel] in
             appModel.toggleSidebar()
         }
@@ -357,6 +362,13 @@ struct HoottyApp: App {
         case let .agentSessionDetected(paneID, sessionID):
             if let (_, pane) = appModel.findPane(id: paneID) {
                 pane.agentSessionID = sessionID
+                appModel.debouncedSave()
+            }
+
+        case let .agentResumableDetected(paneID, sessionID, configDir):
+            if let (_, pane) = appModel.findPane(id: paneID) {
+                pane.resumable = ResumableSession(sessionID: sessionID, configDir: configDir)
+                Log.ghostty.info("Captured resumable session for pane \(paneID.uuidString.prefix(8))")
                 appModel.debouncedSave()
             }
 

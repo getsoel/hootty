@@ -99,6 +99,7 @@ extension GhosttyApp {
 
     private static let hoottyPrefix = "hootty:"
     private static let hoottySessionPrefix = "hootty:session:"
+    private static let hoottyResumePrefix = "hootty:resume:"
     private static let hoottyPresencePrefix = "hootty:presence:"
     private static let hoottyAgentPrefix = "hootty:agent:"
 
@@ -123,6 +124,20 @@ extension GhosttyApp {
             }
             DispatchQueue.main.async {
                 GhosttyApp.shared.onEvent?(.agentSessionDetected(paneID: paneID, sessionID: sessionID))
+            }
+        } else if body.hasPrefix(hoottyResumePrefix) {
+            // Payload: <uuid>[|<configDir>]. Split once on "|" so config-dir
+            // paths (which never contain "|") survive intact.
+            let payload = String(body.dropFirst(hoottyResumePrefix.count))
+            let parts = payload.split(separator: "|", maxSplits: 1, omittingEmptySubsequences: false)
+            let sessionID = String(parts[0])
+            let configDir = parts.count > 1 ? String(parts[1]) : nil
+            guard UUID(uuidString: sessionID) != nil else {
+                Log.ghostty.warning("Invalid resumable session ID received: \(sessionID)")
+                return true
+            }
+            DispatchQueue.main.async {
+                GhosttyApp.shared.onEvent?(.agentResumableDetected(paneID: paneID, sessionID: sessionID, configDir: configDir))
             }
         } else if body.hasPrefix(hoottyPresencePrefix) {
             let value = String(body.dropFirst(hoottyPresencePrefix.count))

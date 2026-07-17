@@ -1,5 +1,21 @@
 #!/bin/bash
-# Hootty SessionStart hook — reads Claude Code hook JSON from stdin,
-# extracts session_id, and emits OSC 9 for session tracking.
-SID=$(sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p' | head -1)
-[ -n "$SID" ] && printf '\e]9;hootty:session:%s\a' "$SID"
+# Hootty SessionStart hook — extract Claude Code's session_id from the hook JSON
+# on stdin and report it to Hootty (OSC 9 hootty:resume) so the conversation can
+# be resumed after a crash/restart.
+#
+# MUST write to /dev/tty, NOT stdout: some hook events (SessionStart,
+# UserPromptSubmit) fold a hook's stdout into the model's context, which would
+# leak the escape sequence into the conversation and never reach ghostty's
+# parser. /dev/tty is the pane PTY and bypasses that capture (same approach as
+# claude-presence-hook).
+#
+# Includes CLAUDE_CONFIG_DIR (when set) so config-dir-scoped sessions — whose
+# transcripts live under ~/.claude-<x>/projects/… — can be resolved on resume.
+SID=$(tr -d '\n' | sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p' | head -1)
+[ -z "$SID" ] && exit 0
+PAYLOAD="$SID"
+[ -n "$CLAUDE_CONFIG_DIR" ] && PAYLOAD="$SID|$CLAUDE_CONFIG_DIR"
+# Group-redirect stderr so a missing controlling tty (headless/CI runs) can't
+# leak a "cannot open /dev/tty" message — the open failure itself is on fd 2.
+{ printf '\e]9;hootty:resume:%s\a' "$PAYLOAD" > /dev/tty; } 2>/dev/null
+exit 0

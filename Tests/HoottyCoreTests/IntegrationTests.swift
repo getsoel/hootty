@@ -111,6 +111,27 @@ struct WorkspaceLifecycleIntegration {
         #expect(json.contains("agentSessionID"))
         #expect(!json.contains("claudeSessionID"))
     }
+
+    @Test func resumableSessionPersistsAcrossReload() throws {
+        // Crash-recovery: a captured resumable session (UUID + config dir) must
+        // survive a full save→reload cycle so it can be resumed next launch.
+        let (model, url) = makeModel()
+        let panes = model.workspaces[0].allPanes
+        panes[0].resumable = ResumableSession(sessionID: "e73be225-271b-435a-800e-59065c059065", configDir: "/Users/x/.claude-soel")
+
+        // A second pane with a default-config-dir session (configDir nil).
+        model.workspaces[0].focusPane(id: panes[0].id)
+        let pane2 = try #require(model.workspaces[0].splitFocusedPane(direction: .horizontal))
+        pane2.resumable = ResumableSession(sessionID: "9f4dc93d-366c-444c-8208-453c53c07b12")
+        model.saveWorkspaces()
+
+        let restored = reloadModel(from: url)
+        let rPanes = restored.workspaces[0].allPanes
+        let byID = Dictionary(uniqueKeysWithValues: rPanes.map { ($0.id, $0) })
+        #expect(byID[panes[0].id]?.resumable == ResumableSession(sessionID: "e73be225-271b-435a-800e-59065c059065", configDir: "/Users/x/.claude-soel"))
+        #expect(byID[pane2.id]?.resumable?.sessionID == "9f4dc93d-366c-444c-8208-453c53c07b12")
+        #expect(byID[pane2.id]?.resumable?.configDir == nil)
+    }
 }
 
 // MARK: - Suite B: Multi-Workspace Management

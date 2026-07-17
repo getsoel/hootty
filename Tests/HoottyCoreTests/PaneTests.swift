@@ -92,4 +92,56 @@ struct PaneTests {
         #expect(pane.matches([.done]) == false)
         #expect(pane.matches([.thinking]) == false)
     }
+
+    // MARK: - Resumable Session Persistence
+
+    @Test func resumableRoundTripsWithConfigDir() throws {
+        let pane = Pane(name: "zsh", resumable: ResumableSession(sessionID: "abc-123", configDir: "/Users/x/.claude-soel"))
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.resumable == ResumableSession(sessionID: "abc-123", configDir: "/Users/x/.claude-soel"))
+    }
+
+    @Test func resumableRoundTripsWithoutConfigDir() throws {
+        let pane = Pane(name: "zsh", resumable: ResumableSession(sessionID: "abc-123"))
+        let data = try JSONEncoder().encode(pane)
+        let decoded = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(decoded.resumable?.sessionID == "abc-123")
+        #expect(decoded.resumable?.configDir == nil)
+    }
+
+    @Test func resumeCommandWithConfigDirPrefixesEnvAndSkipsPermissions() {
+        let s = ResumableSession(sessionID: "e73be225-271b-435a-800e-59065c059065", configDir: "/Users/x/.claude-soel")
+        #expect(s.resumeCommand() == "CLAUDE_CONFIG_DIR='/Users/x/.claude-soel' claude --dangerously-skip-permissions --resume e73be225-271b-435a-800e-59065c059065")
+    }
+
+    @Test func resumeCommandWithoutConfigDirOmitsEnvPrefix() {
+        let s = ResumableSession(sessionID: "abc-123")
+        #expect(s.resumeCommand() == "claude --dangerously-skip-permissions --resume abc-123")
+    }
+
+    @Test func resumeCommandCanOmitDangerousFlag() {
+        let s = ResumableSession(sessionID: "abc-123")
+        #expect(s.resumeCommand(dangerouslySkipPermissions: false) == "claude --resume abc-123")
+    }
+
+    @Test func resumeCommandSingleQuotesConfigDirWithSpaces() {
+        let s = ResumableSession(sessionID: "abc-123", configDir: "/Users/x/Config Dir")
+        #expect(s.resumeCommand().hasPrefix("CLAUDE_CONFIG_DIR='/Users/x/Config Dir' "))
+    }
+
+    @Test func legacyPaneWithoutResumableDecodesToNil() throws {
+        // Fixture: a Pane JSON blob from before the resumable field existed.
+        let json = """
+        {
+            "id": "\(UUID().uuidString)",
+            "name": "Test Pane",
+            "shell": "/bin/zsh",
+            "workingDirectory": "/tmp/project"
+        }
+        """
+        let data = try #require(json.data(using: .utf8))
+        let pane = try JSONDecoder().decode(Pane.self, from: data)
+        #expect(pane.resumable == nil)
+    }
 }

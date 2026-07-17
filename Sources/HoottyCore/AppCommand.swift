@@ -34,6 +34,9 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
     /// Toggle flag on focused pane
     case flagPane
 
+    /// Resume a captured Claude session in the focused pane
+    case resumeAgentSession
+
     // View
     case toggleSidebar
     case focusSidebar
@@ -84,6 +87,7 @@ public enum AppCommand: String, CaseIterable, Identifiable, Sendable {
         case .equalizeSplits: "Equalize Splits"
         case .notePane: "Note Pane"
         case .flagPane: "Flag Pane"
+        case .resumeAgentSession: "Resume Claude Session"
         case .toggleSidebar: "Toggle Sidebar"
         case .focusSidebar: "Focus Sidebar"
         case .toggleCommandPalette: "Command Palette"

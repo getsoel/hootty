@@ -166,6 +166,7 @@ struct ContentView: View {
             onToggleNote: { paneID in
                 appModel.modalState = .noteEditor(paneID)
             },
+            onResumePane: handleResumePane,
             onToggleCollapse: { id in
                 appModel.toggleWorkspaceCollapse(id)
             },
@@ -195,6 +196,7 @@ struct ContentView: View {
             onRemoveWorkspace: handleRemoveWorkspace,
             onSelectPane: handleSelectPane,
             onRemovePane: handleRemovePane,
+            onResumePane: handleResumePane,
             onToggleCollapse: { id in
                 withAnimation(.easeInOut(duration: 0.15)) {
                     appModel.toggleWorkspaceCollapse(id)
@@ -239,6 +241,16 @@ struct ContentView: View {
         if let workspace = appModel.workspaces.first(where: { $0.id == workspaceID }) {
             workspace.focusPane(id: paneID)
         }
+    }
+
+    /// Bring a pane's captured Claude session back: select and focus the pane so
+    /// the user sees it, then type the resume command into its terminal.
+    private func handleResumePane(_ paneID: UUID) {
+        guard let (workspace, pane) = appModel.findPane(id: paneID),
+              let resumable = pane.resumable else { return }
+        appModel.selectedWorkspaceID = workspace.id
+        workspace.focusPane(id: paneID)
+        GhosttyApp.shared.injectText(resumable.resumeCommand() + "\r", into: paneID)
     }
 
     private func handleRemovePane(_ workspaceID: UUID, _ paneID: UUID) {
