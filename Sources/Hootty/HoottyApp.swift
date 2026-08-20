@@ -378,6 +378,9 @@ struct HoottyApp: App {
                 appModel.soundManager.play(.done)
             }
 
+        case let .progressReport(paneID, isBusy):
+            appModel.handleProgressReport(paneID, isBusy: isBusy)
+
         case let .hoottyError(paneID):
             appModel.handleHoottyError(paneID)
             appModel.soundManager.play(.error)

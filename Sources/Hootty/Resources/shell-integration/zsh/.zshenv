@@ -56,6 +56,11 @@ fi
             "${_ghostty_file:t}"
             'builtin' 'unfunction' '--' "${_ghostty_file:t}"
         fi
+        # Hootty: keep our wrapper bin dir ahead of the PATH edits the user's
+        # rc files are about to make. See ../hootty/hootty.zsh.
+        'builtin' 'typeset' _hootty_file="${${(%):-%x}:A:h}"/../hootty/hootty.zsh
+        [[ ! -r "$_hootty_file" ]] || 'builtin' 'source' '--' "$_hootty_file"
+        'builtin' 'unset' '_hootty_file'
     fi
     'builtin' 'unset' '_ghostty_file'
 }

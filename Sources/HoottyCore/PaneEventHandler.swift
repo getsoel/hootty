@@ -134,6 +134,26 @@ public final class PaneEventHandler {
         }
     }
 
+    /// Process an OSC 9;4 progress report as a presence signal.
+    ///
+    /// Claude Code brackets each turn with `9;4;3` (indeterminate) and `9;4;0`
+    /// (remove), which survives the title being disabled or renamed. But OSC 9;4
+    /// is not agent-specific — package managers and download tools emit it too —
+    /// so this only refines panes already known to be running an agent. It never
+    /// promotes a plain terminal to an agent pane the way the title and hootty
+    /// protocol paths do.
+    public func handleProgressReport(_ paneID: UUID, isBusy: Bool) {
+        withPane(id: paneID) { workspace, pane in
+            guard pane.agentSessionID != nil else { return }
+            if isBusy {
+                if !pane.isThinking { pane.isThinking = true }
+                if pane.attentionKind != nil { pane.attentionKind = nil }
+            } else {
+                endThinking(workspace, pane)
+            }
+        }
+    }
+
     /// Process an explicit hootty protocol error message from a TUI tool.
     public func handleHoottyError(_ paneID: UUID) {
         withPane(id: paneID) { _, pane in

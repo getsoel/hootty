@@ -305,3 +305,7 @@ else
   preexec_functions+=(__ghostty_preexec)
   precmd_functions+=(__ghostty_precmd)
 fi
+
+# Hootty: keep our wrapper bin dir ahead of the PATH edits made by the user's
+# rc files. See ../hootty/hootty.bash.
+builtin source "$(dirname -- "${BASH_SOURCE[0]}")/../hootty/hootty.bash" 2>/dev/null

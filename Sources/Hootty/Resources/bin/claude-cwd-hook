@@ -3,6 +3,12 @@
 # JSON and emits OSC 7 so ghostty updates the pane's working directory
 # (enables worktree detection in the sidebar while Claude is running).
 # Falls back to pwd if the JSON doesn't contain a cwd field.
+#
+# Writes to the pane PTY rather than stdout: hook stdout is consumed by the
+# agent's hook subsystem and never reaches ghostty's parser. hootty-tty.sh
+# resolves the device — Claude Code runs hooks detached from /dev/tty.
+. "$(dirname "$0")/hootty-tty.sh"
 CWD=$(tr -d '\n' | sed -n 's/.*"cwd" *: *"\([^"]*\)".*/\1/p')
 [ -z "$CWD" ] && CWD="$(pwd)"
-[ -n "$CWD" ] && printf '\e]7;file://%s%s\a' "$(hostname)" "$CWD"
+[ -n "$CWD" ] && printf '\e]7;file://%s%s\a' "$(hostname)" "$CWD" > "$HOOTTY_OSC_TTY" 2>/dev/null
+exit 0

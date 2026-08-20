@@ -42,3 +42,54 @@ Use when: working in Sources/Hootty/Terminal/ or Sources/CGhostty/ (ghostty_surf
 
 - In `performKeyEquivalent`, only return `true` for keys that genuinely need claiming: Escape (`0x35`, prevents window close), Ctrl+Return (`0x24`, prevents context menu), Ctrl+/ (`0x2C`, prevents beep), and consumed ghostty bindings.
 - Never blanket-claim all non-command keys - per Apple docs, `keyUp:` events are not delivered for key equivalents, so returning `true` suppresses RELEASE events and breaks Kitty keyboard protocol (causes garbled display on arrow keys, broken backspace/delete).
+
+## Agent presence signals
+
+Three independent channels feed `PaneEventHandler`, in decreasing authority:
+
+1. **hootty OSC 9 protocol** (`hootty:presence:`, `hootty:resume:`, …) — the
+   opt-in contract, driven by the hook scripts the wrappers inject. The only
+   channel that can express "blocked on a permission prompt".
+2. **Terminal titles** — `AgentTitleDetection` matches a leading glyph.
+   Claude Code 2.x spins `◐◑` (U+25D0–U+25D3) and parks on `✳`; older versions
+   and Codex spin Braille. This is the fallback for un-wrapped agents, so keep
+   old glyphs when adding new ones.
+3. **OSC 9;4 progress reports** — Claude Code brackets each turn with
+   indeterminate/remove. Only refines panes that are *already* agent panes:
+   ordinary tools report progress too, so this must never promote a plain
+   terminal.
+
+Agent CLIs change their glyphs between releases. When presence stops working,
+capture a real session through a PTY and log its OSC sequences before touching
+the parsers — that is what distinguishes a glyph change from a dead channel.
+
+## Agent hook channel
+
+Agent CLIs report their state to Hootty by writing OSC sequences that ghostty's
+parser picks up (`hootty:presence:`, `hootty:resume:`, `hootty:session:`, and
+OSC 7 for cwd). Two things break the obvious implementation:
+
+- **Hook stdout is not a channel.** Claude Code, Gemini and Codex all consume a
+  hook's stdout as a structured response — for some events it is folded into the
+  model's context. An OSC written to stdout leaks into the conversation and
+  never reaches the parser.
+- **`/dev/tty` is not a channel either.** Claude Code 2.x runs hook commands
+  detached from the controlling terminal: `tty` reports "not a tty" and opening
+  `/dev/tty` fails with ENXIO, so the write is silently dropped.
+
+Hooks therefore address the pane's PTY *by path* — writing to the slave device
+reaches ghostty exactly like stdout would. `bin/hootty-tty.sh` resolves it
+(parent process's tty, then `HOOTTY_TTY`, then `/dev/tty`); every hook script
+sources it and writes to `$HOOTTY_OSC_TTY`.
+
+## Wrapper PATH ordering
+
+`applyHoottyEnvVars` prepends `Resources/bin` to PATH, but that only holds until
+the user's rc files run — one `export PATH="$HOME/.local/bin:$PATH"` in
+`.zshenv` puts Claude Code's native install ahead of Hootty's `claude` wrapper
+and silently disables every hook it injects.
+
+`Resources/shell-integration/hootty/` re-asserts the directory's position on
+each prompt (and exports `HOOTTY_TTY`). It is sourced by one added line in each
+vendored ghostty integration file — grep `# Hootty:` there before syncing
+upstream. Elvish and nushell are not covered.
