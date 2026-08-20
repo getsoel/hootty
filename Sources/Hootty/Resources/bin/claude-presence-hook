@@ -12,9 +12,11 @@
 #   Stop             -> idle
 #   Notification (matcher permission_prompt) -> attention
 #
-# Writes to /dev/tty (the pane PTY), NOT stdout: some hook events
-# (UserPromptSubmit, SessionStart) fold a hook's stdout into the model's
-# context, which would leak the escape sequence into the conversation.
-# /dev/tty reaches ghostty's parser directly and bypasses that capture.
-[ -n "$1" ] && printf '\e]9;hootty:presence:%s\a' "$1" > /dev/tty 2>/dev/null
+# Writes to the pane PTY, NOT stdout: some hook events (UserPromptSubmit,
+# SessionStart) fold a hook's stdout into the model's context, which would
+# leak the escape sequence into the conversation. Writing to the PTY reaches
+# ghostty's parser directly and bypasses that capture. hootty-tty.sh resolves
+# the device — Claude Code runs hooks detached, so /dev/tty alone is not it.
+. "$(dirname "$0")/hootty-tty.sh"
+[ -n "$1" ] && printf '\e]9;hootty:presence:%s\a' "$1" > "$HOOTTY_OSC_TTY" 2>/dev/null
 exit 0

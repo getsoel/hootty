@@ -4,6 +4,21 @@ import Testing
 struct ClaudeTitleParserTests {
     // MARK: - detect
 
+    @Test func halfCircleSpinnerCharsReturnThinking() {
+        // Claude Code 2.x spins ◐◓◑◒ (U+25D0–U+25D3) in the terminal title.
+        let spinners: [String] = ["\u{25D0}", "\u{25D1}", "\u{25D2}", "\u{25D3}"]
+        for char in spinners {
+            let title = "\(char) Arithmetic question"
+            #expect(ClaudeTitleParser.detect(title) == .thinking, "Expected .thinking for \(char)")
+        }
+    }
+
+    @Test func halfCircleNeighboursDoNotMatch() {
+        // Guard the range edges: ● (U+25CF) and ◔ (U+25D4) are not spinner frames.
+        #expect(ClaudeTitleParser.detect("\u{25CF} title") == nil)
+        #expect(ClaudeTitleParser.detect("\u{25D4} title") == nil)
+    }
+
     @Test func brailleSpinnerCharsReturnThinking() {
         // Various Braille chars from U+2800 block used by Claude spinners
         let spinners: [String] = ["\u{280B}", "\u{2819}", "\u{2839}", "\u{2838}", "\u{283C}", "\u{2834}"]
@@ -42,6 +57,11 @@ struct ClaudeTitleParserTests {
     @Test func stripPrefixRemovesBrailleAndSpace() {
         let title = "\u{280B} Thinking . project-name"
         #expect(ClaudeTitleParser.stripPrefix(title) == "Thinking . project-name")
+    }
+
+    @Test func stripPrefixRemovesHalfCircleAndSpace() {
+        #expect(ClaudeTitleParser.stripPrefix("\u{25D0} Arithmetic question") == "Arithmetic question")
+        #expect(ClaudeTitleParser.stripPrefix("\u{25D3} Claude Code") == "Claude Code")
     }
 
     @Test func stripPrefixRemovesAsteriskAndSpace() {

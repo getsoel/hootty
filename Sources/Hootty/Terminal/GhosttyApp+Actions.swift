@@ -33,6 +33,8 @@ extension GhosttyApp {
             return handleBell(target: target)
         case GHOSTTY_ACTION_DESKTOP_NOTIFICATION:
             return handleDesktopNotification(target: target, v: action.action.desktop_notification)
+        case GHOSTTY_ACTION_PROGRESS_REPORT:
+            return handleProgressReport(target: target, v: action.action.progress_report)
         case GHOSTTY_ACTION_NEW_TAB:
             DispatchQueue.main.async {
                 GhosttyApp.shared.onEvent?(.newTab)
@@ -94,6 +96,29 @@ extension GhosttyApp {
     private static func handleBell(target: ghostty_target_s) -> Bool {
         guard let ctx = callbackContext(from: target) else { return false }
         GhosttyApp.shared.onEvent?(.bellRang(ctx.paneID))
+        return true
+    }
+
+    /// OSC 9;4 progress reports. Claude Code brackets each turn with
+    /// indeterminate/remove, which keeps presence working when the terminal
+    /// title is disabled or renamed. `PaneEventHandler` ignores this for panes
+    /// that are not already agent panes — plenty of ordinary tools report
+    /// progress too. Error and pause states carry no presence meaning here.
+    private static func handleProgressReport(target: ghostty_target_s, v: ghostty_action_progress_report_s) -> Bool {
+        guard let ctx = callbackContext(from: target) else { return false }
+        let isBusy: Bool
+        switch v.state {
+        case GHOSTTY_PROGRESS_STATE_SET, GHOSTTY_PROGRESS_STATE_INDETERMINATE:
+            isBusy = true
+        case GHOSTTY_PROGRESS_STATE_REMOVE:
+            isBusy = false
+        default:
+            return true
+        }
+        let paneID = ctx.paneID
+        DispatchQueue.main.async {
+            GhosttyApp.shared.onEvent?(.progressReport(paneID: paneID, isBusy: isBusy))
+        }
         return true
     }
 

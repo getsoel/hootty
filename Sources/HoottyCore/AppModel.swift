@@ -198,6 +198,10 @@ public final class AppModel {
         paneEventHandler.handleHoottyPresence(paneID, presence: presence)
     }
 
+    public func handleProgressReport(_ paneID: UUID, isBusy: Bool) {
+        paneEventHandler.handleProgressReport(paneID, isBusy: isBusy)
+    }
+
     public func handleHoottyError(_ paneID: UUID) {
         paneEventHandler.handleHoottyError(paneID)
     }

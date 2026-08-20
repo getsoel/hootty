@@ -34,6 +34,12 @@ extension TerminalSurfaceView {
         if let binPath = Self.hoottyBinPath {
             let current = ProcessInfo.processInfo.environment["PATH"] ?? "/usr/bin:/bin"
             addVar("PATH", "\(binPath):\(current)")
+            // Prepending here only holds until the user's rc files run — a plain
+            // `export PATH="$HOME/.local/bin:$PATH"` in .zshenv is enough to
+            // shadow our agent wrappers (Claude Code installs itself there).
+            // Our shell-integration snippets re-assert this dir's position on
+            // each prompt; they read it from here.
+            addVar("HOOTTY_BIN_DIR", binPath)
         }
 
         let arr = UnsafeMutablePointer<ghostty_env_var_s>.allocate(capacity: envVars.count)

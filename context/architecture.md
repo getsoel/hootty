@@ -24,7 +24,7 @@ Sources/
     Agents/                    -- Pluggable agent CLI detection (Claude, Gemini, Codex)
       AgentPresence.swift        -- Enum: thinking | idle | needsAttention
       AgentTitleDetector.swift   -- Protocol + AgentTitleDetection registry
-      ClaudeTitleParser.swift    -- Claude Code: Braille spinner + idle glyphs
+      ClaudeTitleParser.swift    -- Claude Code: ◐◑◒◓ spinner (+ legacy Braille) + ✳ idle
       GeminiTitleParser.swift    -- Gemini CLI: glyphs incl. needsAttention
       CodexTitleParser.swift     -- OpenAI Codex CLI: Braille spinner (no idle glyph)
     ConfigFile.swift           -- Observable key-value config file store (persisted to app support)
@@ -66,6 +66,9 @@ Sources/
       TerminalSurfaceView.swift     -- NSView hosting ghostty_surface_t (Metal, keyboard/mouse input)
       TerminalSurfaceView+Keyboard.swift -- Keyboard event handling with IME and key modifiers
       ShellEscape.swift             -- Shell escaping utility for paths
+    Resources/
+      bin/                          -- agent CLI wrappers (claude/codex/gemini) + hook scripts
+      shell-integration/            -- vendored ghostty scripts + hootty/ PATH+TTY snippets
 Tests/
   HoottyCoreTests/                  -- unit and integration tests for model logic
 Vendors/

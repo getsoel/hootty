@@ -291,6 +291,50 @@ struct PaneEventHandlerTests {
         #expect(p2.attentionKind == nil)
     }
 
+    // MARK: - Progress Reports (OSC 9;4)
+
+    @Test func progressReportIgnoredOnNonAgentPane() {
+        let (handler, _, pane) = makeHandler()
+        handler.handleProgressReport(pane.id, isBusy: true)
+        // A package manager's progress bar must not turn a shell into an agent pane.
+        #expect(pane.agentSessionID == nil)
+        #expect(!pane.isThinking)
+    }
+
+    @Test func progressReportSetsThinkingOnAgentPane() {
+        let (handler, _, pane) = makeHandler()
+        pane.agentSessionID = Pane.autoSessionID
+        pane.attentionKind = .bell
+        handler.handleProgressReport(pane.id, isBusy: true)
+        #expect(pane.isThinking)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func progressReportEndsThinkingOnAgentPane() {
+        let (handler, _, pane) = makeHandler()
+        pane.agentSessionID = Pane.autoSessionID
+        handler.handleProgressReport(pane.id, isBusy: true)
+        handler.handleProgressReport(pane.id, isBusy: false)
+        #expect(!pane.isThinking)
+    }
+
+    @Test func progressReportIdleSetsDoneOnUnfocusedPane() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        p1.agentSessionID = Pane.autoSessionID
+        handler.handleProgressReport(p1.id, isBusy: true)
+        handler.handleProgressReport(p1.id, isBusy: false)
+        #expect(p1.attentionKind == .done)
+    }
+
+    @Test func progressReportRemoveBeforeAnyWorkIsInert() {
+        // Claude Code emits 9;4;0 at startup, before the first turn.
+        let (handler, _, pane) = makeHandler()
+        pane.agentSessionID = Pane.autoSessionID
+        handler.handleProgressReport(pane.id, isBusy: false)
+        #expect(!pane.isThinking)
+        #expect(pane.attentionKind == nil)
+    }
+
     // MARK: - Hootty Protocol: Error
 
     @Test func hoottyErrorSetsErrorAttention() {
