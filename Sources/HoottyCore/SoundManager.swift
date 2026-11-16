@@ -16,16 +16,36 @@ public final class SoundManager {
 
     // MARK: - Sound Config
 
+    /// Sounds that play when the config doesn't set one. Only `blocked` is on
+    /// by default: it's the one state where work stops until the user acts.
+    /// The others fire often (every agent turn, any program's bell) and stay opt-in.
+    public nonisolated static let defaultSounds: [AttentionKind: String] = [.blocked: "Submarine"]
+
+    /// Config value that turns off a kind that has a default sound. Removing
+    /// the key would bring the default back.
+    public nonisolated static let noSound = "none"
+
     private func configKey(for kind: AttentionKind) -> String {
         "hootty-\(kind.rawValue)-sound"
     }
 
     public func sound(for kind: AttentionKind) -> String? {
-        configFile.get(configKey(for: kind))
+        guard let value = configFile.get(configKey(for: kind)) else {
+            return Self.defaultSounds[kind]
+        }
+        return value == Self.noSound ? nil : value
     }
 
+    /// Set the sound for `kind`; nil means no sound. Choosing the default
+    /// removes the key so the config stays minimal.
     public func setSound(for kind: AttentionKind, to value: String?) {
-        configFile.set(configKey(for: kind), value: value)
+        let defaultSound = Self.defaultSounds[kind]
+        let stored: String? = switch value {
+        case nil: defaultSound == nil ? nil : Self.noSound
+        case defaultSound: nil
+        default: value
+        }
+        configFile.set(configKey(for: kind), value: stored)
         configFile.save()
     }
 

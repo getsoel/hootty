@@ -262,8 +262,12 @@ public final class ConfigFile {
         shell-integration-features = cursor,title,path,sudo,ssh-env,ssh-terminfo
 
         # Hootty settings
+        # Attention sounds take a name from /System/Library/Sounds, or "none".
+        # Blocked (agent waiting on you) plays Submarine unless set here.
         # hootty-bell-sound = Ping
-        # hootty-done-sound =
+        # hootty-done-sound = Glass
+        # hootty-error-sound = Basso
+        # hootty-blocked-sound = Submarine
 
         """
     }
