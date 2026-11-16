@@ -1415,9 +1415,14 @@ struct ProgramStatusPresence {
         #expect(pane.isThinking)
 
         let blocked = try report("state=blocked:app=claude-code:kind=permission:msg=UnVuIHRlc3RzPw")
-        #expect(model.handleProgramStatus(pane.id, report: blocked) == .done)
+        #expect(model.handleProgramStatus(pane.id, report: blocked) == .blocked)
         #expect(!pane.isThinking)
-        #expect(pane.attentionKind == .done)
+        #expect(pane.attentionKind == .blocked)
+        #expect(pane.matches([.blocked]))
+        #expect(!pane.matches([.done]))
+        let counts = AttentionCounts(panes: [pane], focusedPaneID: nil)
+        #expect(counts.blocked == 1)
+        #expect(counts.firstAttentionKind == .blocked)
         #expect(pane.programStatus.summary == "Needs permission: Run tests?")
 
         // Same state again: no new attention, so no repeated sound.

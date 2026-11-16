@@ -375,7 +375,7 @@ struct HoottyApp: App {
         case let .hoottyPresence(paneID, presence):
             appModel.handleHoottyPresence(paneID, presence: presence)
             if presence == .needsAttention {
-                appModel.soundManager.play(.done)
+                appModel.soundManager.play(.blocked)
             }
 
         case let .progressReport(paneID, isBusy):

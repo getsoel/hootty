@@ -496,7 +496,9 @@ private struct PaneRailRow: View {
     }
 
     private var icon: String {
-        if pane.attentionKind == .done {
+        if pane.attentionKind == .blocked {
+            "hand.raised"
+        } else if pane.attentionKind == .done {
             "checkmark.circle"
         } else if pane.attentionKind == .bell {
             "bell"
@@ -512,7 +514,9 @@ private struct PaneRailRow: View {
     }
 
     private var color: NSColor {
-        if pane.attentionKind == .done {
+        if pane.attentionKind == .blocked {
+            tokens.statusBlocked
+        } else if pane.attentionKind == .done {
             tokens.statusDone
         } else if pane.attentionKind == .bell {
             tokens.statusBell

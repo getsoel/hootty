@@ -211,7 +211,7 @@ struct PaneEventHandlerTests {
         handler.handleTitleChange(p1.id, title: "\u{270B}  Action Required (my-folder)")
         #expect(p1.agentSessionID == Pane.autoSessionID)
         #expect(!p1.isThinking)
-        #expect(p1.attentionKind == .done)
+        #expect(p1.attentionKind == .blocked)
     }
 
     @Test func geminiNeedsAttentionDoesNotFireWhenFocused() throws {
@@ -278,11 +278,11 @@ struct PaneEventHandlerTests {
         #expect(p1.attentionKind == .done)
     }
 
-    @Test func hoottyAttentionSetsDoneOnUnfocusedPane() throws {
+    @Test func hoottyAttentionSetsBlockedOnUnfocusedPane() throws {
         let (handler, _, p1, _) = try makeHandlerWithSplit()
         handler.handleHoottyPresence(p1.id, presence: .needsAttention)
         #expect(!p1.isThinking)
-        #expect(p1.attentionKind == .done)
+        #expect(p1.attentionKind == .blocked)
     }
 
     @Test func hoottyAttentionIgnoredOnFocusedPane() throws {

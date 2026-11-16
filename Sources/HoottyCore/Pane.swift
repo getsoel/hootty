@@ -50,6 +50,9 @@ public enum AttentionKind: String, CaseIterable, Codable, Sendable {
     case bell
     /// Agent finished thinking, needs input (cleared by next user interaction).
     case done
+    /// Agent can't continue until the user acts: a permission prompt, a
+    /// question, or a login (cleared by next user interaction).
+    case blocked
     /// Agent encountered an error (cleared by next user interaction).
     case error
 
@@ -57,6 +60,7 @@ public enum AttentionKind: String, CaseIterable, Codable, Sendable {
         switch self {
         case .bell: "Bell"
         case .done: "Agent Done"
+        case .blocked: "Agent Blocked"
         case .error: "Error"
         }
     }
@@ -103,6 +107,7 @@ public final class Pane: Identifiable {
             case .thinking: if isThinking { return true }
             case .flagged: if isFlagged { return true }
             case .done: if attentionKind == .done { return true }
+            case .blocked: if attentionKind == .blocked { return true }
             case .bell: if attentionKind == .bell { return true }
             case .error: if attentionKind == .error { return true }
             }

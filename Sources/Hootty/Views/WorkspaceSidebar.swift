@@ -200,6 +200,9 @@ struct WorkspaceSidebar: View {
                 BarFilterItem(filter: .flagged, color: tokens.statusWarning, count: counts.flagged) {
                     Image(systemName: "flag.fill")
                 },
+                BarFilterItem(filter: .blocked, color: tokens.statusBlocked, count: counts.blocked) {
+                    Image(systemName: "hand.raised")
+                },
                 BarFilterItem(filter: .done, color: tokens.statusDone, count: counts.done) {
                     Image(systemName: "checkmark.circle")
                 },

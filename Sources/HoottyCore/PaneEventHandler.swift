@@ -110,7 +110,7 @@ public final class PaneEventHandler {
                 endThinking(workspace, pane)
             case .needsAttention:
                 if pane.isThinking { pane.isThinking = false }
-                _ = handlePaneNeedsAttention(paneID, kind: .done)
+                _ = handlePaneNeedsAttention(paneID, kind: .blocked)
             }
         }
     }
@@ -133,7 +133,7 @@ public final class PaneEventHandler {
                 endThinking(workspace, pane)
             case .needsAttention:
                 if pane.isThinking { pane.isThinking = false }
-                _ = handlePaneNeedsAttention(paneID, kind: .done)
+                _ = handlePaneNeedsAttention(paneID, kind: .blocked)
             }
         }
     }
@@ -205,7 +205,10 @@ public final class PaneEventHandler {
         case .working:
             if !pane.isThinking { pane.isThinking = true }
             if pane.attentionKind != nil { pane.attentionKind = nil }
-        case .blocked, .done:
+        case .blocked:
+            if pane.isThinking { pane.isThinking = false }
+            if handlePaneNeedsAttention(pane.id, kind: .blocked) { return .blocked }
+        case .done:
             if pane.isThinking { pane.isThinking = false }
             if handlePaneNeedsAttention(pane.id, kind: .done) { return .done }
         case .error:
