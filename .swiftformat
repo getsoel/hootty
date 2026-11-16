@@ -8,3 +8,4 @@
 --importgrouping testable-last
 --exclude Sources/CGhostty,ghostty,.build,Vendors
 --disable wrapMultilineStatementBraces
+--disable wrapIfStatementBodies,nestedIf,repeatedGuard,redundantSwiftUIGroup
