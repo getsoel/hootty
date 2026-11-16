@@ -7,6 +7,7 @@ CACHE_DIR="${HOME}/.cache/hootty/ghosttykit"
 VENDORS_LIB="$REPO_ROOT/Vendors/lib"
 HEADERS_DIR="$REPO_ROOT/Sources/CGhostty/include"
 LOCK_FILE="/tmp/hootty-setup.lock"
+PATCHES_DIR="$REPO_ROOT/patches/ghostty"
 
 # --- Git hooks ---
 git -C "$REPO_ROOT" config core.hooksPath .githooks
@@ -42,11 +43,32 @@ if [ ${#OPTIONAL_MISSING[@]} -gt 0 ]; then
     echo "Optional (recommended): brew install ${OPTIONAL_MISSING[*]}"
 fi
 
-# --- Determine ghostty SHA for caching ---
-GHOSTTY_SHA="$(git -C "$GHOSTTY_DIR" rev-parse HEAD)"
-SHA_CACHE="$CACHE_DIR/$GHOSTTY_SHA"
+# --- Apply Hootty's ghostty patches ---
+# Patches in patches/ghostty/ add embedder APIs upstream doesn't have yet
+# (e.g. the OSC 7501 program status action). Each one is applied unless it
+# already is, so re-running setup is safe.
+PATCHES=()
+if [ -d "$PATCHES_DIR" ]; then
+    while IFS= read -r patch; do PATCHES+=("$patch"); done < <(find "$PATCHES_DIR" -name '*.patch' | sort)
+fi
+for patch in ${PATCHES[@]+"${PATCHES[@]}"}; do
+    if git -C "$GHOSTTY_DIR" apply --reverse --check "$patch" 2>/dev/null; then
+        echo "Already applied: $(basename "$patch")"
+    else
+        echo "Applying: $(basename "$patch")"
+        git -C "$GHOSTTY_DIR" apply "$patch"
+    fi
+done
 
-echo "ghostty SHA: $GHOSTTY_SHA"
+# --- Determine cache key (ghostty SHA + patch contents) ---
+GHOSTTY_SHA="$(git -C "$GHOSTTY_DIR" rev-parse HEAD)"
+CACHE_KEY="$GHOSTTY_SHA"
+if [ ${#PATCHES[@]} -gt 0 ]; then
+    CACHE_KEY="$GHOSTTY_SHA-$(cat "${PATCHES[@]}" | shasum | cut -c1-12)"
+fi
+SHA_CACHE="$CACHE_DIR/$CACHE_KEY"
+
+echo "ghostty SHA: $GHOSTTY_SHA (cache key: $CACHE_KEY)"
 
 # --- Build or use cache ---
 if [ -f "$SHA_CACHE/libghostty.a" ]; then

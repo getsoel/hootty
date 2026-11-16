@@ -74,6 +74,8 @@ public final class PaneEventHandler {
             guard let presence = AgentTitleDetection.detect(title) else {
                 // Title no longer matches any agent pattern.
                 guard pane.agentSessionID == Pane.autoSessionID else { return }
+                // OSC 7501 owns presence while it has records.
+                guard pane.programStatus.isEmpty else { return }
                 if pane.isThinking {
                     // Implicit idle transition (e.g. Codex, which has no
                     // dedicated idle glyph). Preserve the session marker —
@@ -94,6 +96,7 @@ public final class PaneEventHandler {
             if pane.agentSessionID == nil {
                 pane.agentSessionID = Pane.autoSessionID
             }
+            guard pane.programStatus.isEmpty else { return }
 
             switch presence {
             case .thinking:
@@ -120,6 +123,7 @@ public final class PaneEventHandler {
             if pane.agentSessionID == nil {
                 pane.agentSessionID = Pane.autoSessionID
             }
+            guard pane.programStatus.isEmpty else { return }
 
             switch presence {
             case .thinking:
@@ -144,7 +148,7 @@ public final class PaneEventHandler {
     /// protocol paths do.
     public func handleProgressReport(_ paneID: UUID, isBusy: Bool) {
         withPane(id: paneID) { workspace, pane in
-            guard pane.agentSessionID != nil else { return }
+            guard pane.agentSessionID != nil, pane.programStatus.isEmpty else { return }
             if isBusy {
                 if !pane.isThinking { pane.isThinking = true }
                 if pane.attentionKind != nil { pane.attentionKind = nil }
@@ -160,9 +164,61 @@ public final class PaneEventHandler {
             if pane.agentSessionID == nil {
                 pane.agentSessionID = Pane.autoSessionID
             }
+            guard pane.programStatus.isEmpty else { return }
             if pane.isThinking { pane.isThinking = false }
             pane.attentionKind = .error
         }
+    }
+
+    /// Apply an OSC 7501 program status report. While a pane has records they
+    /// take precedence over title glyphs, hootty:presence and OSC 9;4.
+    ///
+    /// Returns the attention kind newly raised, if any, so the caller can play
+    /// a sound. Only transitions of the pane's primary state raise attention,
+    /// which rate-limits repeated identical reports as the spec asks.
+    @discardableResult
+    public func handleProgramStatus(_ paneID: UUID, report: ProgramStatusReport) -> AttentionKind? {
+        withPane(id: paneID) { workspace, pane in
+            let previous = pane.programStatus.primary?.state
+            pane.programStatus.apply(report)
+            return applyProgramStatus(workspace, pane, previous: previous)
+        } ?? nil
+    }
+
+    /// A command finished and the shell is back at its prompt: apply the
+    /// spec's lifetime rule (drop working/blocked/idle, keep done/error).
+    public func handleCommandFinished(_ paneID: UUID) {
+        withPane(id: paneID) { workspace, pane in
+            guard !pane.programStatus.isEmpty else { return }
+            let previous = pane.programStatus.primary?.state
+            pane.programStatus.dropTransient()
+            applyProgramStatus(workspace, pane, previous: previous)
+        }
+    }
+
+    /// Mirror the primary program status record onto the pane's presence fields.
+    @discardableResult
+    private func applyProgramStatus(_ workspace: Workspace, _ pane: Pane, previous: ProgramStatusState?) -> AttentionKind? {
+        let current = pane.programStatus.primary?.state
+        guard current != previous else { return nil }
+        switch current {
+        case .working:
+            if !pane.isThinking { pane.isThinking = true }
+            if pane.attentionKind != nil { pane.attentionKind = nil }
+        case .blocked, .done:
+            if pane.isThinking { pane.isThinking = false }
+            if handlePaneNeedsAttention(pane.id, kind: .done) { return .done }
+        case .error:
+            if pane.isThinking { pane.isThinking = false }
+            if handlePaneNeedsAttention(pane.id, kind: .error) { return .error }
+        case .idle:
+            let wasThinking = pane.isThinking
+            endThinking(workspace, pane)
+            if wasThinking, pane.attentionKind == .done { return .done }
+        case .clear, nil:
+            if pane.isThinking { pane.isThinking = false }
+        }
+        return nil
     }
 
     public func handlePwdChanged(_ paneID: UUID, pwd: String) {

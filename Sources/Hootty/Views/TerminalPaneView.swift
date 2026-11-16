@@ -92,6 +92,11 @@ struct TerminalPaneView: NSViewRepresentable {
             if pane?.attentionKind != nil {
                 pane?.attentionKind = nil
             }
+            // The user has seen the pane: OSC 7501 done/error results are acknowledged.
+            // Checked first so keystrokes don't write the @Observable property.
+            if pane?.programStatus.hasFinished == true {
+                pane?.programStatus.acknowledgeFinished()
+            }
         }
         view.onFocusRequest = onFocusPane
 

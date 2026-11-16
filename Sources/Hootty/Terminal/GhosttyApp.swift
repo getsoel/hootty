@@ -20,6 +20,8 @@ enum GhosttyEvent {
     case hoottyAgentName(paneID: UUID, name: String)
     /// OSC 9;4 progress report. Only refines panes already known to be agents.
     case progressReport(paneID: UUID, isBusy: Bool)
+    /// OSC 7501 program status report (validated by libghostty).
+    case programStatus(paneID: UUID, report: ProgramStatusReport)
     case newSplit(paneID: UUID, direction: SplitDirection, parentSurface: ghostty_surface_t?)
     case closeSurface(UUID)
     case closeTab

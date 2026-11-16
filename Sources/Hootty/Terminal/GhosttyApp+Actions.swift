@@ -35,6 +35,8 @@ extension GhosttyApp {
             return handleDesktopNotification(target: target, v: action.action.desktop_notification)
         case GHOSTTY_ACTION_PROGRESS_REPORT:
             return handleProgressReport(target: target, v: action.action.progress_report)
+        case GHOSTTY_ACTION_PROGRAM_STATUS:
+            return handleProgramStatus(target: target, v: action.action.program_status)
         case GHOSTTY_ACTION_NEW_TAB:
             DispatchQueue.main.async {
                 GhosttyApp.shared.onEvent?(.newTab)
@@ -255,6 +257,24 @@ extension GhosttyApp {
         let direction: SplitDirection = (v == GHOSTTY_SPLIT_DIRECTION_DOWN || v == GHOSTTY_SPLIT_DIRECTION_UP) ? .vertical : .horizontal
         DispatchQueue.main.async {
             GhosttyApp.shared.onEvent?(.newSplit(paneID: paneID, direction: direction, parentSurface: surface))
+        }
+        return true
+    }
+
+    /// OSC 7501 program status. libghostty has already validated the report
+    /// against the spec (sizes, ids, base64, control characters) and answered
+    /// the `OSC 7501 ; ?` support query; this only parses the body.
+    private static func handleProgramStatus(target: ghostty_target_s, v: ghostty_action_program_status_s) -> Bool {
+        guard let ctx = callbackContext(from: target), let data = v.data else { return false }
+        // Copy the C string before async dispatch (ghostty frees the buffer).
+        let body = String(cString: data)
+        guard let report = ProgramStatusReport.parse(body) else {
+            Log.ghostty.warning("Unparseable program status report: \(body)")
+            return true
+        }
+        let paneID = ctx.paneID
+        DispatchQueue.main.async {
+            GhosttyApp.shared.onEvent?(.programStatus(paneID: paneID, report: report))
         }
         return true
     }

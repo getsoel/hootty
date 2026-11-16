@@ -805,6 +805,12 @@ typedef struct {
   uint32_t height;
 } ghostty_action_resize_window_s;
 
+// apprt.action.ProgramStatus
+typedef struct {
+  // Validated OSC 7501 body, e.g. "state=working:app=cargo".
+  const char* data;
+} ghostty_action_program_status_s;
+
 // apprt.action.CellSize
 typedef struct {
   uint32_t width;
@@ -1016,6 +1022,7 @@ typedef enum {
   GHOSTTY_ACTION_COPY_TITLE_TO_CLIPBOARD,
   GHOSTTY_ACTION_MOVE_TAB_TO_NEW_WINDOW,
   GHOSTTY_ACTION_RESIZE_WINDOW,
+  GHOSTTY_ACTION_PROGRAM_STATUS,
 } ghostty_action_tag_e;
 
 typedef union {
@@ -1029,6 +1036,7 @@ typedef union {
   ghostty_action_size_limit_s size_limit;
   ghostty_action_initial_size_s initial_size;
   ghostty_action_resize_window_s resize_window;
+  ghostty_action_program_status_s program_status;
   ghostty_action_cell_size_s cell_size;
   ghostty_action_scrollbar_s scrollbar;
   ghostty_action_inspector_e inspector;

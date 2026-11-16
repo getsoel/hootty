@@ -73,6 +73,9 @@ public final class Pane: Identifiable {
     public var note: String?
     public var isFlagged = false
     public var isThinking = false
+    /// Live OSC 7501 program status records. While non-empty they are the
+    /// authoritative presence signal for this pane. Not persisted.
+    public var programStatus = ProgramStatusRecords()
 
     public var needsAttention: Bool {
         attentionKind != nil

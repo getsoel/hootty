@@ -29,7 +29,8 @@ Sources/
       CodexTitleParser.swift     -- OpenAI Codex CLI: Braille spinner (no idle glyph)
     ConfigFile.swift           -- Observable key-value config file store (persisted to app support)
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
-    PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd)
+    PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd, program status)
+    ProgramStatus.swift        -- OSC 7501 report parsing + per-pane record store and lifetime rules
     SoundManager.swift         -- Sound trigger playback management
   Hootty/
     HoottyApp.swift            -- @main entry, initializes GhosttyApp
@@ -71,6 +72,8 @@ Sources/
       shell-integration/            -- vendored ghostty scripts + hootty/ PATH+TTY snippets
 Tests/
   HoottyCoreTests/                  -- unit and integration tests for model logic
+patches/
+  ghostty/                          -- patches setup.sh applies to the ghostty submodule (e.g. OSC 7501 action)
 Vendors/
   lib/libghostty.a                  -- pre-built libghostty static library
 ```

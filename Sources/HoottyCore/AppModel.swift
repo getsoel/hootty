@@ -206,6 +206,15 @@ public final class AppModel {
         paneEventHandler.handleHoottyError(paneID)
     }
 
+    @discardableResult
+    public func handleProgramStatus(_ paneID: UUID, report: ProgramStatusReport) -> AttentionKind? {
+        paneEventHandler.handleProgramStatus(paneID, report: report)
+    }
+
+    public func handleCommandFinished(_ paneID: UUID) {
+        paneEventHandler.handleCommandFinished(paneID)
+    }
+
     public func findPane(id: UUID) -> (Workspace, Pane)? {
         for workspace in workspaces {
             if let pane = workspace.findPane(id: id) {

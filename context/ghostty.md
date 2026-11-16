@@ -45,8 +45,15 @@ Use when: working in Sources/Hootty/Terminal/ or Sources/CGhostty/ (ghostty_surf
 
 ## Agent presence signals
 
-Three independent channels feed `PaneEventHandler`, in decreasing authority:
+Four independent channels feed `PaneEventHandler`, in decreasing authority:
 
+0. **OSC 7501 program status** (`ProgramStatus.swift`) — the standard
+   protocol (spec: superlogical.com/rex/docs/build/program-status). Claude
+   Code ≥ 2.1.3xx emits it once the terminal answers `OSC 7501 ; ?`, which
+   our libghostty patch does. While a pane has any 7501 records, channels
+   1–3 below are ignored for presence. Hootty owns record lifetime:
+   `commandFinished` drops working/blocked/idle, user interaction drops
+   done/error.
 1. **hootty OSC 9 protocol** (`hootty:presence:`, `hootty:resume:`, …) — the
    opt-in contract, driven by the hook scripts the wrappers inject. The only
    channel that can express "blocked on a permission prompt".
@@ -93,3 +100,18 @@ and silently disables every hook it injects.
 each prompt (and exports `HOOTTY_TTY`). It is sourced by one added line in each
 vendored ghostty integration file — grep `# Hootty:` there before syncing
 upstream. Elvish and nushell are not covered.
+
+## Patching ghostty
+
+- `scripts/setup.sh` applies every `patches/ghostty/*.patch` to the submodule
+  (skipping ones already applied) and keys the libghostty build cache on the
+  ghostty SHA plus a hash of the patches. `.gitmodules` sets `ignore = dirty`
+  so the patched checkout doesn't show as a change.
+- To change a patch: edit files in `ghostty/`, then
+  `git -C ghostty diff > patches/ghostty/<name>.patch`.
+- When bumping the submodule, re-run `make setup`; a patch that no longer
+  applies fails setup loudly. Drop a patch once upstream ships the API.
+- `0001-osc-7501-program-status-action.patch` adds
+  `GHOSTTY_ACTION_PROGRAM_STATUS` (validated body as `data`), answers the
+  `OSC 7501 ; ?` support query, and reports `state=clear` on full reset.
+  Upstream libghostty-vt parses 7501, but the app runtime discards it.
