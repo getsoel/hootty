@@ -1,3 +1,5 @@
 [submodule "ghostty"]
 	path = ghostty
 	url = https://github.com/ghostty-org/ghostty.git
+	# setup.sh applies patches/ghostty/ to the checkout; don't report that as a change.
+	ignore = dirty

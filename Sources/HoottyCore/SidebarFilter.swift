@@ -5,6 +5,7 @@ import Foundation
 public enum SidebarFilter: String, CaseIterable, Sendable {
     case thinking
     case flagged
+    case blocked
     case done
     case bell
     case error

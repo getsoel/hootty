@@ -375,11 +375,16 @@ struct HoottyApp: App {
         case let .hoottyPresence(paneID, presence):
             appModel.handleHoottyPresence(paneID, presence: presence)
             if presence == .needsAttention {
-                appModel.soundManager.play(.done)
+                appModel.soundManager.play(.blocked)
             }
 
         case let .progressReport(paneID, isBusy):
             appModel.handleProgressReport(paneID, isBusy: isBusy)
+
+        case let .programStatus(paneID, report):
+            if let raised = appModel.handleProgramStatus(paneID, report: report) {
+                appModel.soundManager.play(raised)
+            }
 
         case let .hoottyError(paneID):
             appModel.handleHoottyError(paneID)
@@ -430,6 +435,7 @@ struct HoottyApp: App {
             if exitCode > 128 {
                 Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
             }
+            appModel.handleCommandFinished(paneID)
 
         case let .titleChanged(paneID, title):
             appModel.handleTitleChange(paneID, title: title)

@@ -82,6 +82,10 @@ public struct DesignTokens {
     /// Done attention state — Claude finished thinking (green).
     public let statusDone: NSColor
 
+    /// Blocked attention state — waiting on the user (orange: red/yellow mix,
+    /// so it reads apart from both error and the yellow flag).
+    public let statusBlocked: NSColor
+
     /// Note indicator color (yellow).
     public let statusNote: NSColor
 
@@ -104,6 +108,7 @@ public struct DesignTokens {
         switch kind {
         case .bell: statusBell
         case .done: statusDone
+        case .blocked: statusBlocked
         case .error: statusError
         }
     }
@@ -138,6 +143,7 @@ public struct DesignTokens {
             statusThinking: theme.palette[13],
             statusBell: theme.palette[2],
             statusDone: theme.palette[2],
+            statusBlocked: theme.palette[1].blended(withFraction: 0.5, of: theme.palette[3]) ?? theme.palette[3],
             statusNote: theme.palette[3],
             tabBarBackground: theme.background,
             tabActive: theme.background,

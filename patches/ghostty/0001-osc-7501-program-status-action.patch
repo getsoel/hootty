@@ -1,0 +1,249 @@
+diff --git a/include/ghostty.h b/include/ghostty.h
+index 9a12b9cad..7c44aca71 100644
+--- a/include/ghostty.h
++++ b/include/ghostty.h
+@@ -805,6 +805,12 @@ typedef struct {
+   uint32_t height;
+ } ghostty_action_resize_window_s;
+ 
++// apprt.action.ProgramStatus
++typedef struct {
++  // Validated OSC 7501 body, e.g. "state=working:app=cargo".
++  const char* data;
++} ghostty_action_program_status_s;
++
+ // apprt.action.CellSize
+ typedef struct {
+   uint32_t width;
+@@ -1016,6 +1022,7 @@ typedef enum {
+   GHOSTTY_ACTION_COPY_TITLE_TO_CLIPBOARD,
+   GHOSTTY_ACTION_MOVE_TAB_TO_NEW_WINDOW,
+   GHOSTTY_ACTION_RESIZE_WINDOW,
++  GHOSTTY_ACTION_PROGRAM_STATUS,
+ } ghostty_action_tag_e;
+ 
+ typedef union {
+@@ -1029,6 +1036,7 @@ typedef union {
+   ghostty_action_size_limit_s size_limit;
+   ghostty_action_initial_size_s initial_size;
+   ghostty_action_resize_window_s resize_window;
++  ghostty_action_program_status_s program_status;
+   ghostty_action_cell_size_s cell_size;
+   ghostty_action_scrollbar_s scrollbar;
+   ghostty_action_inspector_e inspector;
+diff --git a/src/Surface.zig b/src/Surface.zig
+index 369bb2399..3490943a1 100644
+--- a/src/Surface.zig
++++ b/src/Surface.zig
+@@ -1136,6 +1136,24 @@ pub fn handleMessage(self: *Surface, msg: Message) !void {
+             );
+         },
+ 
++        .program_status => |w| {
++            defer w.deinit();
++
++            var stack_buf: [256]u8 = undefined;
++            var stack: std.heap.BufferFirstAllocator = .init(&stack_buf, self.alloc);
++            const alloc = stack.allocator();
++            const str = try alloc.dupeSentinel(u8, w.slice(), 0);
++            defer alloc.free(str);
++
++            _ = self.rt_app.performAction(
++                .{ .surface = self },
++                .program_status,
++                .{ .data = str },
++            ) catch |err| {
++                log.warn("apprt failed to report program status err={}", .{err});
++            };
++        },
++
+         .close => self.close(),
+ 
+         .child_exited => |v| self.childExited(v),
+diff --git a/src/apprt/action.zig b/src/apprt/action.zig
+index 708898e76..e561a10ca 100644
+--- a/src/apprt/action.zig
++++ b/src/apprt/action.zig
+@@ -364,6 +364,9 @@ pub const Action = union(Key) {
+     /// split or the window is fullscreen.
+     resize_window: ResizeWindow,
+ 
++    /// An OSC 7501 program status report. See `ProgramStatus`.
++    program_status: ProgramStatus,
++
+     /// Sync with: ghostty_action_tag_e
+     pub const Key = enum(c_int) {
+         quit,
+@@ -436,6 +439,7 @@ pub const Action = union(Key) {
+         copy_title_to_clipboard,
+         move_tab_to_new_window,
+         resize_window,
++        program_status,
+ 
+         test "ghostty.h Action.Key" {
+             try lib.checkGhosttyHEnum(Key, "GHOSTTY_ACTION_");
+@@ -750,6 +754,26 @@ pub const CellSize = extern struct {
+     height: u32,
+ };
+ 
++/// An OSC 7501 program status report. `data` is the body after `7501;`,
++/// such as `state=blocked:kind=permission:app=terraform:msg=<base64>`.
++/// The parser has already validated it against the specification. The
++/// apprt keeps one record per `id` and applies the lifetime rules. A
++/// full terminal reset arrives as `state=clear`.
++pub const ProgramStatus = struct {
++    data: [:0]const u8,
++
++    // Sync with: ghostty_action_program_status_s
++    pub const C = extern struct {
++        data: [*:0]const u8,
++    };
++
++    pub fn cval(self: ProgramStatus) C {
++        return .{
++            .data = self.data.ptr,
++        };
++    }
++};
++
+ pub const SetTitle = struct {
+     title: [:0]const u8,
+ 
+diff --git a/src/apprt/gtk/class/application.zig b/src/apprt/gtk/class/application.zig
+index 08d5d7c30..9ebbe5333 100644
+--- a/src/apprt/gtk/class/application.zig
++++ b/src/apprt/gtk/class/application.zig
+@@ -775,6 +775,9 @@ pub const Application = extern struct {
+             // GTK has no accessibility consumer for this yet.
+             .selection_changed => {},
+ 
++            // GTK doesn't show program status yet.
++            .program_status => {},
++
+             .scrollbar => Action.scrollbar(target, value),
+ 
+             .set_title => Action.setTitle(target, value),
+diff --git a/src/apprt/surface.zig b/src/apprt/surface.zig
+index 3b1a04d8a..85110dcfa 100644
+--- a/src/apprt/surface.zig
++++ b/src/apprt/surface.zig
+@@ -134,6 +134,11 @@ pub const Message = union(enum) {
+     /// The terminal has reported a change in the working directory.
+     pwd_change: WriteReq,
+ 
++    /// A validated OSC 7501 program status report: the body after
++    /// `7501;`, such as `state=working:app=cargo`. The apprt keeps the
++    /// records and applies the specification's lifetime rules.
++    program_status: WriteReq,
++
+     /// The terminal encountered a bell character.
+     ring_bell,
+ 
+diff --git a/src/termio/stream_handler.zig b/src/termio/stream_handler.zig
+index bc695c03e..9dc055faf 100644
+--- a/src/termio/stream_handler.zig
++++ b/src/termio/stream_handler.zig
+@@ -383,13 +383,13 @@ pub const StreamHandler = struct {
+             .apc_put => self.apc.feed(self.alloc, value),
+             .apc_put_slice => self.apc.feedSlice(self.alloc, value.bytes),
+             .kitty_clipboard => try self.kittyClipboard(value),
++            .program_status => self.programStatus(value),
+ 
+             // Unimplemented
+             .title_push,
+             .title_pop,
+             .kitty_dnd,
+             .osc_unknown,
+-            .program_status,
+             => {},
+         }
+     }
+@@ -946,6 +946,9 @@ pub const StreamHandler = struct {
+ 
+         // Clear the progress bar
+         self.progressReport(.{ .state = .remove });
++
++        // A full reset removes every program status record.
++        self.surfaceMessageWriter(.{ .program_status = .{ .stable = "state=clear" } });
+     }
+ 
+     /// Record a Kitty clipboard protocol session grant so future
+@@ -1951,6 +1954,36 @@ pub const StreamHandler = struct {
+     fn progressReport(self: *StreamHandler, report: terminal.osc.Command.ProgressReport) void {
+         self.surfaceMessageWriter(.{ .progress_report = report });
+     }
++
++    fn programStatus(self: *StreamHandler, cmd: terminal.osc.Command.ProgramStatus) void {
++        switch (cmd) {
++            .query => |terminator| self.programStatusQuery(terminator),
++
++            // The parser already validated the report, so the apprt can
++            // read the body without checking limits again.
++            .report => |report| if (apprt.surface.Message.WriteReq.init(
++                self.alloc,
++                report.data,
++            )) |req| {
++                self.surfaceMessageWriter(.{ .program_status = req });
++            } else |err| {
++                log.warn("error notifying surface of program status err={}", .{err});
++            },
++        }
++    }
++
++    /// Answer `OSC 7501 ; ?`. The reply is always the same fixed bytes,
++    /// ended with the query's terminator. The specification never allows
++    /// sending report contents back to the program.
++    fn programStatusQuery(self: *StreamHandler, terminator: terminal.osc.Terminator) void {
++        switch (terminator) {
++            inline else => |t| self.messageWriter(.{
++                .write_stable = "\x1b]7501;" ++
++                    terminal.osc.program_status.query_reply ++
++                    comptime t.string(),
++            }),
++        }
++    }
+ };
+ 
+ test "kitty clipboard read: targets-only never consumes a one-time grant" {
+@@ -2027,3 +2060,41 @@ test "kitty clipboard write: oversized text replies EFBIG" {
+     // forwarded to the macOS clipboard path.
+     try testing.expect(mailbox.spsc.queue.pop(global.io()) == null);
+ }
++
++test "program status: support query is answered with the same terminator" {
++    const testing = std.testing;
++
++    var mailbox = try termio.Mailbox.initSPSC(testing.allocator);
++    defer mailbox.deinit(testing.allocator);
++
++    var mutex: std.Io.Mutex = .init;
++    mutex.lockUncancelable(global.io());
++    defer mutex.unlock(global.io());
++
++    var renderer_state: renderer.State = .{
++        .mutex = &mutex,
++        .terminal = undefined,
++    };
++    var handler: StreamHandler = undefined;
++    handler.alloc = testing.allocator;
++    handler.termio_mailbox = &mailbox;
++    handler.renderer_state = &renderer_state;
++
++    inline for (.{
++        .{ terminal.osc.Terminator.bel, "\x07" },
++        .{ terminal.osc.Terminator.st, "\x1b\\" },
++    }) |case| {
++        handler.programStatusQuery(case[0]);
++
++        const msg = mailbox.spsc.queue.pop(global.io()).?;
++        defer msg.deinit();
++        switch (msg) {
++            .write_stable => |v| try testing.expectEqualStrings(
++                "\x1b]7501;" ++ terminal.osc.program_status.query_reply ++ case[1],
++                v,
++            ),
++            else => try testing.expect(false),
++        }
++    }
++    try testing.expect(mailbox.spsc.queue.pop(global.io()) == null);
++}

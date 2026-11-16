@@ -104,4 +104,43 @@ struct SoundManagerTests {
         manager.play(.done)
         #expect(!played)
     }
+
+    // MARK: - Default sounds
+
+    @Test func blockedPlaysDefaultSoundWhenUnset() {
+        let (manager, _) = makeManager()
+        #expect(manager.sound(for: .blocked) == SoundManager.defaultSounds[.blocked])
+        var played: String?
+        manager.soundPlayer = { played = $0 }
+        manager.play(.blocked)
+        #expect(played == "Submarine")
+    }
+
+    @Test func turningOffDefaultSoundPersistsAsNone() {
+        let url = TestHelpers.tempFileURL()
+        let (manager, config) = makeManager(fileURL: url)
+        manager.setSound(for: .blocked, to: nil)
+        #expect(config.get("hootty-blocked-sound") == SoundManager.noSound)
+
+        let (reloaded, _) = makeManager(fileURL: url)
+        #expect(reloaded.sound(for: .blocked) == nil)
+    }
+
+    @Test func choosingDefaultSoundRemovesKey() {
+        let url = TestHelpers.tempFileURL()
+        let (manager, config) = makeManager(fileURL: url)
+        manager.setSound(for: .blocked, to: "Hero")
+        #expect(manager.sound(for: .blocked) == "Hero")
+
+        manager.setSound(for: .blocked, to: "Submarine")
+        #expect(config.get("hootty-blocked-sound") == nil)
+        #expect(manager.sound(for: .blocked) == "Submarine")
+    }
+
+    @Test func kindsWithoutDefaultStillRemoveKeyOnNil() {
+        let (manager, config) = makeManager()
+        manager.setSound(for: .done, to: "Glass")
+        manager.setSound(for: .done, to: nil)
+        #expect(config.get("hootty-done-sound") == nil)
+    }
 }

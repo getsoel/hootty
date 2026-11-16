@@ -29,10 +29,22 @@ struct SidebarPaneRow: View {
             StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isAgentSession: pane.agentSessionID != nil, tokens: tokens)
                 .frame(width: TreeLayout.columnWidth)
 
-            Text(pane.displayName)
-                .font(.system(size: TypeScale.bodySize))
-                .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
-                .lineLimit(1)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(pane.displayName)
+                    .font(.system(size: TypeScale.bodySize))
+                    .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
+                    .lineLimit(1)
+
+                // OSC 7501 program status, e.g. "Needs permission: Run tests?".
+                if let summary = pane.programStatus.summary {
+                    Text(summary)
+                        .font(.system(size: TypeScale.captionSize))
+                        .foregroundStyle(Color(tokens.textMuted))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(summary)
+                }
+            }
 
             Spacer(minLength: 0)
 

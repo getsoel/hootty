@@ -1388,3 +1388,84 @@ struct PinWorkspaceIntegration {
         #expect(restored.pinnedWorkspaceID == nil)
     }
 }
+
+// MARK: - OSC 7501 Program Status
+
+@MainActor
+struct ProgramStatusPresence {
+    /// A workspace whose first pane is unfocused, so attention can be raised on it.
+    private func makeUnfocusedPane() throws -> (AppModel, Pane) {
+        let (model, _) = makeModel()
+        let ws = model.workspaces[0]
+        model.selectedWorkspaceID = ws.id
+        let pane = ws.allPanes[0]
+        ws.focusPane(id: pane.id)
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
+        return (model, pane)
+    }
+
+    private func report(_ body: String) throws -> ProgramStatusReport {
+        try #require(ProgramStatusReport.parse(body))
+    }
+
+    @Test func claudeTurnDrivesPresence() throws {
+        let (model, pane) = try makeUnfocusedPane()
+
+        #expect(try model.handleProgramStatus(pane.id, report: report("state=working:app=claude-code")) == nil)
+        #expect(pane.isThinking)
+
+        let blocked = try report("state=blocked:app=claude-code:kind=permission:msg=UnVuIHRlc3RzPw")
+        #expect(model.handleProgramStatus(pane.id, report: blocked) == .blocked)
+        #expect(!pane.isThinking)
+        #expect(pane.attentionKind == .blocked)
+        #expect(pane.matches([.blocked]))
+        #expect(!pane.matches([.done]))
+        let counts = AttentionCounts(panes: [pane], focusedPaneID: nil)
+        #expect(counts.blocked == 1)
+        #expect(counts.firstAttentionKind == .blocked)
+        #expect(pane.programStatus.summary == "Needs permission: Run tests?")
+
+        // Same state again: no new attention, so no repeated sound.
+        pane.attentionKind = nil
+        #expect(model.handleProgramStatus(pane.id, report: blocked) == nil)
+
+        _ = try model.handleProgramStatus(pane.id, report: report("state=working:app=claude-code"))
+        #expect(pane.isThinking)
+        #expect(try model.handleProgramStatus(pane.id, report: report("state=idle:app=claude-code")) == .done)
+        #expect(!pane.isThinking)
+    }
+
+    @Test func programStatusOutranksTitleHooksAndProgress() throws {
+        let (model, pane) = try makeUnfocusedPane()
+        _ = try model.handleProgramStatus(pane.id, report: report("state=idle:app=claude-code"))
+
+        model.handleTitleChange(pane.id, title: "\u{280B} Thinking...")
+        model.handleHoottyPresence(pane.id, presence: .thinking)
+        model.handleProgressReport(pane.id, isBusy: true)
+        model.handleHoottyError(pane.id)
+        #expect(!pane.isThinking)
+        #expect(pane.attentionKind == nil)
+        // Title detection still marks the pane as an agent session.
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+
+        // Once the program clears its records the fallbacks apply again.
+        _ = try model.handleProgramStatus(pane.id, report: report("state=clear"))
+        model.handleHoottyPresence(pane.id, presence: .thinking)
+        #expect(pane.isThinking)
+    }
+
+    @Test func shellPromptDropsTransientRecordsButKeepsResults() throws {
+        let (model, pane) = try makeUnfocusedPane()
+        _ = try model.handleProgramStatus(pane.id, report: report("state=working:app=deploy"))
+        _ = try model.handleProgramStatus(pane.id, report: report("state=error:id=eu-west:msg=dGltZW91dA=="))
+        #expect(pane.attentionKind == .error)
+
+        model.handleCommandFinished(pane.id)
+        #expect(pane.programStatus["eu-west"]?.state == .error)
+        #expect(pane.programStatus[""] == nil)
+
+        _ = try model.handleProgramStatus(pane.id, report: report("state=working"))
+        model.handleCommandFinished(pane.id)
+        #expect(!pane.isThinking)
+    }
+}

@@ -85,6 +85,9 @@ struct BranchSectionHeader: View {
                 BarFilterItem(filter: .thinking, color: tokens.statusThinking, count: counts.thinking) {
                     Image(systemName: "arrow.2.circlepath")
                 },
+                BarFilterItem(filter: .blocked, color: tokens.statusBlocked, count: counts.blocked) {
+                    Image(systemName: "hand.raised")
+                },
                 BarFilterItem(filter: .done, color: tokens.statusDone, count: counts.done) {
                     Image(systemName: "checkmark.circle")
                 },

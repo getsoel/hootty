@@ -20,6 +20,8 @@ enum GhosttyEvent {
     case hoottyAgentName(paneID: UUID, name: String)
     /// OSC 9;4 progress report. Only refines panes already known to be agents.
     case progressReport(paneID: UUID, isBusy: Bool)
+    /// OSC 7501 program status report (validated by libghostty).
+    case programStatus(paneID: UUID, report: ProgramStatusReport)
     case newSplit(paneID: UUID, direction: SplitDirection, parentSurface: ghostty_surface_t?)
     case closeSurface(UUID)
     case closeTab
@@ -296,11 +298,11 @@ final class GhosttyApp {
             action_cb: { app, target, action in
                 GhosttyApp.handleAction(app!, target: target, action: action)
             },
-            read_clipboard_cb: { userdata, location, state in
-                GhosttyApp.readClipboard(userdata, location: location, state: state)
+            read_clipboard_cb: { userdata, location, state, mimes, mimesLen, list in
+                GhosttyApp.readClipboard(userdata, location: location, state: state, mimes: mimes, mimesLen: mimesLen, list: list)
             },
-            confirm_read_clipboard_cb: { userdata, _, state, _ in
-                GhosttyApp.confirmClipboardRead(userdata, state)
+            confirm_read_clipboard_cb: { userdata, confirm, state, _ in
+                GhosttyApp.confirmClipboardRead(userdata, confirm: confirm, state: state)
             },
             write_clipboard_cb: { userdata, location, content, len, confirm in
                 GhosttyApp.writeClipboard(userdata, location: location, content: content, len: len, confirm: confirm)
