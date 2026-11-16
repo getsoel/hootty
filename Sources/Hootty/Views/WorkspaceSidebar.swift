@@ -43,6 +43,7 @@ struct WorkspaceSidebar: View {
     var onToggleSidebar: (() -> Void)?
     var pinnedWorkspaceID: UUID?
     var onTogglePinWorkspace: ((UUID) -> Void)?
+    var ticketKeyMatcher = TicketKeyMatcher()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -416,7 +417,7 @@ struct WorkspaceSidebar: View {
 
             if !filteredPanes.isEmpty {
                 if hasBranches {
-                    BranchSectionHeader(section: section, isSelected: isSelectedWs, focusedPaneID: workspace.focusedPaneID, tokens: tokens)
+                    BranchSectionHeader(section: section, isSelected: isSelectedWs, focusedPaneID: workspace.focusedPaneID, ticketKeyMatcher: ticketKeyMatcher, tokens: tokens)
                 }
 
                 ForEach(filteredPanes) { pane in

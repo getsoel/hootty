@@ -258,6 +258,14 @@ public final class AppModel {
         set { configFile.setDefaultTrueBool("hootty-show-layout-thumbnails", newValue) }
     }
 
+    /// Matches Jira ticket keys in branch names, per `hootty-jira-projects` / `hootty-jira-url`.
+    public var ticketKeyMatcher: TicketKeyMatcher {
+        TicketKeyMatcher(
+            projectsConfig: configFile.get(TicketKeyMatcher.projectsConfigKey),
+            urlConfig: configFile.get(TicketKeyMatcher.urlConfigKey)
+        )
+    }
+
     public func toggleSidebar() {
         switch sidebarMode {
         case .full: sidebarMode = .condensed
