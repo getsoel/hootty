@@ -6,14 +6,20 @@ struct BranchSectionHeader: View {
     let section: SidebarSection
     let isSelected: Bool
     let focusedPaneID: UUID?
+    var ticketKeyMatcher = TicketKeyMatcher()
     let tokens: DesignTokens
 
     private var sectionCounts: AttentionCounts {
         AttentionCounts(panes: section.panes, focusedPaneID: focusedPaneID)
     }
 
+    private var ticketKey: String? {
+        section.branch.flatMap { ticketKeyMatcher.ticketKey(inBranch: $0) }
+    }
+
     var body: some View {
-        HStack(spacing: 6) {
+        let ticketKey = ticketKey
+        return HStack(spacing: 6) {
             Image(systemName: iconName)
                 .font(.system(size: TypeScale.smallSize))
                 .foregroundStyle(Color(isSelected ? tokens.text : tokens.textMuted))
@@ -31,6 +37,15 @@ struct BranchSectionHeader: View {
 
             Spacer(minLength: 0)
 
+            if let ticketKey {
+                Text(ticketKey)
+                    .font(.system(size: TypeScale.smallSize, design: .monospaced))
+                    .foregroundStyle(Color(tokens.textAccent))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .help("Jira ticket from branch name")
+            }
+
             sectionAttentionBadges
         }
         .padding(.vertical, Spacing.smd)
@@ -38,6 +53,16 @@ struct BranchSectionHeader: View {
         .padding(.leading, Spacing.md + TreeLayout.columnWidth)
         .background(TreeLinesBackground(depth: 1, tokens: tokens))
         .contextMenu {
+            if let ticketKey {
+                if let url = ticketKeyMatcher.browseURL(for: ticketKey) {
+                    Button("Open \(ticketKey) in Jira") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+                Button("Copy \(ticketKey)") {
+                    NSPasteboard.general.copyString(ticketKey)
+                }
+            }
             if !section.isHead, let branch = section.branch,
                let worktreePath = section.panes.compactMap(\.worktreePath).first {
                 Button("Copy merge prompt") {

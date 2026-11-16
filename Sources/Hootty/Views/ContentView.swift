@@ -182,7 +182,8 @@ struct ContentView: View {
             onClearSidebarFilters: { appModel.clearSidebarFilters() },
             onToggleSidebar: { appModel.toggleSidebar() },
             pinnedWorkspaceID: appModel.pinnedWorkspaceID,
-            onTogglePinWorkspace: { appModel.togglePinWorkspace(id: $0) }
+            onTogglePinWorkspace: { appModel.togglePinWorkspace(id: $0) },
+            ticketKeyMatcher: appModel.ticketKeyMatcher
         )
     }
 
