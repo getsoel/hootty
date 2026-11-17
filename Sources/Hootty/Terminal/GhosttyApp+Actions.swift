@@ -70,6 +70,8 @@ extension GhosttyApp {
                 GhosttyApp.shared.commandRegistry?.execute(.equalizeSplits)
             }
             return true
+        case GHOSTTY_ACTION_OPEN_URL:
+            return LinkOpener.open(action.action.open_url)
         case GHOSTTY_ACTION_QUIT,
              GHOSTTY_ACTION_CLOSE_ALL_WINDOWS:
             Log.ghostty.info("Blocked quit/close action: tag=\(action.tag.rawValue)")
