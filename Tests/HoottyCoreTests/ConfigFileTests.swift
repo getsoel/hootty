@@ -217,6 +217,47 @@ struct ConfigFileTests {
         #expect(content.contains("font-family = Apple Symbols"))
     }
 
+    /// Ghostty 1.4 turned copy-on-select and middle-click paste off for an
+    /// embedder without a selection clipboard; Hootty restores them unless the
+    /// user sets the keys.
+    @Test func ghosttyConfigContentAddsClipboardDefaultsUnlessSet() {
+        let url = tempFileURL()
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+
+        try? "theme = catppuccin-mocha\n".write(to: url, atomically: true, encoding: .utf8)
+        let defaults = ConfigFile(fileURL: url).ghosttyConfigContent()
+        #expect(defaults.contains("copy-on-select = clipboard"))
+        #expect(defaults.contains("middle-click-action = clipboard-paste"))
+
+        try? "copy-on-select = none\nmiddle-click-action = ignore\n".write(to: url, atomically: true, encoding: .utf8)
+        let userSet = ConfigFile(fileURL: url).ghosttyConfigContent()
+        #expect(userSet.contains("copy-on-select = none"))
+        #expect(!userSet.contains("copy-on-select = clipboard"))
+        #expect(!userSet.contains("middle-click-action = clipboard-paste"))
+    }
+
+    // MARK: - Scrollback migration
+
+    /// The old default `scrollback-limit = 10000` meant 10 KB to Ghostty.
+    @Test func ensureExistsMigratesOldScrollbackDefault() throws {
+        let url = tempFileURL()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "theme = catppuccin-mocha\nscrollback-limit = 10000\n".write(to: url, atomically: true, encoding: .utf8)
+
+        ConfigFile(fileURL: url).ensureExists()
+
+        let content = try String(contentsOf: url, encoding: .utf8)
+        #expect(content == "theme = catppuccin-mocha\nscrollback-limit-lines = 10000\n")
+    }
+
+    @Test func scrollbackMigrationLeavesUserValuesAlone() {
+        #expect(ConfigFile.migratingScrollbackLimit("scrollback-limit = 50000000\n") == nil)
+        #expect(ConfigFile.migratingScrollbackLimit(
+            "scrollback-limit = 10000\nscrollback-limit-lines = 500\n"
+        ) == nil)
+        #expect(ConfigFile.migratingScrollbackLimit("# scrollback-limit = 10000\n") == nil)
+    }
+
     @Test func savePreservesRepeatableKeysNotChanged() throws {
         let url = tempFileURL()
         let dir = url.deletingLastPathComponent()

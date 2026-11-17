@@ -116,6 +116,7 @@ public final class ConfigFile {
     /// Creates the default config file if it doesn't exist. Runs migration from old format first.
     public func ensureExists() {
         migrate()
+        migrateScrollbackLimit()
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             let dir = fileURL.deletingLastPathComponent()
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -145,12 +146,9 @@ public final class ConfigFile {
         if let override = themeOverride {
             filtered.insert("theme = \(override)", at: 0)
         }
-        // Ensure shell-integration-features includes SSH support if not explicitly set
-        let hasShellFeatures = filtered.contains { line in
-            Self.parseConfigLine(line)?.key == "shell-integration-features"
-        }
-        if !hasShellFeatures {
-            filtered.append("shell-integration-features = cursor,title,path,sudo,ssh-env,ssh-terminfo")
+        let setKeys = Set(filtered.compactMap { Self.parseConfigLine($0)?.key })
+        for (key, value) in Self.ghosttyDefaults where !setKeys.contains(key) {
+            filtered.append("\(key) = \(value)")
         }
         let result = filtered.joined(separator: "\n")
         if result.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -159,6 +157,20 @@ public final class ConfigFile {
         }
         return result.hasSuffix("\n") ? result : result + "\n"
     }
+
+    /// Ghostty settings Hootty applies when the config file doesn't set them.
+    ///
+    /// - `shell-integration-features`: adds SSH support to Ghostty's default set.
+    /// - `copy-on-select` / `middle-click-action`: Hootty has no selection
+    ///   clipboard, so before Ghostty 1.4 selecting text copied to the system
+    ///   clipboard and middle-click pasted from it. 1.4 changed the macOS
+    ///   defaults to `none` / `primary-paste`, which do nothing without a
+    ///   selection clipboard. These keep the old behavior.
+    nonisolated static let ghosttyDefaults: [(key: String, value: String)] = [
+        ("shell-integration-features", "cursor,title,path,sudo,ssh-env,ssh-terminfo"),
+        ("copy-on-select", "clipboard"),
+        ("middle-click-action", "clipboard-paste")
+    ]
 
     // MARK: - Parsing
 
@@ -258,7 +270,7 @@ public final class ConfigFile {
         theme = Catppuccin Mocha
         font-family = Menlo
         font-family = Apple Symbols
-        scrollback-limit = 10000
+        scrollback-limit-lines = 10000
         shell-integration-features = cursor,title,path,sudo,ssh-env,ssh-terminfo
 
         # Hootty settings
@@ -273,6 +285,38 @@ public final class ConfigFile {
     }
 
     // MARK: - Migration
+
+    /// Hootty's default config used to write `scrollback-limit = 10000`,
+    /// meant as lines, but Ghostty reads that key as bytes (it is now an alias
+    /// of `scrollback-limit-bytes`), leaving almost no scrollback.
+    private func migrateScrollbackLimit() {
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8),
+              let migrated = Self.migratingScrollbackLimit(content) else { return }
+        do {
+            try migrated.write(to: fileURL, atomically: true, encoding: .utf8)
+            Self.logger.info("Migrated scrollback-limit = 10000 to scrollback-limit-lines")
+        } catch {
+            Self.logger.error("Failed to migrate scrollback-limit: \(error.localizedDescription)")
+        }
+    }
+
+    /// Rewrites the old default `scrollback-limit = 10000` line to
+    /// `scrollback-limit-lines = 10000`. Returns nil when there's nothing to
+    /// migrate: any other value is the user's own and is left alone, as is a
+    /// file that already sets `scrollback-limit-lines`.
+    nonisolated static func migratingScrollbackLimit(_ content: String) -> String? {
+        let lines = content.components(separatedBy: "\n")
+        let parsed = lines.compactMap { parseConfigLine($0) }
+        guard !parsed.contains(where: { $0.key == "scrollback-limit-lines" }) else { return nil }
+        var changed = false
+        let migrated = lines.map { line -> String in
+            guard let (key, value) = parseConfigLine(line),
+                  key == "scrollback-limit", value == "10000" else { return line }
+            changed = true
+            return "scrollback-limit-lines = 10000"
+        }
+        return changed ? migrated.joined(separator: "\n") : nil
+    }
 
     private func migrate() {
         let dir = fileURL.deletingLastPathComponent()

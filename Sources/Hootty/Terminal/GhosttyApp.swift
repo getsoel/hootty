@@ -302,8 +302,8 @@ final class GhosttyApp {
             read_clipboard_cb: { userdata, location, state, mimes, mimesLen, list in
                 GhosttyApp.readClipboard(userdata, location: location, state: state, mimes: mimes, mimesLen: mimesLen, list: list)
             },
-            confirm_read_clipboard_cb: { userdata, confirm, state, _ in
-                GhosttyApp.confirmClipboardRead(userdata, confirm: confirm, state: state)
+            confirm_read_clipboard_cb: { userdata, confirm, state, request in
+                GhosttyApp.confirmClipboardRead(userdata, confirm: confirm, state: state, request: request)
             },
             write_clipboard_cb: { userdata, location, content, len, confirm in
                 GhosttyApp.writeClipboard(userdata, location: location, content: content, len: len, confirm: confirm)

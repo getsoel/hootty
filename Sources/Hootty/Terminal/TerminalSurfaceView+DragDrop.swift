@@ -1,5 +1,6 @@
 import AppKit
 import CGhostty
+import HoottyCore
 
 // MARK: - Drag and Drop
 
@@ -17,10 +18,19 @@ extension TerminalSurfaceView {
         let pb = sender.draggingPasteboard
 
         // Resolve drag content (same priority as before)
-        let resolved: String? = if let urls = pb.readObjects(forClasses: [NSURL.self], options: [
-            .urlReadingFileURLsOnly: true
-        ]) as? [URL], !urls.isEmpty {
-            urls.map { shellEscape($0.path) }.joined(separator: " ")
+        let fileURLs = pb.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]) as? [URL] ?? []
+
+        // A control character in a file name acts as a key when typed (e.g.
+        // Ctrl-U then Return runs a different command) and escaping can't stop
+        // it, so refuse the drop. Matches Ghostty (GHSA-mxqx-236q-wrv7).
+        if fileURLs.contains(where: { containsControlCharacters($0.path) }) {
+            Log.surface.warning("Refusing drop of a file whose name contains control characters")
+            NSSound.beep()
+            return false
+        }
+
+        let resolved: String? = if !fileURLs.isEmpty {
+            fileURLs.map { shellEscape($0.path) }.joined(separator: " ")
         } else if let urls = pb.readObjects(forClasses: [NSURL.self], options: nil) as? [URL],
                   let url = urls.first {
             shellEscape(url.absoluteString)
