@@ -431,7 +431,7 @@ struct AttentionFlowIntegration {
         _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // p2 is now focused; set attention on p1
-        model.handlePaneNeedsAttention(p1.id, kind: .bell)
+        model.handleNotification(p1.id)
         #expect(p1.attentionKind == .bell)
         #expect(ws.hasAttention == true)
 
@@ -453,7 +453,7 @@ struct AttentionFlowIntegration {
         _ = try #require(ws2.splitFocusedPane(direction: .horizontal))
         // ws2p2 is now focused in ws2; flag attention on ws2p1
         // But model.selectedWorkspaceID is ws1, so ws2p1 is unfocused from model perspective
-        model.handlePaneNeedsAttention(ws2p1.id, kind: .bell)
+        model.handleNotification(ws2p1.id)
         #expect(ws2.hasAttention == true)
 
         // Switch to ws2 and focus the attention pane
@@ -473,21 +473,21 @@ struct AttentionFlowIntegration {
         _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // Set attention on p1 (unfocused after split)
-        model.handlePaneNeedsAttention(p1.id, kind: .bell)
+        model.handleNotification(p1.id)
         #expect(p1.attentionKind == .bell)
 
         // Thinking start clears attention
-        model.handlePaneThinkingChanged(p1.id, isThinking: true)
+        model.handleHoottyPresence(p1.id, presence: .thinking)
         #expect(p1.attentionKind == nil)
         #expect(p1.isThinking == true)
 
         // Stop thinking — unfocused pane gets done attention
-        model.handlePaneThinkingChanged(p1.id, isThinking: false)
+        model.handleHoottyPresence(p1.id, presence: .idle)
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == .done)
     }
 
-    @Test func bellOnFocusedPaneSetsBellAttention() throws {
+    @Test func bellOnFocusedPaneIsNotAnUnseenEvent() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
@@ -499,10 +499,9 @@ struct AttentionFlowIntegration {
         // p1 is no longer focused after split; re-focus it
         ws.focusPane(id: p1.id)
 
-        // Bell on focused pane should set .bell
-        let didSet = model.handleBell(p1.id)
-        #expect(didSet == true)
-        #expect(p1.attentionKind == .bell)
+        // The user is looking at p1, so the bell is not something they missed.
+        #expect(model.handleBell(p1.id) == nil)
+        #expect(p1.attentionKind == nil)
     }
 
     @Test func bellOnUnfocusedPaneSetsBellAttention() throws {
@@ -515,28 +514,28 @@ struct AttentionFlowIntegration {
         let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // p2 is focused after split; bell on p1 (unfocused) should set .bell
-        let didSet = model.handleBell(p1.id)
-        #expect(didSet == true)
+        #expect(model.handleBell(p1.id) == .bell)
         #expect(p1.attentionKind == .bell)
 
         // p2 (focused) should not be affected
         #expect(p2.attentionKind == nil)
     }
 
-    @Test func bellAttentionClearsIndependently() {
+    @Test func bellAttentionClearsIndependently() throws {
         let (model, _) = makeModel()
         let ws = model.workspaces[0]
         model.selectedWorkspaceID = ws.id
 
         let p1 = ws.allPanes[0]
         ws.focusPane(id: p1.id)
+        _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
-        // Bell on focused pane
+        // Bell on unfocused pane
         model.handleBell(p1.id)
         #expect(p1.attentionKind == .bell)
 
-        // Simulate user interaction clearing the bell
-        p1.attentionKind = nil
+        // User interaction (click/keypress) clears the bell
+        p1.markViewed()
         #expect(p1.attentionKind == nil)
         #expect(ws.hasAttention == false)
     }
@@ -551,8 +550,8 @@ struct AttentionFlowIntegration {
         _ = try #require(ws.splitFocusedPane(direction: .horizontal))
 
         // Set transient state
-        model.handlePaneNeedsAttention(p1.id, kind: .bell)
-        model.handlePaneThinkingChanged(p1.id, isThinking: true)
+        model.handleNotification(p1.id)
+        model.handleHoottyPresence(p1.id, presence: .thinking)
         model.saveWorkspaces()
 
         let restored = reloadModel(from: url)
@@ -836,17 +835,21 @@ struct TitleBasedClaudeDetection {
         #expect(p1.isThinking == true)
 
         // Hook-based thinking fires later — should be a no-op (already thinking)
-        model.handlePaneThinkingChanged(p1.id, isThinking: true)
+        model.handleHoottyPresence(p1.id, presence: .thinking)
         #expect(p1.isThinking == true)
         #expect(p1.attentionKind == nil)
 
-        // Title-based idle fires — done attention on unfocused pane
+        // Title-based idle fires first. Idle glyphs are ambiguous (Claude
+        // shows one during a permission prompt), so the more trusted hook,
+        // which still says thinking, decides.
         model.handleTitleChange(p1.id, title: "* project")
+        #expect(p1.isThinking == true)
+        #expect(p1.attentionKind == nil)
+
+        // Hook-based idle fires — the turn ends: done on the unfocused pane
+        model.handleHoottyPresence(p1.id, presence: .idle)
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == .done)
-
-        // Hook-based idle fires later — already not thinking, no change
-        model.handlePaneThinkingChanged(p1.id, isThinking: false)
         #expect(p1.isThinking == false)
         #expect(p1.attentionKind == .done)
     }
@@ -865,8 +868,7 @@ struct TitleBasedClaudeDetection {
         #expect(pane.attentionKind == nil)
 
         // Bell during thinking — should be suppressed
-        let didSet = model.handleBell(pane.id)
-        #expect(didSet == false)
+        #expect(model.handleBell(pane.id) == nil)
         #expect(pane.attentionKind == nil)
         #expect(pane.isThinking == true)
     }
@@ -915,11 +917,11 @@ struct ManualFlagAttention {
         let pane = ws.allPanes[0]
 
         pane.setNote("remember this")
-        pane.attentionKind = .bell
+        pane.updatePresence(.notification, isFocused: false)
         #expect(pane.hasNote)
         #expect(pane.attentionKind == .bell)
 
-        pane.attentionKind = nil
+        pane.markViewed()
         #expect(pane.hasNote)
     }
 
@@ -942,8 +944,7 @@ struct ManualFlagAttention {
         let pane = ws.allPanes[0]
 
         pane.setNote("remember this")
-        let didSet = model.handleBell(pane.id)
-        #expect(didSet == true)
+        #expect(pane.updatePresence(.bell, isFocused: false) == .bell)
         #expect(pane.attentionKind == .bell)
         #expect(pane.hasNote)
     }
@@ -1242,7 +1243,7 @@ struct SidebarKeyboardNavTests {
         let pane1 = ws1.allPanes[0]
         // Add a second pane via split
         let pane2 = try #require(ws1.splitFocusedPane(direction: .horizontal))
-        pane1.isThinking = true
+        pane1.updatePresence(.hook(.thinking), isFocused: false)
         // pane2 has no state — but is focused (split focuses the new pane)
 
         let items = SidebarKeyboardNav.allNavigableItems(
@@ -1426,7 +1427,6 @@ struct ProgramStatusPresence {
         #expect(pane.programStatus.summary == "Needs permission: Run tests?")
 
         // Same state again: no new attention, so no repeated sound.
-        pane.attentionKind = nil
         #expect(model.handleProgramStatus(pane.id, report: blocked) == nil)
 
         _ = try model.handleProgramStatus(pane.id, report: report("state=working:app=claude-code"))

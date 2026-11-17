@@ -160,6 +160,15 @@ public struct ProgramStatusRecords: Equatable, Sendable {
         records.values.contains { $0.state == .done || $0.state == .error }
     }
 
+    /// The user has seen the results but the program is still running: keep
+    /// its records (so OSC 7501 keeps deciding presence) with done/error
+    /// turned to idle.
+    public mutating func markFinishedSeen() {
+        for (id, record) in records where record.state == .done || record.state == .error {
+            records[id]?.state = .idle
+        }
+    }
+
     /// Drop `done` and `error` records once the user has looked at the pane.
     public mutating func acknowledgeFinished() {
         remove { _, record in record.state == .done || record.state == .error }
@@ -179,6 +188,19 @@ public struct ProgramStatusRecords: Equatable, Sendable {
                 if lhs.state.urgency != rhs.state.urgency { return lhs.state.urgency < rhs.state.urgency }
                 return !lhs.id.isEmpty && rhs.id.isEmpty
             }
+    }
+
+    /// Live activity implied by the records, or nil when there are none.
+    /// Blocked anywhere wins; then working anywhere (root's progress
+    /// preferred); otherwise the program is at rest (idle, done or error).
+    public var activity: PaneActivity? {
+        guard let primary else { return nil }
+        if primary.state == .blocked { return .blocked(primary.kind) }
+        let working = updateOrder.reversed().compactMap { records[$0] }.filter { $0.state == .working }
+        if let record = working.first(where: { $0.id.isEmpty }) ?? working.first {
+            return .working(progress: record.progress)
+        }
+        return .idle
     }
 
     /// `app` for a record, inherited from its nearest ancestor when absent.

@@ -81,7 +81,7 @@ struct TerminalPaneView: NSViewRepresentable {
         }
         view.processDidExit = { [weak pane] _ in
             pane?.isRunning = false
-            pane?.isThinking = false
+            pane?.updatePresence(.commandFinished, isFocused: true)
             pane?.agentSessionID = nil
             pane?.agentName = nil
             if let paneID = pane?.id {
@@ -89,14 +89,9 @@ struct TerminalPaneView: NSViewRepresentable {
             }
         }
         view.onUserInteraction = { [weak pane] in
-            if pane?.attentionKind != nil {
-                pane?.attentionKind = nil
-            }
-            // The user has seen the pane: OSC 7501 done/error results are acknowledged.
-            // Checked first so keystrokes don't write the @Observable property.
-            if pane?.programStatus.hasFinished == true {
-                pane?.programStatus.acknowledgeFinished()
-            }
+            // Clears unseen events only; a blocked pane keeps its hand until
+            // the program moves on. No-op (no observable write) when nothing is unseen.
+            pane?.markViewed()
         }
         view.onFocusRequest = onFocusPane
 

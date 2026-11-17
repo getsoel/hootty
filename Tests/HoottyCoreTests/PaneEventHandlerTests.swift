@@ -38,55 +38,59 @@ struct PaneEventHandlerTests {
 
     // MARK: - Bell
 
-    @Test func bellSetsAttentionOnAnyPane() {
-        let (handler, _, pane) = makeHandler()
-        let didSet = handler.handleBell(pane.id)
-        #expect(didSet)
-        #expect(pane.attentionKind == .bell)
+    @Test func bellSetsAttentionOnUnfocusedPane() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        #expect(handler.handleBell(p1.id) == .bell)
+        #expect(p1.attentionKind == .bell)
     }
 
-    @Test func bellSuppressedDuringThinking() {
+    @Test func bellIgnoredOnFocusedPane() {
+        // The user is looking at it: nothing was missed.
         let (handler, _, pane) = makeHandler()
-        handler.handlePaneThinkingChanged(pane.id, isThinking: true)
-        let didSet = handler.handleBell(pane.id)
-        #expect(!didSet)
+        #expect(handler.handleBell(pane.id) == nil)
         #expect(pane.attentionKind == nil)
     }
 
-    @Test func bellNotBlockedByNote() {
-        let (handler, _, pane) = makeHandler()
-        pane.setNote("remember this")
-        let didSet = handler.handleBell(pane.id)
-        #expect(didSet)
-        #expect(pane.attentionKind == .bell)
-        #expect(pane.hasNote)
+    @Test func bellSuppressedDuringThinking() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        #expect(handler.handleBell(p1.id) == nil)
+        #expect(p1.attentionKind == nil)
+    }
+
+    @Test func bellNotBlockedByNote() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        p1.setNote("remember this")
+        #expect(handler.handleBell(p1.id) == .bell)
+        #expect(p1.attentionKind == .bell)
+        #expect(p1.hasNote)
     }
 
     // MARK: - Thinking
 
-    @Test func thinkingStartClearsAttention() {
-        let (handler, _, pane) = makeHandler()
-        pane.attentionKind = .bell
-        handler.handlePaneThinkingChanged(pane.id, isThinking: true)
-        #expect(pane.isThinking)
-        #expect(pane.attentionKind == nil)
+    @Test func thinkingStartClearsAttention() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleBell(p1.id)
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        #expect(p1.isThinking)
+        #expect(p1.attentionKind == nil)
     }
 
-    @Test func thinkingStartClearsAttentionWithNote() {
-        let (handler, _, pane) = makeHandler()
-        pane.attentionKind = .bell
-        pane.setNote("remember this")
-        handler.handlePaneThinkingChanged(pane.id, isThinking: true)
-        #expect(pane.isThinking)
-        #expect(pane.attentionKind == nil)
-        #expect(pane.hasNote)
+    @Test func thinkingStartClearsAttentionWithNote() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleBell(p1.id)
+        p1.setNote("remember this")
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        #expect(p1.isThinking)
+        #expect(p1.attentionKind == nil)
+        #expect(p1.hasNote)
     }
 
     @Test func thinkingStopSetsDoneOnUnfocusedPane() throws {
-        let (handler, ws, p1, _) = try makeHandlerWithSplit()
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
         // p1 is unfocused (p2 is focused after split)
-        handler.handlePaneThinkingChanged(p1.id, isThinking: true)
-        handler.handlePaneThinkingChanged(p1.id, isThinking: false)
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        #expect(handler.handleHoottyPresence(p1.id, presence: .idle) == .done)
         #expect(!p1.isThinking)
         #expect(p1.attentionKind == .done)
     }
@@ -94,34 +98,31 @@ struct PaneEventHandlerTests {
     @Test func thinkingStopNoDoneOnFocusedPane() throws {
         let (handler, _, _, p2) = try makeHandlerWithSplit()
         // p2 is focused
-        handler.handlePaneThinkingChanged(p2.id, isThinking: true)
-        handler.handlePaneThinkingChanged(p2.id, isThinking: false)
+        handler.handleHoottyPresence(p2.id, presence: .thinking)
+        #expect(handler.handleHoottyPresence(p2.id, presence: .idle) == nil)
         #expect(!p2.isThinking)
         #expect(p2.attentionKind == nil)
     }
 
-    // MARK: - Attention
+    // MARK: - Notifications
 
-    @Test func attentionIgnoredOnFocusedPane() {
+    @Test func notificationIgnoredOnFocusedPane() {
         let (handler, _, pane) = makeHandler()
         // Single pane is focused
-        let didSet = handler.handlePaneNeedsAttention(pane.id, kind: .bell)
-        #expect(!didSet)
+        #expect(handler.handleNotification(pane.id) == nil)
         #expect(pane.attentionKind == nil)
     }
 
-    @Test func attentionSetOnUnfocusedPane() throws {
+    @Test func notificationSetOnUnfocusedPane() throws {
         let (handler, _, p1, _) = try makeHandlerWithSplit()
-        let didSet = handler.handlePaneNeedsAttention(p1.id, kind: .bell)
-        #expect(didSet)
+        #expect(handler.handleNotification(p1.id) == .bell)
         #expect(p1.attentionKind == .bell)
     }
 
-    @Test func attentionNotBlockedByNote() throws {
+    @Test func notificationNotBlockedByNote() throws {
         let (handler, _, p1, _) = try makeHandlerWithSplit()
         p1.setNote("remember this")
-        let didSet = handler.handlePaneNeedsAttention(p1.id, kind: .bell)
-        #expect(didSet)
+        #expect(handler.handleNotification(p1.id) == .bell)
         #expect(p1.attentionKind == .bell)
         #expect(p1.hasNote)
     }
@@ -214,13 +215,14 @@ struct PaneEventHandlerTests {
         #expect(p1.attentionKind == .blocked)
     }
 
-    @Test func geminiNeedsAttentionDoesNotFireWhenFocused() throws {
+    @Test func geminiNeedsAttentionShowsWhenFocused() throws {
+        // Blocked is live state: the hand stays while the user looks at it.
         let (handler, _, _, p2) = try makeHandlerWithSplit()
         // p2 is focused. Send Gemini "Action Required" (✋).
         handler.handleTitleChange(p2.id, title: "\u{270B}  Action Required (my-folder)")
         #expect(p2.agentSessionID == Pane.autoSessionID)
         #expect(!p2.isThinking)
-        #expect(p2.attentionKind == nil)
+        #expect(p2.attentionKind == .blocked)
     }
 
     // MARK: - Gemini Thinking / Idle
@@ -241,8 +243,7 @@ struct PaneEventHandlerTests {
 
     @Test func unknownPaneIsNoOp() {
         let (handler, _, _) = makeHandler()
-        let didSet = handler.handleBell(UUID())
-        #expect(!didSet)
+        #expect(handler.handleBell(UUID()) == nil)
     }
 
     // MARK: - Hootty Protocol: Presence
@@ -255,12 +256,12 @@ struct PaneEventHandlerTests {
         #expect(pane.attentionKind == nil)
     }
 
-    @Test func hoottyThinkingClearsExistingAttention() {
-        let (handler, _, pane) = makeHandler()
-        pane.attentionKind = .bell
-        handler.handleHoottyPresence(pane.id, presence: .thinking)
-        #expect(pane.isThinking)
-        #expect(pane.attentionKind == nil)
+    @Test func hoottyThinkingClearsExistingAttention() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleBell(p1.id)
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        #expect(p1.isThinking)
+        #expect(p1.attentionKind == nil)
     }
 
     @Test func hoottyIdleEndsThinking() {
@@ -285,10 +286,10 @@ struct PaneEventHandlerTests {
         #expect(p1.attentionKind == .blocked)
     }
 
-    @Test func hoottyAttentionIgnoredOnFocusedPane() throws {
+    @Test func hoottyAttentionShowsOnFocusedPane() throws {
         let (handler, _, _, p2) = try makeHandlerWithSplit()
-        handler.handleHoottyPresence(p2.id, presence: .needsAttention)
-        #expect(p2.attentionKind == nil)
+        #expect(handler.handleHoottyPresence(p2.id, presence: .needsAttention) == .blocked)
+        #expect(p2.attentionKind == .blocked)
     }
 
     // MARK: - Progress Reports (OSC 9;4)
@@ -301,13 +302,13 @@ struct PaneEventHandlerTests {
         #expect(!pane.isThinking)
     }
 
-    @Test func progressReportSetsThinkingOnAgentPane() {
-        let (handler, _, pane) = makeHandler()
-        pane.agentSessionID = Pane.autoSessionID
-        pane.attentionKind = .bell
-        handler.handleProgressReport(pane.id, isBusy: true)
-        #expect(pane.isThinking)
-        #expect(pane.attentionKind == nil)
+    @Test func progressReportSetsThinkingOnAgentPane() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        p1.agentSessionID = Pane.autoSessionID
+        handler.handleBell(p1.id)
+        handler.handleProgressReport(p1.id, isBusy: true)
+        #expect(p1.isThinking)
+        #expect(p1.attentionKind == nil)
     }
 
     @Test func progressReportEndsThinkingOnAgentPane() {
@@ -337,19 +338,64 @@ struct PaneEventHandlerTests {
 
     // MARK: - Hootty Protocol: Error
 
-    @Test func hoottyErrorSetsErrorAttention() {
-        let (handler, _, pane) = makeHandler()
-        handler.handleHoottyError(pane.id)
-        #expect(pane.agentSessionID == Pane.autoSessionID)
-        #expect(!pane.isThinking)
-        #expect(pane.attentionKind == .error)
+    @Test func hoottyErrorSetsErrorAttention() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        #expect(handler.handleHoottyError(p1.id) == .error)
+        #expect(p1.agentSessionID == Pane.autoSessionID)
+        #expect(!p1.isThinking)
+        #expect(p1.attentionKind == .error)
     }
 
-    @Test func hoottyErrorClearsThinking() {
+    @Test func hoottyErrorOnFocusedPaneIsNotAnUnseenEvent() {
         let (handler, _, pane) = makeHandler()
-        handler.handleHoottyPresence(pane.id, presence: .thinking)
-        handler.handleHoottyError(pane.id)
-        #expect(!pane.isThinking)
-        #expect(pane.attentionKind == .error)
+        #expect(handler.handleHoottyError(pane.id) == nil)
+        #expect(pane.agentSessionID == Pane.autoSessionID)
+        #expect(pane.attentionKind == nil)
+    }
+
+    @Test func hoottyErrorClearsThinking() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p1.id, presence: .thinking)
+        handler.handleHoottyError(p1.id)
+        #expect(!p1.isThinking)
+        #expect(p1.attentionKind == .error)
+    }
+
+    // MARK: - Attention priority
+
+    @Test func bellDoesNotHideBlocked() throws {
+        // Claude rings the bell at a permission prompt right after the hook
+        // raises the hand; the hand must stay.
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p1.id, presence: .needsAttention)
+        #expect(handler.handleBell(p1.id) == nil)
+        #expect(p1.attentionKind == .blocked)
+        #expect(p1.presence.unseen == nil)
+    }
+
+    @Test func notificationDoesNotHideBlocked() throws {
+        // A plain OSC 9 notification ("Claude needs your permission") arrives as .bell.
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleHoottyPresence(p1.id, presence: .needsAttention)
+        #expect(handler.handleNotification(p1.id) == nil)
+        #expect(p1.attentionKind == .blocked)
+    }
+
+    @Test func strongerAttentionReplacesWeakerNotTheReverse() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        #expect(handler.handleBell(p1.id) == .bell)
+        #expect(handler.handleProgramStatus(p1.id, report: ProgramStatusReport(state: .done)) == .done)
+        #expect(handler.handleBell(p1.id) == nil)
+        #expect(p1.attentionKind == .done)
+        #expect(handler.handleProgramStatus(p1.id, report: ProgramStatusReport(state: .blocked)) == .blocked)
+        #expect(p1.attentionKind == .blocked)
+    }
+
+    @Test func programStatusMovesFromBlockedToDone() throws {
+        let (handler, _, p1, _) = try makeHandlerWithSplit()
+        handler.handleProgramStatus(p1.id, report: ProgramStatusReport(state: .blocked, kind: .permission))
+        #expect(p1.attentionKind == .blocked)
+        #expect(handler.handleProgramStatus(p1.id, report: ProgramStatusReport(state: .done)) == .done)
+        #expect(p1.attentionKind == .done)
     }
 }

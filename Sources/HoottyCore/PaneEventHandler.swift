@@ -24,118 +24,66 @@ public final class PaneEventHandler {
         return body(workspace, pane)
     }
 
-    /// Transition a pane out of the thinking state. If it was thinking and is now
-    /// unfocused (and not manually flagged), sets `.done` attention.
-    private func endThinking(_ workspace: Workspace, _ pane: Pane) {
-        let wasThinking = pane.isThinking
-        pane.isThinking = false
-        if wasThinking {
-            let isFocused = workspace.id == selectedWorkspaceID()
-                && workspace.focusedPaneID == pane.id
-            if !isFocused { pane.attentionKind = .done }
+    private func isFocused(_ workspace: Workspace, _ pane: Pane) -> Bool {
+        workspace.id == selectedWorkspaceID() && workspace.focusedPaneID == pane.id
+    }
+
+    /// Apply a presence event to a pane. Returns the attention kind to
+    /// announce with a sound, if any (see `PanePresence.apply`).
+    @discardableResult
+    private func update(_ workspace: Workspace, _ pane: Pane, _ event: PresenceEvent) -> AttentionKind? {
+        pane.updatePresence(event, isFocused: isFocused(workspace, pane))
+    }
+
+    private func markAgentSession(_ pane: Pane) {
+        if pane.agentSessionID == nil {
+            pane.agentSessionID = Pane.autoSessionID
         }
+    }
+
+    /// Terminal bell (BEL). Ignored while the program is working.
+    @discardableResult
+    public func handleBell(_ paneID: UUID) -> AttentionKind? {
+        withPane(id: paneID) { workspace, pane in
+            update(workspace, pane, .bell)
+        } ?? nil
+    }
+
+    /// A desktop notification (OSC 9/777) that isn't a hootty protocol message.
+    @discardableResult
+    public func handleNotification(_ paneID: UUID) -> AttentionKind? {
+        withPane(id: paneID) { workspace, pane in
+            update(workspace, pane, .notification)
+        } ?? nil
     }
 
     @discardableResult
-    public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
+    public func handleTitleChange(_ paneID: UUID, title: String) -> AttentionKind? {
         withPane(id: paneID) { workspace, pane in
-            let isFocusedPane = workspace.id == selectedWorkspaceID()
-                && workspace.focusedPaneID == paneID
-            if !isFocusedPane {
-                pane.attentionKind = kind
-                return true
+            let glyph = AgentTitleDetection.detect(title)
+            if glyph != nil {
+                markAgentSession(pane)
+            } else if pane.agentSessionID == Pane.autoSessionID, !pane.isThinking,
+                      pane.programStatus.isEmpty {
+                // Not working and the title no longer matches: the agent
+                // exited. Clear the marker so the sidebar and title bar revert
+                // to plain terminal style. (A no-match while working is an
+                // implicit idle, e.g. Codex, which has no idle glyph.)
+                pane.agentSessionID = nil
+                pane.agentName = nil
             }
-            return false
-        } ?? false
-    }
-
-    @discardableResult
-    public func handleBell(_ paneID: UUID) -> Bool {
-        withPane(id: paneID) { _, pane in
-            guard !pane.isThinking else { return false }
-            pane.attentionKind = .bell
-            return true
-        } ?? false
-    }
-
-    public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
-        withPane(id: paneID) { workspace, pane in
-            if isThinking {
-                pane.isThinking = true
-                pane.attentionKind = nil
-            } else {
-                endThinking(workspace, pane)
-            }
-        }
-    }
-
-    public func handleTitleChange(_ paneID: UUID, title: String) {
-        withPane(id: paneID) { workspace, pane in
-            guard let presence = AgentTitleDetection.detect(title) else {
-                // Title no longer matches any agent pattern.
-                guard pane.agentSessionID == Pane.autoSessionID else { return }
-                // OSC 7501 owns presence while it has records.
-                guard pane.programStatus.isEmpty else { return }
-                if pane.isThinking {
-                    // Implicit idle transition (e.g. Codex, which has no
-                    // dedicated idle glyph). Preserve the session marker —
-                    // we can't yet tell "went idle" from "quit" via title.
-                    endThinking(workspace, pane)
-                } else {
-                    // Not thinking and no longer matches — treat as the
-                    // agent having exited. Clear the session marker so the
-                    // sidebar and title bar revert to plain terminal style.
-                    // Codex's sidebar dot may drop during long idle stretches;
-                    // it re-arms on the next thinking cycle.
-                    pane.agentSessionID = nil
-                    pane.agentName = nil
-                }
-                return
-            }
-
-            if pane.agentSessionID == nil {
-                pane.agentSessionID = Pane.autoSessionID
-            }
-            guard pane.programStatus.isEmpty else { return }
-
-            switch presence {
-            case .thinking:
-                // Guard against redundant @Observable writes on the hot path.
-                // Title changes fire at spinner-frame cadence (10–20Hz); an
-                // unconditional assignment re-propagates observation to every
-                // view bound to these fields every frame.
-                if !pane.isThinking { pane.isThinking = true }
-                if pane.attentionKind != nil { pane.attentionKind = nil }
-            case .idle:
-                endThinking(workspace, pane)
-            case .needsAttention:
-                if pane.isThinking { pane.isThinking = false }
-                _ = handlePaneNeedsAttention(paneID, kind: .blocked)
-            }
-        }
+            return update(workspace, pane, .title(glyph))
+        } ?? nil
     }
 
     /// Process an explicit hootty protocol presence message from a TUI tool.
     /// Unlike title-based detection, this is an opt-in contract via OSC 9.
-    public func handleHoottyPresence(_ paneID: UUID, presence: AgentPresence) {
+    @discardableResult
+    public func handleHoottyPresence(_ paneID: UUID, presence: AgentPresence) -> AttentionKind? {
         withPane(id: paneID) { workspace, pane in
-            // Mark as an agent session if not already known.
-            if pane.agentSessionID == nil {
-                pane.agentSessionID = Pane.autoSessionID
-            }
-            guard pane.programStatus.isEmpty else { return }
-
-            switch presence {
-            case .thinking:
-                if !pane.isThinking { pane.isThinking = true }
-                if pane.attentionKind != nil { pane.attentionKind = nil }
-            case .idle:
-                endThinking(workspace, pane)
-            case .needsAttention:
-                if pane.isThinking { pane.isThinking = false }
-                _ = handlePaneNeedsAttention(paneID, kind: .blocked)
-            }
-        }
+            markAgentSession(pane)
+            return update(workspace, pane, .hook(presence))
+        } ?? nil
     }
 
     /// Process an OSC 9;4 progress report as a presence signal.
@@ -146,82 +94,40 @@ public final class PaneEventHandler {
     /// so this only refines panes already known to be running an agent. It never
     /// promotes a plain terminal to an agent pane the way the title and hootty
     /// protocol paths do.
-    public func handleProgressReport(_ paneID: UUID, isBusy: Bool) {
-        withPane(id: paneID) { workspace, pane in
-            guard pane.agentSessionID != nil, pane.programStatus.isEmpty else { return }
-            if isBusy {
-                if !pane.isThinking { pane.isThinking = true }
-                if pane.attentionKind != nil { pane.attentionKind = nil }
-            } else {
-                endThinking(workspace, pane)
-            }
-        }
-    }
-
-    /// Process an explicit hootty protocol error message from a TUI tool.
-    public func handleHoottyError(_ paneID: UUID) {
-        withPane(id: paneID) { _, pane in
-            if pane.agentSessionID == nil {
-                pane.agentSessionID = Pane.autoSessionID
-            }
-            guard pane.programStatus.isEmpty else { return }
-            if pane.isThinking { pane.isThinking = false }
-            pane.attentionKind = .error
-        }
-    }
-
-    /// Apply an OSC 7501 program status report. While a pane has records they
-    /// take precedence over title glyphs, hootty:presence and OSC 9;4.
-    ///
-    /// Returns the attention kind newly raised, if any, so the caller can play
-    /// a sound. Only transitions of the pane's primary state raise attention,
-    /// which rate-limits repeated identical reports as the spec asks.
     @discardableResult
-    public func handleProgramStatus(_ paneID: UUID, report: ProgramStatusReport) -> AttentionKind? {
+    public func handleProgressReport(_ paneID: UUID, isBusy: Bool) -> AttentionKind? {
         withPane(id: paneID) { workspace, pane in
-            let previous = pane.programStatus.primary?.state
-            pane.programStatus.apply(report)
-            return applyProgramStatus(workspace, pane, previous: previous)
+            guard pane.agentSessionID != nil else { return nil }
+            return update(workspace, pane, .progressReport(isBusy: isBusy))
         } ?? nil
     }
 
-    /// A command finished and the shell is back at its prompt: apply the
-    /// spec's lifetime rule (drop working/blocked/idle, keep done/error).
-    public func handleCommandFinished(_ paneID: UUID) {
+    /// Process an explicit hootty protocol error message from a TUI tool.
+    @discardableResult
+    public func handleHoottyError(_ paneID: UUID) -> AttentionKind? {
         withPane(id: paneID) { workspace, pane in
-            guard !pane.programStatus.isEmpty else { return }
-            let previous = pane.programStatus.primary?.state
-            pane.programStatus.dropTransient()
-            applyProgramStatus(workspace, pane, previous: previous)
-        }
+            markAgentSession(pane)
+            return update(workspace, pane, .hookError)
+        } ?? nil
     }
 
-    /// Mirror the primary program status record onto the pane's presence fields.
+    /// Apply an OSC 7501 program status report. While a pane has records they
+    /// decide its live activity alone (see `PanePresence.activity`).
     @discardableResult
-    private func applyProgramStatus(_ workspace: Workspace, _ pane: Pane, previous: ProgramStatusState?) -> AttentionKind? {
-        let current = pane.programStatus.primary?.state
-        guard current != previous else { return nil }
-        switch current {
-        case .working:
-            if !pane.isThinking { pane.isThinking = true }
-            if pane.attentionKind != nil { pane.attentionKind = nil }
-        case .blocked:
-            if pane.isThinking { pane.isThinking = false }
-            if handlePaneNeedsAttention(pane.id, kind: .blocked) { return .blocked }
-        case .done:
-            if pane.isThinking { pane.isThinking = false }
-            if handlePaneNeedsAttention(pane.id, kind: .done) { return .done }
-        case .error:
-            if pane.isThinking { pane.isThinking = false }
-            if handlePaneNeedsAttention(pane.id, kind: .error) { return .error }
-        case .idle:
-            let wasThinking = pane.isThinking
-            endThinking(workspace, pane)
-            if wasThinking, pane.attentionKind == .done { return .done }
-        case .clear, nil:
-            if pane.isThinking { pane.isThinking = false }
-        }
-        return nil
+    public func handleProgramStatus(_ paneID: UUID, report: ProgramStatusReport) -> AttentionKind? {
+        withPane(id: paneID) { workspace, pane in
+            update(workspace, pane, .programStatus(report))
+        } ?? nil
+    }
+
+    /// A command finished and the shell is back at its prompt: whatever was
+    /// running has ended, so every live signal is dropped (OSC 7501 keeps its
+    /// done/error records until seen, per the spec's lifetime rules).
+    @discardableResult
+    public func handleCommandFinished(_ paneID: UUID) -> AttentionKind? {
+        withPane(id: paneID) { workspace, pane in
+            update(workspace, pane, .commandFinished)
+        } ?? nil
     }
 
     public func handlePwdChanged(_ paneID: UUID, pwd: String) {

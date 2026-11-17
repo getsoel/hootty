@@ -48,13 +48,25 @@ public struct ResumableSession: Codable, Equatable, Sendable {
 public enum AttentionKind: String, CaseIterable, Codable, Sendable {
     /// Bell rang (visual-only, cleared by next user interaction).
     case bell
-    /// Agent finished thinking, needs input (cleared by next user interaction).
+    /// Agent finished a turn while unseen (cleared when the user views the pane).
     case done
-    /// Agent can't continue until the user acts: a permission prompt, a
-    /// question, or a login (cleared by next user interaction).
+    /// The program can't continue until the user acts: a permission prompt, a
+    /// question, or a login. Live state, not an event: it stays while the
+    /// program waits, even when the pane is focused (see `PanePresence`).
     case blocked
-    /// Agent encountered an error (cleared by next user interaction).
+    /// Agent encountered an error while unseen (cleared when the user views the pane).
     case error
+
+    /// Higher wins: a weaker signal never replaces a stronger one the user
+    /// hasn't seen yet. Blocked ranks first in summaries and badges.
+    public var priority: Int {
+        switch self {
+        case .bell: 0
+        case .done: 1
+        case .error: 2
+        case .blocked: 3
+        }
+    }
 
     public var displayName: String {
         switch self {
@@ -73,13 +85,44 @@ public final class Pane: Identifiable {
     public var name: String
     public var customName: String?
     public var isRunning = true
-    public var attentionKind: AttentionKind?
     public var note: String?
     public var isFlagged = false
-    public var isThinking = false
-    /// Live OSC 7501 program status records. While non-empty they are the
-    /// authoritative presence signal for this pane. Not persisted.
-    public var programStatus = ProgramStatusRecords()
+    /// Everything the pane's presence indicators are computed from. Not
+    /// persisted. Change it only through `updatePresence(_:isFocused:)`.
+    public private(set) var presence = PanePresence()
+
+    /// The program is working (thinking).
+    public var isThinking: Bool {
+        presence.isWorking
+    }
+
+    /// What the attention indicator shows: blocked while the program waits,
+    /// otherwise the strongest event the user hasn't seen.
+    public var attentionKind: AttentionKind? {
+        presence.attention
+    }
+
+    /// Live OSC 7501 program status records.
+    public var programStatus: ProgramStatusRecords {
+        presence.programStatus
+    }
+
+    /// Apply a presence event. Writes the observable property only when
+    /// something changed, so spinner-rate title updates don't re-render views.
+    /// Returns the attention kind to announce (sound), if any.
+    @discardableResult
+    public func updatePresence(_ event: PresenceEvent, isFocused: Bool) -> AttentionKind? {
+        var next = presence
+        let announce = next.apply(event, isFocused: isFocused)
+        if next != presence { presence = next }
+        return announce
+    }
+
+    /// The user looked at the pane: clear unseen events (live state stays).
+    public func markViewed() {
+        guard presence.hasUnseen else { return }
+        updatePresence(.viewed, isFocused: true)
+    }
 
     public var needsAttention: Bool {
         attentionKind != nil

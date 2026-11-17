@@ -345,6 +345,12 @@ struct HoottyApp: App {
 
     // MARK: - Ghostty Event Handling
 
+    /// Play the sound for an attention change a presence handler announced.
+    /// Handlers announce only transitions, so repeated signals stay quiet.
+    private static func announce(_ kind: AttentionKind?, appModel: AppModel) {
+        if let kind { appModel.soundManager.play(kind) }
+    }
+
     private static func handleGhosttyEvent(_ event: GhosttyEvent, appModel: AppModel, headWatcher: GitHEADWatcher) {
         switch event {
         case .newTab:
@@ -352,12 +358,10 @@ struct HoottyApp: App {
             appModel.selectedWorkspaceID = workspace.id
 
         case let .bellRang(paneID):
-            let didSet = appModel.handleBell(paneID)
-            if didSet { appModel.soundManager.play(.bell) }
+            announce(appModel.handleBell(paneID), appModel: appModel)
 
-        case let .paneNeedsAttention(paneID, kind):
-            let didSet = appModel.handlePaneNeedsAttention(paneID, kind: kind)
-            if didSet { appModel.soundManager.play(kind) }
+        case let .desktopNotification(paneID):
+            announce(appModel.handleNotification(paneID), appModel: appModel)
 
         case let .agentSessionDetected(paneID, sessionID):
             if let (_, pane) = appModel.findPane(id: paneID) {
@@ -373,22 +377,16 @@ struct HoottyApp: App {
             }
 
         case let .hoottyPresence(paneID, presence):
-            appModel.handleHoottyPresence(paneID, presence: presence)
-            if presence == .needsAttention {
-                appModel.soundManager.play(.blocked)
-            }
+            announce(appModel.handleHoottyPresence(paneID, presence: presence), appModel: appModel)
 
         case let .progressReport(paneID, isBusy):
-            appModel.handleProgressReport(paneID, isBusy: isBusy)
+            announce(appModel.handleProgressReport(paneID, isBusy: isBusy), appModel: appModel)
 
         case let .programStatus(paneID, report):
-            if let raised = appModel.handleProgramStatus(paneID, report: report) {
-                appModel.soundManager.play(raised)
-            }
+            announce(appModel.handleProgramStatus(paneID, report: report), appModel: appModel)
 
         case let .hoottyError(paneID):
-            appModel.handleHoottyError(paneID)
-            appModel.soundManager.play(.error)
+            announce(appModel.handleHoottyError(paneID), appModel: appModel)
 
         case let .hoottyAgentName(paneID, name):
             if let (_, pane) = appModel.findPane(id: paneID) {
@@ -435,10 +433,10 @@ struct HoottyApp: App {
             if exitCode > 128 {
                 Log.lifecycle.info("Command in pane \(paneID) killed by signal \(exitCode - 128)")
             }
-            appModel.handleCommandFinished(paneID)
+            announce(appModel.handleCommandFinished(paneID), appModel: appModel)
 
         case let .titleChanged(paneID, title):
-            appModel.handleTitleChange(paneID, title: title)
+            announce(appModel.handleTitleChange(paneID, title: title), appModel: appModel)
 
         case let .pwdChanged(paneID, path):
             appModel.handlePwdChanged(paneID, pwd: path)

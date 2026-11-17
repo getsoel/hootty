@@ -34,8 +34,8 @@ public struct AttentionCounts: Equatable, Sendable {
         self.error = error
     }
 
-    /// Count attention states across panes. Thinking and flagged count all panes;
-    /// blocked, done, bell, and error exclude the focused pane (attention on the focused pane is
+    /// Count attention states across panes. Thinking, flagged and blocked count all panes;
+    /// done, bell, and error exclude the focused pane (attention on the focused pane is
     /// cleared on interaction, so it shouldn't contribute to badges).
     @MainActor
     public init(panes: [Pane], focusedPaneID: UUID?) {
@@ -48,10 +48,15 @@ public struct AttentionCounts: Equatable, Sendable {
         for pane in panes {
             if pane.isThinking { thinking += 1 }
             if pane.isFlagged { flagged += 1 }
+            // Blocked is live state, shown even on the focused pane.
+            if pane.attentionKind == .blocked {
+                blocked += 1
+                continue
+            }
             guard pane.id != focusedPaneID else { continue }
             switch pane.attentionKind {
             case .bell: bell += 1
-            case .blocked: blocked += 1
+            case .blocked: break
             case .done: done += 1
             case .error: error += 1
             case nil: break
