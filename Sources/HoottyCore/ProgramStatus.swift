@@ -127,6 +127,11 @@ public struct ProgramStatusRecords: Equatable, Sendable {
         records[id]
     }
 
+    /// Every record, least recently updated first.
+    public var all: [ProgramStatusReport] {
+        updateOrder.compactMap { records[$0] }
+    }
+
     /// Apply a report: `clear` removes the record and its children (or every
     /// record when sent without an id); anything else replaces the record.
     public mutating func apply(_ report: ProgramStatusReport) {
@@ -211,27 +216,6 @@ public struct ProgramStatusRecords: Equatable, Sendable {
             if path.isEmpty { return nil }
             path = path.range(of: "/", options: .backwards).map { String(path[..<$0.lowerBound]) } ?? ""
         }
-    }
-
-    /// One line for people describing `primary`, e.g. "Needs permission: Run tests?".
-    /// Nil when there is nothing worth showing (no records, or idle).
-    public var summary: String? {
-        guard let record = primary, record.state != .idle else { return nil }
-        let label: String = switch record.state {
-        case .blocked:
-            switch record.kind {
-            case .permission: "Needs permission"
-            case .question: "Has a question"
-            case .auth: "Needs login"
-            case nil: "Waiting on you"
-            }
-        case .working: record.progress.map { "Working \($0)%" } ?? "Working"
-        case .done: "Done"
-        case .error: "Failed"
-        case .idle, .clear: ""
-        }
-        let detail = record.msg ?? record.title
-        return detail.map { "\(label): \($0)" } ?? label
     }
 
     private mutating func remove(where shouldRemove: (String, ProgramStatusReport) -> Bool) {

@@ -5,6 +5,8 @@ struct StatusDotView: View {
     let attentionKind: AttentionKind?
     let isThinking: Bool
     let isAgentSession: Bool
+    /// Known completion (0–100) while thinking: drawn as a ring instead of the spinner.
+    var progress: Int?
     let tokens: DesignTokens
 
     var body: some View {
@@ -21,6 +23,16 @@ struct StatusDotView: View {
             } else if attentionKind == .bell {
                 Image(systemName: "bell")
                     .foregroundStyle(Color(tokens.statusBell))
+            } else if isThinking, let progress {
+                ZStack {
+                    Circle().stroke(Color(tokens.statusThinking).opacity(0.25), lineWidth: 1.5)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(progress) / 100)
+                        .stroke(Color(tokens.statusThinking), style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                }
+                .padding(2)
+                .accessibilityLabel("Working \(progress) percent")
             } else if isThinking {
                 TimelineView(.animation) { context in
                     let cycle = context.date.timeIntervalSinceReferenceDate

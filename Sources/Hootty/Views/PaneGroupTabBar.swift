@@ -18,9 +18,15 @@ struct PaneBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isAgentSession: pane.agentSessionID != nil, tokens: tokens)
-                .frame(maxHeight: .infinity)
-                .padding(.leading, Spacing.md)
+            StatusDotView(
+                attentionKind: pane.attentionKind,
+                isThinking: pane.isThinking,
+                isAgentSession: pane.agentSessionID != nil,
+                progress: pane.presence.activity?.progress,
+                tokens: tokens
+            )
+            .frame(maxHeight: .infinity)
+            .padding(.leading, Spacing.md)
 
             Text(pane.displayName)
                 .font(.system(size: TypeScale.bodySize))
@@ -28,6 +34,19 @@ struct PaneBar: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .padding(.leading, Spacing.sm)
+                .layoutPriority(1)
+
+            // The live status line ("Reading PaneEventHandler.swift"). The bar
+            // has a fixed height, so the text changing never moves anything.
+            if let message = pane.statusText.message {
+                ThrottledText(text: message)
+                    .font(.system(size: TypeScale.captionSize))
+                    .foregroundStyle(Color(pane.attentionKind == .blocked ? tokens.statusBlocked : tokens.textMuted))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .padding(.leading, Spacing.md)
+                    .help(message)
+            }
 
             Spacer(minLength: 0)
 

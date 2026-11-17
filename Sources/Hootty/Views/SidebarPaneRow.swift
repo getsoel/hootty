@@ -25,28 +25,33 @@ struct SidebarPaneRow: View {
     }
 
     var body: some View {
+        // Always one line: status words go in a short badge and the tooltip,
+        // so a pane changing state never resizes the row or shifts the list.
+        let status = pane.statusText
         HStack(spacing: 6) {
-            StatusDotView(attentionKind: pane.attentionKind, isThinking: pane.isThinking, isAgentSession: pane.agentSessionID != nil, tokens: tokens)
-                .frame(width: TreeLayout.columnWidth)
+            StatusDotView(
+                attentionKind: pane.attentionKind,
+                isThinking: pane.isThinking,
+                isAgentSession: pane.agentSessionID != nil,
+                progress: pane.presence.activity?.progress,
+                tokens: tokens
+            )
+            .frame(width: TreeLayout.columnWidth)
 
-            VStack(alignment: .leading, spacing: 0) {
-                Text(pane.displayName)
-                    .font(.system(size: TypeScale.bodySize))
-                    .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
-                    .lineLimit(1)
-
-                // OSC 7501 program status, e.g. "Needs permission: Run tests?".
-                if let summary = pane.programStatus.summary {
-                    Text(summary)
-                        .font(.system(size: TypeScale.captionSize))
-                        .foregroundStyle(Color(tokens.textMuted))
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        .help(summary)
-                }
-            }
+            Text(pane.displayName)
+                .font(.system(size: TypeScale.bodySize))
+                .foregroundStyle(Color(isFocusedPane ? tokens.text : tokens.textMuted))
+                .lineLimit(1)
 
             Spacer(minLength: 0)
+
+            if let badge = status.badge {
+                Text(badge)
+                    .font(.system(size: TypeScale.captionSize).monospacedDigit())
+                    .foregroundStyle(Color(pane.attentionKind == .blocked ? tokens.statusBlocked : tokens.textMuted))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
 
             Image(systemName: "flag.fill")
                 .font(.system(size: TypeScale.smallSize))
@@ -128,6 +133,7 @@ struct SidebarPaneRow: View {
         .onTapGesture {
             onSelect()
         }
+        .help(status.tooltip ?? "")
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(pane.displayName)
         .contextMenu {
