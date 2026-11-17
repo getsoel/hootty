@@ -64,7 +64,7 @@ struct ProgramStatusTests {
         records.apply(ProgramStatusReport(id: "eu-west", state: .blocked, kind: .auth))
         records.apply(ProgramStatusReport(id: "us-east", state: .done))
         #expect(records.primary?.id == "eu-west")
-        #expect(records.summary == "Needs login")
+        #expect(records.activity == .blocked(.auth))
     }
 
     @Test func appIsInheritedFromAncestors() {

@@ -17,6 +17,12 @@ public enum PaneActivity: Equatable, Sendable {
         return false
     }
 
+    /// Completion (0–100) while working, when the program reports it.
+    public var progress: Int? {
+        if case let .working(progress) = self { return progress }
+        return nil
+    }
+
     /// Working or blocked: positive evidence the program is active, which a
     /// less trusted source may assert over an older signal (see `PanePresence.activity`).
     var isActive: Bool {

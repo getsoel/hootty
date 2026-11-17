@@ -90,6 +90,8 @@ public final class Pane: Identifiable {
     /// Everything the pane's presence indicators are computed from. Not
     /// persisted. Change it only through `updatePresence(_:isFocused:)`.
     public private(set) var presence = PanePresence()
+    /// When the live activity (idle / working / blocked) last changed.
+    public private(set) var activitySince: Date?
 
     /// The program is working (thinking).
     public var isThinking: Bool {
@@ -111,11 +113,17 @@ public final class Pane: Identifiable {
     /// something changed, so spinner-rate title updates don't re-render views.
     /// Returns the attention kind to announce (sound), if any.
     @discardableResult
-    public func updatePresence(_ event: PresenceEvent, isFocused: Bool) -> AttentionKind? {
+    public func updatePresence(_ event: PresenceEvent, isFocused: Bool, now: Date = Date()) -> AttentionKind? {
         var next = presence
         let announce = next.apply(event, isFocused: isFocused)
+        if next.activity != presence.activity { activitySince = now }
         if next != presence { presence = next }
         return announce
+    }
+
+    /// Text for the sidebar badge, tab-bar status line and hover tooltip.
+    public var statusText: PaneStatusText {
+        PaneStatusText(presence: presence, agentName: agentName, since: activitySince)
     }
 
     /// The user looked at the pane: clear unseen events (live state stays).
