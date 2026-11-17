@@ -139,7 +139,7 @@ extension GhosttyApp {
 
         guard let body, body.hasPrefix(hoottyPrefix) else {
             // Non-hootty OSC 9 → generic bell attention.
-            GhosttyApp.shared.onEvent?(.paneNeedsAttention(paneID, .bell))
+            GhosttyApp.shared.onEvent?(.desktopNotification(paneID))
             return true
         }
 

@@ -7,7 +7,8 @@ import HoottyCore
 enum GhosttyEvent {
     case newTab
     case bellRang(UUID)
-    case paneNeedsAttention(UUID, AttentionKind)
+    /// A desktop notification (OSC 9/777) that isn't a hootty protocol message.
+    case desktopNotification(UUID)
     case agentSessionDetected(paneID: UUID, sessionID: String)
     /// A resumable agent session captured via the hootty:resume: OSC 9 protocol.
     /// Carries the agent's real session UUID and optional CLAUDE_CONFIG_DIR.

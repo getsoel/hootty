@@ -347,7 +347,7 @@ public final class Workspace: Identifiable {
     public func focusPane(id: UUID) {
         guard let pane = rootNode.findPane(id: id) else { return }
         focusedPaneID = id
-        pane.attentionKind = nil
+        pane.markViewed()
     }
 
     public func findPane(id: UUID) -> Pane? {

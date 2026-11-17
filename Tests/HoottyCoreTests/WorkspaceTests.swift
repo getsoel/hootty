@@ -38,7 +38,7 @@ struct WorkspaceTests {
         ws.focusPane(id: p1.id)
         let p2 = try #require(ws.splitFocusedPane(direction: .horizontal))
         // p2 is now focused; set attention on p1
-        p1.attentionKind = .bell
+        p1.updatePresence(.notification, isFocused: false)
         #expect(ws.attentionKind == .bell)
     }
 
@@ -191,7 +191,7 @@ struct WorkspaceTests {
     @Test func directionalFocusClearsAttention() {
         let pA = Pane(name: "A")
         let pB = Pane(name: "B")
-        pB.attentionKind = .bell
+        pB.updatePresence(.notification, isFocused: false)
         let ws = Workspace(
             id: UUID(),
             name: "Test",

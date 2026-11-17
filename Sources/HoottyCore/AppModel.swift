@@ -173,20 +173,17 @@ public final class AppModel {
     }
 
     @discardableResult
-    public func handlePaneNeedsAttention(_ paneID: UUID, kind: AttentionKind) -> Bool {
-        paneEventHandler.handlePaneNeedsAttention(paneID, kind: kind)
-    }
-
-    @discardableResult
-    public func handleBell(_ paneID: UUID) -> Bool {
+    public func handleBell(_ paneID: UUID) -> AttentionKind? {
         paneEventHandler.handleBell(paneID)
     }
 
-    public func handlePaneThinkingChanged(_ paneID: UUID, isThinking: Bool) {
-        paneEventHandler.handlePaneThinkingChanged(paneID, isThinking: isThinking)
+    @discardableResult
+    public func handleNotification(_ paneID: UUID) -> AttentionKind? {
+        paneEventHandler.handleNotification(paneID)
     }
 
-    public func handleTitleChange(_ paneID: UUID, title: String) {
+    @discardableResult
+    public func handleTitleChange(_ paneID: UUID, title: String) -> AttentionKind? {
         paneEventHandler.handleTitleChange(paneID, title: title)
     }
 
@@ -194,15 +191,18 @@ public final class AppModel {
         paneEventHandler.handlePwdChanged(paneID, pwd: pwd)
     }
 
-    public func handleHoottyPresence(_ paneID: UUID, presence: AgentPresence) {
+    @discardableResult
+    public func handleHoottyPresence(_ paneID: UUID, presence: AgentPresence) -> AttentionKind? {
         paneEventHandler.handleHoottyPresence(paneID, presence: presence)
     }
 
-    public func handleProgressReport(_ paneID: UUID, isBusy: Bool) {
+    @discardableResult
+    public func handleProgressReport(_ paneID: UUID, isBusy: Bool) -> AttentionKind? {
         paneEventHandler.handleProgressReport(paneID, isBusy: isBusy)
     }
 
-    public func handleHoottyError(_ paneID: UUID) {
+    @discardableResult
+    public func handleHoottyError(_ paneID: UUID) -> AttentionKind? {
         paneEventHandler.handleHoottyError(paneID)
     }
 
@@ -211,7 +211,8 @@ public final class AppModel {
         paneEventHandler.handleProgramStatus(paneID, report: report)
     }
 
-    public func handleCommandFinished(_ paneID: UUID) {
+    @discardableResult
+    public func handleCommandFinished(_ paneID: UUID) -> AttentionKind? {
         paneEventHandler.handleCommandFinished(paneID)
     }
 

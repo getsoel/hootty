@@ -45,15 +45,36 @@ Use when: working in Sources/Hootty/Terminal/ or Sources/CGhostty/ (ghostty_surf
 
 ## Agent presence signals
 
+Presence is a pure value, `PanePresence` (HoottyCore), and every indicator
+(`Pane.isThinking`, `Pane.attentionKind`, badges, sounds) is computed from it.
+Handlers only translate signals into `PresenceEvent`s. Two layers:
+
+- **Live activity** (idle / working / blocked). Each channel below keeps its
+  own latest value; nothing overwrites another channel. OSC 7501 decides alone
+  while its program runs. Otherwise the most trusted fallback decides, except a
+  *newer* working/blocked signal from a less trusted one wins (idle never
+  overrides — Claude's title shows ✳ during a permission prompt), and working
+  evidence resolves an older blocked (the spinner resuming after approval,
+  which no hook reports). Live state ends only when a channel says so or the
+  command finishes — never because the user looked. Blocked shows while focused.
+- **Unseen events** (done / error / bell). Raised only off-focus, never
+  downgraded (`AttentionKind.priority`), cleared when the pane is viewed. A bell
+  while working/blocked, or a notification while blocked, is ignored.
+
+`PanePresenceTests` enumerates every state × every event against these rules;
+add a scenario there when an agent changes what it sends. Known gap: Esc at a
+permission prompt fires no hook, so on the fallback channels the hand stays
+until the next prompt (OSC 7501 has no such gap).
+
 Four independent channels feed `PaneEventHandler`, in decreasing authority:
 
 0. **OSC 7501 program status** (`ProgramStatus.swift`) — the standard
    protocol (spec: superlogical.com/rex/docs/build/program-status). Claude
    Code ≥ 2.1.3xx emits it once the terminal answers `OSC 7501 ; ?`, which
-   our libghostty patch does. While a pane has any 7501 records, channels
-   1–3 below are ignored for presence. Hootty owns record lifetime:
-   `commandFinished` drops working/blocked/idle, user interaction drops
-   done/error.
+   our libghostty patch does. While its program runs and has records,
+   channels 1–3 below are ignored for presence. Hootty owns record lifetime:
+   `commandFinished` drops working/blocked/idle; viewing turns done/error to
+   idle (program still running) or drops them (command finished).
 1. **hootty OSC 9 protocol** (`hootty:presence:`, `hootty:resume:`, …) — the
    opt-in contract, driven by the hook scripts the wrappers inject. The only
    channel that can express "blocked on a permission prompt".

@@ -54,7 +54,7 @@ struct PaneTests {
     @Test func matchesThinkingFilter() {
         let pane = Pane(name: "zsh")
         #expect(pane.matches([.thinking]) == false)
-        pane.isThinking = true
+        pane.updatePresence(.hook(.thinking), isFocused: false)
         #expect(pane.matches([.thinking]) == true)
     }
 
@@ -68,27 +68,27 @@ struct PaneTests {
     @Test func matchesDoneFilter() {
         let pane = Pane(name: "zsh")
         #expect(pane.matches([.done]) == false)
-        pane.attentionKind = .done
+        pane.updatePresence(.programStatus(ProgramStatusReport(state: .done)), isFocused: false)
         #expect(pane.matches([.done]) == true)
     }
 
     @Test func matchesBellFilter() {
         let pane = Pane(name: "zsh")
         #expect(pane.matches([.bell]) == false)
-        pane.attentionKind = .bell
+        pane.updatePresence(.notification, isFocused: false)
         #expect(pane.matches([.bell]) == true)
     }
 
     @Test func matchesMultipleFiltersUsesORLogic() {
         let pane = Pane(name: "zsh")
-        pane.isThinking = true
+        pane.updatePresence(.hook(.thinking), isFocused: false)
         #expect(pane.matches([.thinking, .flagged]) == true)
         #expect(pane.matches([.flagged, .done]) == false)
     }
 
     @Test func matchesWrongFilterReturnsFalse() {
         let pane = Pane(name: "zsh")
-        pane.attentionKind = .bell
+        pane.updatePresence(.notification, isFocused: false)
         #expect(pane.matches([.done]) == false)
         #expect(pane.matches([.thinking]) == false)
     }

@@ -31,6 +31,7 @@ Sources/
     GitWorktreeManager.swift   -- Git branch references and worktree detection per pane
     PaneEventHandler.swift     -- Pane event callbacks (attention, bell, thinking, title, pwd, program status)
     ProgramStatus.swift        -- OSC 7501 report parsing + per-pane record store and lifetime rules
+    PanePresence.swift         -- Pure presence model: per-source live activity + unseen events -> indicators
     SoundManager.swift         -- Sound trigger playback management
   Hootty/
     HoottyApp.swift            -- @main entry, initializes GhosttyApp
