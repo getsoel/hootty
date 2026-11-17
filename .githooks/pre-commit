@@ -45,16 +45,19 @@ echo "==> swift test"
 TEST_OUTPUT=$(swift test 2>&1) || true
 
 # Check for actual test failures in the output
-if echo "$TEST_OUTPUT" | grep -q "Test run with 0 tests passed"; then
+# Match with here-strings, not `echo | grep -q`: grep -q exits on the first
+# match, and once the output outgrows the pipe buffer echo dies of SIGPIPE,
+# which pipefail turns into a false "no match".
+if grep -q "Test run with 0 tests passed" <<<"$TEST_OUTPUT"; then
     # No tests found at all — unusual but not a failure
     echo "$TEST_OUTPUT"
     echo "Warning: No tests were found."
-elif echo "$TEST_OUTPUT" | grep -qE '\d+ tests? failed'; then
+elif grep -qE 'Test run with [0-9]+ tests? .*failed|recorded an issue' <<<"$TEST_OUTPUT"; then
     echo "$TEST_OUTPUT"
     echo ""
     echo "COMMIT REJECTED: swift test had failures."
     exit 1
-elif echo "$TEST_OUTPUT" | grep -q "Build complete!"; then
+elif grep -q "Build complete!" <<<"$TEST_OUTPUT"; then
     # Tests built and ran; no failure pattern found — consider it passing
     :
 else
